@@ -95,6 +95,7 @@ namespace GI_Subtitles
         Data data;
         Dictionary<string, string> VoiceMap = new Dictionary<string, string>();
         SoundPlayer player = new SoundPlayer();
+        private System.Drawing.Rectangle screenBounds = Screen.PrimaryScreen.Bounds;
         bool ShowText = true;
         bool ChooseRegion = false;
         private IWavePlayer waveOut;
@@ -167,10 +168,9 @@ namespace GI_Subtitles
             UITimer.Tick += UpdateText;    //委托，要执行的方法
 
             SetWindowPos(new WindowInteropHelper(this).Handle, -1, 0, 0, 0, 0, 1 | 2 | 0x0010);
-            System.Drawing.Rectangle workingArea = Screen.PrimaryScreen.WorkingArea;
-            this.Width = workingArea.Width;
-            this.Top = workingArea.Bottom / Scale - this.Height;
-            this.Left = workingArea.Left / Scale;
+            this.Width = screenBounds.Width;
+            this.Top = screenBounds.Bottom / Scale - this.Height;
+            this.Left = screenBounds.Left / Scale;
             this.LocationChanged += MainWindow_LocationChanged;
         }
 
@@ -181,7 +181,6 @@ namespace GI_Subtitles
                 Logger.Log.Debug("Start OCR");
                 try
                 {
-                    System.Drawing.Rectangle workingArea = Screen.PrimaryScreen.WorkingArea;
                     Bitmap target;
                     if (notify.Region[1] == "0")
                     {
@@ -215,24 +214,24 @@ namespace GI_Subtitles
                                 }
                             }
                         }
-                        double left = workingArea.Left;
+                        double left = screenBounds.Left;
                         double top = Convert.ToInt16(notify.Region[1]) / Scale + Pad;
 
-                        if (top > workingArea.Bottom / Scale - 20 || notify.Region[1] == "0")
+                        if (top > screenBounds.Bottom / Scale - 20 || notify.Region[1] == "0")
                         {
-                            top = workingArea.Bottom / Scale - 20;
+                            top = screenBounds.Bottom / Scale - 20;
                         }
-                        if (top < workingArea.Top / Scale + 20)
+                        if (top < screenBounds.Top / Scale + 20)
                         {
-                            top = workingArea.Top / Scale + 20;
+                            top = screenBounds.Top / Scale + 20;
                         }
                         this.Top = top;
                         double width = Convert.ToInt16(notify.Region[2]) / Scale + 200;
-                        if (width > workingArea.Width / Scale)
+                        if (width > screenBounds.Width / Scale)
                         {
-                            width = workingArea.Width / Scale;
+                            width = screenBounds.Width / Scale;
                         }
-                        this.Left = left + (workingArea.Width / Scale - width) / 2;
+                        this.Left = left + (screenBounds.Width / Scale - width) / 2;
                         this.Width = width;
                         this.Height = 100;
                         BitmapDict.Add(bitStr, ocrText);

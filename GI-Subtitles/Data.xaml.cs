@@ -34,7 +34,6 @@ namespace GI_Subtitles
         string Game = ConfigurationManager.AppSettings["Game"];
         string InputLanguage = ConfigurationManager.AppSettings["Input"];
         string OutputLanguage = ConfigurationManager.AppSettings["Output"];
-        string userName = "Traveler";
         private const int MaxRetries = 1; // 最大重试次数
         private static readonly HttpClient client = new HttpClient();
         public Dictionary<string, string> contentDict = new Dictionary<string, string>();
@@ -176,10 +175,7 @@ namespace GI_Subtitles
 
         public async Task CheckDataAsync(bool renew = false)
         {
-            if (OutputLanguage == "CHS")
-            {
-                userName = "旅行者";
-            }
+            string userName = (OutputLanguage == "CHS") ? "旅行者" : "Traveler";
             if (FileExists())
             {
                 string inputFilePath = $"{Game}\\TextMap{InputLanguage}.json";
