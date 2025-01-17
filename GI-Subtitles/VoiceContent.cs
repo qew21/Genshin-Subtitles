@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using GI_Subtitles;
+using NAudio.SoundFont;
 using Newtonsoft.Json;
 
 
@@ -148,25 +149,25 @@ public static class VoiceContentHelper
     public static Dictionary<string, string> LoadAudioMap(string server, string game)
     {
         var data = new Dictionary<string, string>();
-        foreach (var version in Directory.GetDirectories(game))
+        if (!string.IsNullOrEmpty(server))
         {
-            var serverPath = Path.Combine(version, "ServerMap.json");
-            var jsonPath = Path.Combine(version, "AudioMap.json");
-            if (string.IsNullOrEmpty(server))
+            var serverPath = Path.Combine(game, "ServerMap.json");
+            if (File.Exists(serverPath))
             {
+                foreach (var pair in JsonConvert.DeserializeObject<Dictionary<string, string>>(File.ReadAllText(serverPath)))
+                {
+                    data[pair.Key] = pair.Value;
+                }
+            }
+        }
+        else
+        {
+            foreach (var version in Directory.GetDirectories(game))
+            {
+                var jsonPath = Path.Combine(version, "AudioMap.json");
                 if (File.Exists(jsonPath))
                 {
                     foreach (var pair in JsonConvert.DeserializeObject<Dictionary<string, string>>(File.ReadAllText(jsonPath)))
-                    {
-                        data[pair.Key] = pair.Value;
-                    }
-                }
-            }
-            else
-            {
-                if (File.Exists(serverPath))
-                {
-                    foreach (var pair in JsonConvert.DeserializeObject<Dictionary<string, string>>(File.ReadAllText(serverPath)))
                     {
                         data[pair.Key] = pair.Value;
                     }
