@@ -215,8 +215,11 @@ namespace GI_Subtitles
                             }
                         }
                         double left = screenBounds.Left;
+                        if (Math.Abs(Pad) > 500)
+                        {
+                            Pad = 100;
+                        }
                         double top = Convert.ToInt16(notify.Region[1]) / Scale + Pad;
-
                         if (top > screenBounds.Bottom / Scale - 20 || notify.Region[1] == "0")
                         {
                             top = screenBounds.Bottom / Scale - 20;
@@ -300,7 +303,7 @@ namespace GI_Subtitles
                                     PlayAudioFromUrl($"{server}?md5={audioPath}&token={token}");
                                 }
                             }
-
+                            Logger.Log.Debug($"key: {key}, contains: {VoiceMap.ContainsKey(text)}");
                             AudioList.Add(key);
                         }
 
@@ -363,7 +366,10 @@ namespace GI_Subtitles
             Pad = Convert.ToInt16(this.Top - Convert.ToInt16(notify.Region[1]) / Scale);
             Configuration config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
             config.AppSettings.Settings["Pad"].Value = Pad.ToString();
-            config.Save(ConfigurationSaveMode.Modified);
+            if (Math.Abs(Pad) < 500)
+            {
+                config.Save(ConfigurationSaveMode.Modified);
+            }
         }
 
 

@@ -169,8 +169,8 @@ namespace GI_Subtitles
         }
         public bool FileExists()
         {
-            return File.Exists($"{Game}\\TextMap{InputLanguage}.json") &&
-                              File.Exists($"{Game}\\TextMap{OutputLanguage}.json");
+            return File.Exists($"{Game}\\TextMap{InputLanguage}_TextMap{OutputLanguage}.json") || (File.Exists($"{Game}\\TextMap{InputLanguage}.json") &&
+                              File.Exists($"{Game}\\TextMap{OutputLanguage}.json"));
         }
 
         public async Task CheckDataAsync(bool renew = false)
