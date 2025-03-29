@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFrameworks>
-        net45;
+        net48;
     </TargetFrameworks>
 	   <PackageTags>OCR;Paddle;AI;CV;PaddleOCR;character recognition;NET;Csharp</PackageTags>
 	  <IsPublishable>False</IsPublishable>
