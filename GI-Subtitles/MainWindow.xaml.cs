@@ -166,7 +166,7 @@ namespace GI_Subtitles
             UITimer.Interval = new TimeSpan(0, 0, 0, 0, 500);
             UITimer.Tick += UpdateText;    //委托，要执行的方法
 
-            SetWindowPos(new WindowInteropHelper(this).Handle, -1, 0, 0, 0, 0, 1 | 2 | 0x0010);
+            SetWindowPos(new WindowInteropHelper(this).Handle, -1, 0, 0, 0, 0, 1 | 2);
             this.Width = screenBounds.Width;
             this.Top = screenBounds.Bottom / Scale - this.Height;
             this.Left = screenBounds.Left / Scale;
@@ -178,6 +178,7 @@ namespace GI_Subtitles
             if (Interlocked.Exchange(ref OCR_TIMER, 1) == 0)
             {
                 Logger.Log.Debug("Start OCR");
+                SetWindowPos(new WindowInteropHelper(this).Handle, -1, 0, 0, 0, 0, 1 | 2);
                 try
                 {
                     Bitmap target;
