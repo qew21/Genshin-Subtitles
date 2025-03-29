@@ -77,8 +77,6 @@ namespace GI_Subtitles
         }
 
 
-
-
         public void ChooseRegion()
         {
             try
@@ -100,9 +98,11 @@ namespace GI_Subtitles
 
         private ToolStripMenuItem CreateSizeItem(string code)
         {
-            ToolStripMenuItem item = new ToolStripMenuItem(code);
-            item.Tag = code;
-            item.CheckOnClick = true;
+            ToolStripMenuItem item = new ToolStripMenuItem(code)
+            {
+                Tag = code,
+                CheckOnClick = true
+            };
             item.CheckedChanged += SizeItem_CheckedChanged;
             if (Size == code)
             {
@@ -113,8 +113,7 @@ namespace GI_Subtitles
 
         private void SizeItem_CheckedChanged(object sender, EventArgs e)
         {
-            ToolStripMenuItem selectedSize = sender as ToolStripMenuItem;
-            if (selectedSize != null && selectedSize.Checked)
+            if (sender is ToolStripMenuItem selectedSize && selectedSize.Checked)
             {
                 string newSize = selectedSize.Tag.ToString();
                 if (Size != newSize)

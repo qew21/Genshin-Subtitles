@@ -17,7 +17,14 @@ public static class VoiceContentHelper
             $"{Path.GetFileNameWithoutExtension(inputFilePath)}_{Path.GetFileNameWithoutExtension(outputFilePath)}.json");
         if (File.Exists(jsonFilePath))
         {
-            return JsonConvert.DeserializeObject<Dictionary<string, string>>(File.ReadAllText(jsonFilePath));
+            try
+            {
+                return JsonConvert.DeserializeObject<Dictionary<string, string>>(File.ReadAllText(jsonFilePath));
+            }
+            catch (Exception ex)
+            {
+                Logger.Log.Error(ex);
+            }
         }
 
         var chsData = JsonConvert.DeserializeObject<Dictionary<string, string>>(File.ReadAllText(inputFilePath));
@@ -41,7 +48,6 @@ public static class VoiceContentHelper
                 voiceContentDict[temp] = enVoiceContent;
             }
         }
-
         var contentJson = JsonConvert.SerializeObject(voiceContentDict, Formatting.Indented);
         File.WriteAllText(jsonFilePath, contentJson);
         return voiceContentDict;

@@ -25,23 +25,10 @@ namespace GI_Subtitles
 
             if (!createdNew)
             {
-                // 程序已经在运行，显示提示信息
-                var result = MessageBox.Show("程序已经在运行，是否关闭正在运行的程序？", "警告", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-
-                if (result == MessageBoxResult.Yes)
+                Process current = Process.GetCurrentProcess();
+                foreach (var process in Process.GetProcessesByName(current.ProcessName).Where(p => p.Id != current.Id))
                 {
-                    // 关闭正在运行的程序实例
-                    Process current = Process.GetCurrentProcess();
-                    foreach (var process in Process.GetProcessesByName(current.ProcessName).Where(p => p.Id != current.Id))
-                    {
-                        process.Kill();
-                    }
-                }
-                else
-                {
-                    // 直接退出当前程序实例
-                    Shutdown();
-                    return;
+                    process.Kill();
                 }
             }
 

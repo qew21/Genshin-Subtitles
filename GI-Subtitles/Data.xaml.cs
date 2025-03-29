@@ -22,6 +22,8 @@ using System.Configuration;
 using System.Windows.Forms;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
 using System.Text.RegularExpressions;
+using System.Collections.ObjectModel;
+using System.Reflection;
 
 namespace GI_Subtitles
 {
@@ -37,15 +39,15 @@ namespace GI_Subtitles
         private const int MaxRetries = 1; // 最大重试次数
         private static readonly HttpClient client = new HttpClient();
         public Dictionary<string, string> contentDict = new Dictionary<string, string>();
-        Dictionary<string, string> OutputLanguages = new Dictionary<string, string>() { { "简体中文", "CHS" }, { "English", "EN" }, { "日本語", "JP" }, { "繁體中文", "CHT" }, { "Deutsch", "DE" }, { "Español", "ES" }, { "Français", "FR" }, { "Bahasa Indonesia", "ID" }, { "한국어", "KR" }, { "Português", "PT" }, { "Русский", "RU" }, { "ไทย", "TH" }, { "Tiếng Việt", "VI" } };
-        Dictionary<string, string> InputLanguages = new Dictionary<string, string>()
+        readonly Dictionary<string, string> OutputLanguages = new Dictionary<string, string>() { { "简体中文", "CHS" }, { "English", "EN" }, { "日本語", "JP" }, { "繁體中文", "CHT" }, { "Deutsch", "DE" }, { "Español", "ES" }, { "Français", "FR" }, { "Bahasa Indonesia", "ID" }, { "한국어", "KR" }, { "Português", "PT" }, { "Русский", "RU" }, { "ไทย", "TH" }, { "Tiếng Việt", "VI" } };
+        readonly Dictionary<string, string> InputLanguages = new Dictionary<string, string>()
             {
                 { "简体中文", "CHS"},
                 { "English", "EN"},
                 { "日本語", "JP"}
             };
 
-        Stopwatch sw = new Stopwatch();
+        readonly Stopwatch sw = new Stopwatch();
 
         public Data(string version)
         {
@@ -66,14 +68,7 @@ namespace GI_Subtitles
             {
                 OutputSelector.SelectedItem = item;
             }
-            DownloadURL1.Text = $"https://gitlab.com/Dimbreath/AnimeGameData/-/raw/master/TextMap/TextMap{InputLanguage}.json?inline=false";
-            DownloadURL2.Text = $"https://gitlab.com/Dimbreath/AnimeGameData/-/raw/master/TextMap/TextMap{OutputLanguage}.json?inline=false";
-            if (Game == "StarRail")
-            {
-                repoUrl = "https://api.github.com/repos/Dimbreath/StarRailData";
-                DownloadURL1.Text = $"https://raw.kkgithub.com/Dimbreath/StarRailData/master/TextMap/TextMap{InputLanguage}.json";
-                DownloadURL2.Text = $"https://raw.kkgithub.com/Dimbreath/StarRailData/master/TextMap/TextMap{OutputLanguage}.json";
-            }
+            RefreshUrl();
             DisplayLocalFileDates();
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
             ServicePointManager.ServerCertificateValidationCallback += (sender, certificate, chain, sslPolicyErrors) => true;
@@ -85,6 +80,18 @@ namespace GI_Subtitles
             await CheckDataAsync();
         }
 
+        public void RefreshUrl()
+        {
+            DownloadURL1.Text = $"https://gitlab.com/Dimbreath/AnimeGameData/-/raw/master/TextMap/TextMap{InputLanguage}.json?inline=false";
+            DownloadURL2.Text = $"https://gitlab.com/Dimbreath/AnimeGameData/-/raw/master/TextMap/TextMap{OutputLanguage}.json?inline=false";
+            if (Game == "StarRail")
+            {
+                repoUrl = "https://api.github.com/repos/Dimbreath/StarRailData";
+                DownloadURL1.Text = $"https://raw.kkgithub.com/Dimbreath/StarRailData/master/TextMap/TextMap{InputLanguage}.json";
+                DownloadURL2.Text = $"https://raw.kkgithub.com/Dimbreath/StarRailData/master/TextMap/TextMap{OutputLanguage}.json";
+            }
+        }
+
         private async void OnGameSelectorChanged(object sender, SelectionChangedEventArgs e)
         {
             Dictionary<string, string> GameDict = new Dictionary<string, string>
@@ -93,14 +100,12 @@ namespace GI_Subtitles
                 ["星穹铁道"] = "StarRail",
             };
 
-            System.Windows.Controls.ComboBox comboBox = sender as System.Windows.Controls.ComboBox;
-            if (comboBox == null)
+            if (!(sender is System.Windows.Controls.ComboBox comboBox))
             {
                 return;
             }
 
-            ComboBoxItem selectedItem = comboBox.SelectedItem as ComboBoxItem;
-            if (selectedItem != null)
+            if (comboBox.SelectedItem is ComboBoxItem selectedItem)
             {
                 string newValue = GameDict[selectedItem.Content.ToString()];
                 if (Game != newValue)
@@ -118,20 +123,18 @@ namespace GI_Subtitles
 
         private async void OnInputSelectorChanged(object sender, SelectionChangedEventArgs e)
         {
-            System.Windows.Controls.ComboBox comboBox = sender as System.Windows.Controls.ComboBox;
-            if (comboBox == null)
+            if (!(sender is System.Windows.Controls.ComboBox comboBox))
             {
                 return;
             }
 
-            ComboBoxItem selectedItem = comboBox.SelectedItem as ComboBoxItem;
-            if (selectedItem != null)
+            if (comboBox.SelectedItem is ComboBoxItem selectedItem)
             {
                 string newValue = InputLanguages[selectedItem.Content.ToString()];
                 if (InputLanguage != newValue)
                 {
                     InputLanguage = newValue;
-
+                    RefreshUrl();
                     Configuration config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
                     config.AppSettings.Settings["Input"].Value = InputLanguage;
                     config.Save(ConfigurationSaveMode.Modified);
@@ -143,22 +146,18 @@ namespace GI_Subtitles
 
         private async void OnOutputSelectorChanged(object sender, SelectionChangedEventArgs e)
         {
-
-            System.Windows.Controls.ComboBox comboBox = sender as System.Windows.Controls.ComboBox;
-            if (comboBox == null)
+            if (!(sender is System.Windows.Controls.ComboBox comboBox))
             {
                 return;
             }
 
-            ComboBoxItem selectedItem = comboBox.SelectedItem as ComboBoxItem;
-            if (selectedItem != null)
+            if (comboBox.SelectedItem is ComboBoxItem selectedItem)
             {
                 string newValue = OutputLanguages[selectedItem.Content.ToString()];
-                Console.WriteLine(newValue);
                 if (OutputLanguage != newValue)
                 {
                     OutputLanguage = newValue;
-
+                    RefreshUrl();
                     Configuration config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
                     config.AppSettings.Settings["Output"].Value = OutputLanguage;
                     config.Save(ConfigurationSaveMode.Modified);
@@ -274,8 +273,7 @@ namespace GI_Subtitles
 
         private async Task DownloadFileAsync(string url, string fileName)
         {
-            Uri uri;
-            if (!Uri.TryCreate(url, UriKind.Absolute, out uri))
+            if (!Uri.TryCreate(url, UriKind.Absolute, out Uri uri))
             {
                 System.Windows.MessageBox.Show("无效的下载 URL");
                 return;
@@ -376,6 +374,13 @@ namespace GI_Subtitles
                     DownloadSpeedText.Text = "";
                 }
             }
+        }
+
+        private void RestartButton_Click(object sender, RoutedEventArgs e)
+        {
+            string executablePath = Assembly.GetEntryAssembly().Location;
+            Process.Start(executablePath, "Restart");
+            Environment.Exit(0);
         }
     }
 }

@@ -60,7 +60,6 @@ namespace GI_Subtitles
         readonly Dictionary<string, string> resDict = new Dictionary<string, string>();
         public System.Windows.Threading.DispatcherTimer OCRTimer = new System.Windows.Threading.DispatcherTimer();
         public System.Windows.Threading.DispatcherTimer UITimer = new System.Windows.Threading.DispatcherTimer();
-        private bool isDraggable = true;
         readonly string outpath = Path.Combine(Environment.CurrentDirectory, "out");
         readonly bool debug = ConfigurationManager.AppSettings["Debug"] == "1";
         readonly bool mtuliline = ConfigurationManager.AppSettings["Multiline"] == "1";
@@ -344,7 +343,7 @@ namespace GI_Subtitles
 
         private void Window_MouseDown(object sender, MouseButtonEventArgs e)
         {
-            if (e.LeftButton == MouseButtonState.Pressed && isDraggable)
+            if (e.LeftButton == MouseButtonState.Pressed)
             {
                 DragMove();
             }
