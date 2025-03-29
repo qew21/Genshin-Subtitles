@@ -68,7 +68,6 @@ namespace GI_Subtitles
             {
                 OutputSelector.SelectedItem = item;
             }
-            RefreshUrl();
             DisplayLocalFileDates();
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
             ServicePointManager.ServerCertificateValidationCallback += (sender, certificate, chain, sslPolicyErrors) => true;
@@ -111,7 +110,7 @@ namespace GI_Subtitles
                 if (Game != newValue)
                 {
                     Game = newValue;
-
+                    DisplayLocalFileDates();
                     Configuration config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
                     config.AppSettings.Settings["Game"].Value = newValue;
                     config.Save(ConfigurationSaveMode.Modified);
@@ -134,7 +133,7 @@ namespace GI_Subtitles
                 if (InputLanguage != newValue)
                 {
                     InputLanguage = newValue;
-                    RefreshUrl();
+                    DisplayLocalFileDates();
                     Configuration config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
                     config.AppSettings.Settings["Input"].Value = InputLanguage;
                     config.Save(ConfigurationSaveMode.Modified);
@@ -157,7 +156,7 @@ namespace GI_Subtitles
                 if (OutputLanguage != newValue)
                 {
                     OutputLanguage = newValue;
-                    RefreshUrl();
+                    DisplayLocalFileDates();
                     Configuration config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
                     config.AppSettings.Settings["Output"].Value = OutputLanguage;
                     config.Save(ConfigurationSaveMode.Modified);
@@ -193,6 +192,7 @@ namespace GI_Subtitles
 
         private void DisplayLocalFileDates()
         {
+            RefreshUrl();
             string inputFilePath = $"{Game}\\TextMap{InputLanguage}.json";
             string outputFilePath = $"{Game}\\TextMap{OutputLanguage}.json";
             if (File.Exists(inputFilePath))
