@@ -32,7 +32,7 @@ namespace GI_Subtitles
     /// </summary>
     public partial class Data : Window
     {
-        string repoUrl = "https://gitlab.com/Dimbreath/AnimeGameData/-/refs/master/logs_tree/TextMap?format=json&offset=0&ref_type=heads";
+        public string repoUrl = "https://gitlab.com/Dimbreath/AnimeGameData/-/refs/master/logs_tree/TextMap?format=json&offset=0&ref_type=heads";
         string Game = ConfigurationManager.AppSettings["Game"];
         string InputLanguage = ConfigurationManager.AppSettings["Input"];
         string OutputLanguage = ConfigurationManager.AppSettings["Output"];
@@ -186,6 +186,7 @@ namespace GI_Subtitles
                 }
                 contentDict = await Task.Run(() =>
                     VoiceContentHelper.CreateVoiceContentDictionary(inputFilePath, outputFilePath, userName));
+                Logger.Log.Info($"加载 {contentDict.Count} 对数据");
             }
             DisplayLocalFileDates();
         }
@@ -216,11 +217,30 @@ namespace GI_Subtitles
             }
         }
 
+        public DateTime GetLocalFileDates(string input, string output, string game)
+        {
+            string inputFilePath = $"{game}\\TextMap{input}.json";
+            string outputFilePath = $"{game}\\TextMap{input}.json";
+            if (File.Exists(inputFilePath))
+            {
+                return File.GetLastWriteTime(inputFilePath);
+            }
+            else if (File.Exists(outputFilePath))
+            {
+                return File.GetLastWriteTime(outputFilePath);
+            }
+            else
+            {
+                return DateTime.Now.AddYears(-1);
+            }
+        }
 
-        private async Task GetRepositoryModificationDateAsync()
+
+        public async Task GetRepositoryModificationDateAsync()
         {
             try
             {
+                Logger.Log.Info($"加载开始");
                 HttpResponseMessage response = await client.GetAsync(repoUrl);
                 response.EnsureSuccessStatusCode();
 
@@ -245,12 +265,43 @@ namespace GI_Subtitles
                         RepoModifiedDate.Text = "响应列表为空";
                     }
                 }
-
             }
             catch (Exception ex)
             {
+                Logger.Log.Error(ex);
                 RepoModifiedDate.Text = "错误: " + ex.Message;
             }
+        }
+
+        public async Task<string> GetRepositoryModificationDate(string url, string game)
+        {
+            try
+            {
+                HttpResponseMessage response = await client.GetAsync(url);
+                response.EnsureSuccessStatusCode();
+
+                string responseText = await response.Content.ReadAsStringAsync();
+                if (game == "StarRail")
+                {
+                    dynamic json = JsonConvert.DeserializeObject(responseText);
+                    return json.pushed_at.ToString();
+                }
+                else
+                {
+                    JArray jsonArray = JArray.Parse(responseText);
+                    if (jsonArray.Count > 0)
+                    {
+                        JObject firstElement = (JObject)jsonArray[0];
+                        return firstElement["commit"]?["committed_date"]?.ToString();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Log.Error(ex);
+
+            }
+            return "";
         }
 
         private async void SyncButton_Click(object sender, RoutedEventArgs e)

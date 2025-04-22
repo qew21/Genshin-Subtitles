@@ -35,6 +35,8 @@ using System.Text.RegularExpressions;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
 using NAudio.Wave;
 using System.Net;
+using Microsoft.Win32;
+using System.Diagnostics;
 
 
 [assembly: log4net.Config.XmlConfigurator(Watch = true)]
@@ -88,6 +90,7 @@ namespace GI_Subtitles
         Dictionary<string, string> BitmapDict = new Dictionary<string, string>();
         List<string> AudioList = new List<string>();
         string InputLanguage = ConfigurationManager.AppSettings["Input"];
+        string OutputLanguage = ConfigurationManager.AppSettings["Output"];
         string Game = ConfigurationManager.AppSettings["Game"];
         string version = Assembly.GetExecutingAssembly().GetName().Version.ToString();
         INotifyIcon notify;
@@ -109,8 +112,29 @@ namespace GI_Subtitles
             Loaded += MainWindow_Loaded;
         }
 
+        private void AddStartup()
+        {
+            string appPath = System.Reflection.Assembly.GetExecutingAssembly().Location;
+            RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", true);
+
+            if (key == null)
+            {
+                Logger.Log.Error("无法打开注册表项");
+            }
+
+            string existingValue = (string)key.GetValue(Process.GetCurrentProcess().ProcessName, null);
+
+            if (existingValue == null)
+            {
+                key.SetValue(Process.GetCurrentProcess().ProcessName, appPath);
+                Logger.Log.Info("开机启动项添加成功！");
+            }
+        }
+
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
+            AddStartup();
+
             // 获取窗口句柄
             IntPtr handle = new WindowInteropHelper(this).Handle;
             RegisterHotKey(handle, HOTKEY_ID_1, MOD_CTRL | MOD_SHIFT, VK_S);
@@ -131,6 +155,30 @@ namespace GI_Subtitles
             else
             {
                 Task.Run(async () => await data.Load());
+                Task.Run(async () =>
+                {
+                    try
+                    {
+                        var modify = await data.GetRepositoryModificationDate(data.repoUrl, Game);
+                        DateTime inputDate = data.GetLocalFileDates(InputLanguage, OutputLanguage, Game);
+                        if (DateTime.TryParse(modify, out DateTime repoDate))
+                        {
+                            if (repoDate > inputDate)
+                            {
+                                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                                {
+                                    notifyIcon.ShowBalloonTip(3000, "语言包更新通知", $"仓库更新时间{repoDate}，本地修改时间{inputDate}", ToolTipIcon.Info);
+                                    data.ShowDialog();
+                                });
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Log.Error(ex);
+                    }
+                }
+                );
                 VoiceMap = VoiceContentHelper.LoadAudioMap(server, Game);
             }
             if (notify.Region[1] == "0")
