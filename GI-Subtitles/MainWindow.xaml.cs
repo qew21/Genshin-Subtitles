@@ -124,7 +124,7 @@ namespace GI_Subtitles
 
             string existingValue = (string)key.GetValue(Process.GetCurrentProcess().ProcessName, null);
 
-            if (existingValue == null)
+            if (existingValue != appPath)
             {
                 key.SetValue(Process.GetCurrentProcess().ProcessName, appPath);
                 Logger.Log.Info("开机启动项添加成功！");
