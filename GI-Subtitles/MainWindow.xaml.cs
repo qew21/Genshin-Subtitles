@@ -86,7 +86,7 @@ namespace GI_Subtitles
         private const uint VK_S = 0x53; // S键的虚拟键码
         private const uint VK_R = 0x52; // R键的虚拟键码
         private const uint VK_H = 0x48; // H键的虚拟键码
-        private readonly double Scale = GetDpiForSystem() / 96f;
+        private double Scale = GetDpiForSystem() / 96f;
         Dictionary<string, string> BitmapDict = new Dictionary<string, string>();
         List<string> AudioList = new List<string>();
         string InputLanguage = ConfigurationManager.AppSettings["Input"];
@@ -262,28 +262,37 @@ namespace GI_Subtitles
                                 }
                             }
                         }
-                        double left = screenBounds.Left;
+
                         if (Math.Abs(Pad) > 500)
                         {
                             Pad = 100;
                         }
                         double top = Convert.ToInt16(notify.Region[1]) / Scale + Pad;
-                        if (top > screenBounds.Bottom / Scale - 20 || notify.Region[1] == "0")
+                        foreach (var screen in Screen.AllScreens)
                         {
-                            top = screenBounds.Bottom / Scale - 20;
+                            if (screen.WorkingArea.Contains(new System.Drawing.Point(Convert.ToInt16(notify.Region[0]), Convert.ToInt16(notify.Region[1]))))
+                            {
+                                double scale = GetScaleForScreen(screen);
+                                double left = screen.Bounds.Left / scale;
+                                if (top > screen.Bounds.Bottom / scale - 20 || notify.Region[1] == "0")
+                                {
+                                    top = screen.Bounds.Bottom / scale - 20;
+                                }
+                                if (top < screen.Bounds.Top / scale + 20)
+                                {
+                                    top = screen.Bounds.Top / scale + 20;
+                                }
+                                this.Top = top;
+                                double width = Convert.ToInt16(notify.Region[2]) / scale + 200;
+                                if (width > screen.Bounds.Width / scale)
+                                {
+                                    width = screen.Bounds.Width / scale;
+                                }
+                                this.Left = left + (screen.Bounds.Width / scale - width) / 2;
+                                this.Width = width;
+                            }
                         }
-                        if (top < screenBounds.Top / Scale + 20)
-                        {
-                            top = screenBounds.Top / Scale + 20;
-                        }
-                        this.Top = top;
-                        double width = Convert.ToInt16(notify.Region[2]) / Scale + 200;
-                        if (width > screenBounds.Width / Scale)
-                        {
-                            width = screenBounds.Width / Scale;
-                        }
-                        this.Left = left + (screenBounds.Width / Scale - width) / 2;
-                        this.Width = width;
+
                         this.Height = 100;
                         BitmapDict.Add(bitStr, ocrText);
                         if (BitmapDict.Count > 10)
@@ -569,6 +578,41 @@ namespace GI_Subtitles
         {
             waveOut?.Stop();
             mediaReader?.Dispose();
+        }
+
+        public static double GetScaleForScreen(Screen screen)
+        {
+            // 获取屏幕的工作区域中心点
+            System.Drawing.Point screenCenter = new System.Drawing.Point(
+                screen.Bounds.Left + screen.Bounds.Width / 2,
+                screen.Bounds.Top + screen.Bounds.Height / 2
+            );
+
+            // 获取屏幕的句柄
+            IntPtr monitorHandle = NativeMethods.MonitorFromPoint(screenCenter, 2); // MONITOR_DEFAULTTONEAREST
+
+            // 获取 DPI 值
+            uint dpiX, dpiY;
+            NativeMethods.GetDpiForMonitor(monitorHandle, NativeMethods.MonitorDpiType.EffectiveDpi, out dpiX, out dpiY);
+
+            // 计算缩放比例（基准 DPI 为 96）
+            return dpiX / 96.0;
+        }
+
+        public class NativeMethods
+        {
+            public enum MonitorDpiType
+            {
+                EffectiveDpi = 0,
+                AngularDpi = 1,
+                RawDpi = 2
+            }
+
+            [DllImport("Shcore.dll")]
+            public static extern int GetDpiForMonitor(IntPtr hmonitor, MonitorDpiType dpiType, out uint dpiX, out uint dpiY);
+
+            [DllImport("User32.dll")]
+            public static extern IntPtr MonitorFromPoint(System.Drawing.Point pt, uint flags);
         }
     }
 }
