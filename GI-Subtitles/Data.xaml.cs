@@ -89,6 +89,22 @@ namespace GI_Subtitles
                 DownloadURL1.Text = $"https://raw.kkgithub.com/Dimbreath/StarRailData/master/TextMap/TextMap{InputLanguage}.json";
                 DownloadURL2.Text = $"https://raw.kkgithub.com/Dimbreath/StarRailData/master/TextMap/TextMap{OutputLanguage}.json";
             }
+            else if (Game == "Zenless")
+            {
+                repoUrl = "https://git.mero.moe/dimbreath/ZenlessData";
+                DownloadURL1.Text = ZenlessUrl(InputLanguage);
+                DownloadURL2.Text = ZenlessUrl(OutputLanguage);
+            }
+        }
+
+        private string ZenlessUrl(string language)
+        {
+            string url = "https://git.mero.moe/dimbreath/ZenlessData/raw/branch/master/TextMap/TextMapTemplateTb.json";
+            if (language != "CHS")
+            {
+                url = $"https://git.mero.moe/dimbreath/ZenlessData/raw/branch/master/TextMap/TextMap_{language}TemplateTb.json";
+            }
+            return url;
         }
 
         private async void OnGameSelectorChanged(object sender, SelectionChangedEventArgs e)
@@ -97,6 +113,7 @@ namespace GI_Subtitles
             {
                 ["原神"] = "Genshin",
                 ["星穹铁道"] = "StarRail",
+                ["绝区零"] = "Zenless",
             };
 
             if (!(sender is System.Windows.Controls.ComboBox comboBox))
@@ -110,6 +127,10 @@ namespace GI_Subtitles
                 if (Game != newValue)
                 {
                     Game = newValue;
+                    if (!Directory.Exists(Game))
+                    {
+                        Directory.CreateDirectory(Game);
+                    }
                     DisplayLocalFileDates();
                     Configuration config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
                     config.AppSettings.Settings["Game"].Value = newValue;
@@ -251,6 +272,31 @@ namespace GI_Subtitles
                     dynamic json = JsonConvert.DeserializeObject(responseText);
                     RepoModifiedDate.Text = !string.IsNullOrEmpty(json.pushed_at.ToString()) ? json.pushed_at.ToString() : "无法获取 committed_date";
                 }
+                else if (Game == "Zenless")
+                {
+                    string pattern = @"datetime=""([^""]*)""";
+                    Match match = Regex.Match(responseText, pattern);
+
+                    if (match.Success)
+                    {
+                        string dateTimeString = match.Groups[1].Value;
+                        try
+                        {
+                            DateTimeOffset dateTimeOffset = DateTimeOffset.Parse(dateTimeString);
+                            DateTime localTime = dateTimeOffset.LocalDateTime; // 自动转换为本地时区
+                            RepoModifiedDate.Text = localTime.ToString();
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Log.Error("Error parsing datetime: " + ex.Message);
+                        }
+                    }
+                    else
+                    {
+                        Logger.Log.Error("No datetime attribute found in the input string.");
+                    }
+
+                }
                 else
                 {
                     JArray jsonArray = JArray.Parse(responseText);
@@ -285,6 +331,31 @@ namespace GI_Subtitles
                 {
                     dynamic json = JsonConvert.DeserializeObject(responseText);
                     return json.pushed_at.ToString();
+                }
+                else if (Game == "Zenless")
+                {
+                    string pattern = @"datetime=""([^""]*)""";
+                    Match match = Regex.Match(responseText, pattern);
+
+                    if (match.Success)
+                    {
+                        string dateTimeString = match.Groups[1].Value;
+                        try
+                        {
+                            DateTimeOffset dateTimeOffset = DateTimeOffset.Parse(dateTimeString);
+                            DateTime localTime = dateTimeOffset.LocalDateTime; // 自动转换为本地时区
+                            return localTime.ToString();
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Log.Error("Error parsing datetime: " + ex.Message);
+                        }
+                    }
+                    else
+                    {
+                        Logger.Log.Error("No datetime attribute found in the input string.");
+                    }
+
                 }
                 else
                 {
