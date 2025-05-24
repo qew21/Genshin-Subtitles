@@ -24,6 +24,7 @@ using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
 using System.Text.RegularExpressions;
 using System.Collections.ObjectModel;
 using System.Reflection;
+using Emgu.CV.CvEnum;
 
 namespace GI_Subtitles
 {
@@ -85,9 +86,9 @@ namespace GI_Subtitles
             DownloadURL2.Text = $"https://gitlab.com/Dimbreath/AnimeGameData/-/raw/master/TextMap/TextMap{OutputLanguage}.json?inline=false";
             if (Game == "StarRail")
             {
-                repoUrl = "https://api.github.com/repos/Dimbreath/StarRailData";
-                DownloadURL1.Text = $"https://raw.kkgithub.com/Dimbreath/StarRailData/master/TextMap/TextMap{InputLanguage}.json";
-                DownloadURL2.Text = $"https://raw.kkgithub.com/Dimbreath/StarRailData/master/TextMap/TextMap{OutputLanguage}.json";
+                repoUrl = "https://gitlab.com/Dimbreath/turnbasedgamedata/-/refs/main/logs_tree/?format=json&offset=0&ref_type=HEADS";
+                DownloadURL1.Text = $"https://gitlab.com/Dimbreath/turnbasedgamedata/-/raw/main/TextMap/TextMap{InputLanguage}.json?inline=false";
+                DownloadURL2.Text = $"https://gitlab.com/Dimbreath/turnbasedgamedata/-/raw/main/TextMap/TextMap{OutputLanguage}.json?inline=false";
             }
             else if (Game == "Zenless")
             {
@@ -241,7 +242,7 @@ namespace GI_Subtitles
         public DateTime GetLocalFileDates(string input, string output, string game)
         {
             string inputFilePath = $"{game}\\TextMap{input}.json";
-            string outputFilePath = $"{game}\\TextMap{input}.json";
+            string outputFilePath = $"{game}\\TextMap{output}.json";
             if (File.Exists(inputFilePath))
             {
                 return File.GetLastWriteTime(inputFilePath);
@@ -266,13 +267,7 @@ namespace GI_Subtitles
                 response.EnsureSuccessStatusCode();
 
                 string responseText = await response.Content.ReadAsStringAsync();
-                if (Game == "StarRail")
-                {
-
-                    dynamic json = JsonConvert.DeserializeObject(responseText);
-                    RepoModifiedDate.Text = !string.IsNullOrEmpty(json.pushed_at.ToString()) ? json.pushed_at.ToString() : "无法获取 committed_date";
-                }
-                else if (Game == "Zenless")
+                if (Game == "Zenless")
                 {
                     string pattern = @"datetime=""([^""]*)""";
                     Match match = Regex.Match(responseText, pattern);
@@ -400,7 +395,9 @@ namespace GI_Subtitles
                 System.Windows.MessageBox.Show("无效的下载 URL");
                 return;
             }
-
+            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            fileName = Path.Combine(baseDir, fileName);
+            System.Windows.MessageBox.Show(fileName);
             int attempt = 0;
             bool success = false;
             long existingLength = 0;
