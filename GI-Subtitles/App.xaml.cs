@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Windows;
@@ -18,6 +19,8 @@ namespace GI_Subtitles
 
         protected override void OnStartup(StartupEventArgs e)
         {
+            string appDir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
+            Directory.SetCurrentDirectory(appDir);
             const string appName = "GI-Subtitles";
             bool createdNew;
 

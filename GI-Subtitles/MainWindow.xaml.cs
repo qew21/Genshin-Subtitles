@@ -112,29 +112,9 @@ namespace GI_Subtitles
             Loaded += MainWindow_Loaded;
         }
 
-        private void AddStartup()
-        {
-            string appPath = System.Reflection.Assembly.GetExecutingAssembly().Location;
-            RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", true);
-
-            if (key == null)
-            {
-                Logger.Log.Error("无法打开注册表项");
-            }
-
-            string existingValue = (string)key.GetValue(Process.GetCurrentProcess().ProcessName, null);
-
-            if (existingValue != appPath)
-            {
-                key.SetValue(Process.GetCurrentProcess().ProcessName, appPath);
-                Logger.Log.Info("开机启动项添加成功！");
-            }
-        }
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            AddStartup();
-
             // 获取窗口句柄
             IntPtr handle = new WindowInteropHelper(this).Handle;
             RegisterHotKey(handle, HOTKEY_ID_1, MOD_CTRL | MOD_SHIFT, VK_S);
