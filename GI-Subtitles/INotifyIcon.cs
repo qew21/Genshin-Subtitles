@@ -1,4 +1,6 @@
-﻿using Microsoft.Win32;
+﻿using Emgu.CV.Ocl;
+using GI_Subtitles.Properties;
+using Microsoft.Win32;
 using Screenshot;
 using System;
 using System.Collections.Generic;
@@ -24,9 +26,9 @@ namespace GI_Subtitles
     {
         System.Windows.Forms.ContextMenuStrip contextMenuStrip;
         ToolStripMenuItem fontSizeSelector;
-        string Size = ConfigurationManager.AppSettings["Size"];
-        bool AutoStart = ConfigurationManager.AppSettings["AutoStart"] == "1";
-        public string[] Region = ConfigurationManager.AppSettings["Region"].Split(',');
+        private int Size = Config.Get<int>("Size");
+        private bool AutoStart = Config.Get("AutoStart", false);
+        public string[] Region = Config.Get<string>("Region").Split(',');
         string version = Assembly.GetExecutingAssembly().GetName().Version.ToString();
         double Scale = 1;
 
@@ -98,12 +100,8 @@ namespace GI_Subtitles
             try
             {
                 var rect = Screenshot.Screenshot.GetRegion(Scale);
-                Configuration config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
-                config.AppSettings.Settings["Region"].Value = $"{Convert.ToInt16(rect.TopLeft.X * Scale)},{Convert.ToInt16(rect.TopLeft.Y * Scale)},{Convert.ToInt16(rect.Width * Scale)},{Convert.ToInt16(rect.Height * Scale)}";
-                Console.WriteLine(config.AppSettings.Settings["Region"].Value);
-                Region = config.AppSettings.Settings["Region"].Value.Split(',');
-                config.Save(ConfigurationSaveMode.Modified);
-                ConfigurationManager.RefreshSection("appSettings");
+                Config.Set("Region", $"{Convert.ToInt16(rect.TopLeft.X * Scale)},{Convert.ToInt16(rect.TopLeft.Y * Scale)},{Convert.ToInt16(rect.Width * Scale)},{Convert.ToInt16(rect.Height * Scale)}");
+                Region = Config.Get<string>("Region").ToString().Split(',');
             }
             catch (Exception ex)
             {
@@ -120,7 +118,7 @@ namespace GI_Subtitles
                 CheckOnClick = true
             };
             item.CheckedChanged += SizeItem_CheckedChanged;
-            if (Size == code)
+            if (Size == Convert.ToInt16(code))
             {
                 item.Checked = true;
             }
@@ -131,7 +129,7 @@ namespace GI_Subtitles
         {
             if (sender is ToolStripMenuItem selectedSize && selectedSize.Checked)
             {
-                string newSize = selectedSize.Tag.ToString();
+                int newSize = Convert.ToInt16(selectedSize.Tag.ToString());
                 if (Size != newSize)
                 {
                     Size = newSize;
@@ -143,10 +141,7 @@ namespace GI_Subtitles
                             langItem.Checked = false;
                         }
                     }
-                    Configuration config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
-                    config.AppSettings.Settings["Size"].Value = newSize;
-                    config.Save(ConfigurationSaveMode.Modified);
-                    ConfigurationManager.RefreshSection("appSettings");
+                    Config.Set("Size", Size);
                 }
             }
         }

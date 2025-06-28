@@ -25,7 +25,6 @@ using System.Windows.Navigation;
 using System.Windows.Shapes;
 using static System.Net.Mime.MediaTypeNames;
 using Path = System.IO.Path;
-using System.Configuration;
 using System.Media;
 using static log4net.Appender.RollingFileAppender;
 using System.Runtime.Remoting.Contexts;
@@ -63,11 +62,11 @@ namespace GI_Subtitles
         public System.Windows.Threading.DispatcherTimer OCRTimer = new System.Windows.Threading.DispatcherTimer();
         public System.Windows.Threading.DispatcherTimer UITimer = new System.Windows.Threading.DispatcherTimer();
         readonly string outpath = Path.Combine(Environment.CurrentDirectory, "out");
-        readonly bool debug = ConfigurationManager.AppSettings["Debug"] == "1";
-        readonly bool mtuliline = ConfigurationManager.AppSettings["Multiline"] == "1";
-        readonly string server = ConfigurationManager.AppSettings["Server"];
-        readonly string token = ConfigurationManager.AppSettings["Token"];
-        int Pad = Convert.ToInt16(ConfigurationManager.AppSettings["Pad"]);
+        readonly bool debug = Config.Get<bool>("Debug", false);
+        readonly bool mtuliline = Config.Get<bool>("Multiline", false);
+        readonly string server = Config.Get<string>("Server");
+        readonly string token = Config.Get<string>("Token");
+        int Pad = Config.Get<int>("Pad");
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         public static extern int SetWindowPos(IntPtr hWnd, int hWndInsertAfter, int x, int y, int Width, int Height, int flags);
         [DllImport("User32.dll")]
@@ -89,9 +88,9 @@ namespace GI_Subtitles
         private double Scale = GetDpiForSystem() / 96f;
         Dictionary<string, string> BitmapDict = new Dictionary<string, string>();
         List<string> AudioList = new List<string>();
-        string InputLanguage = ConfigurationManager.AppSettings["Input"];
-        string OutputLanguage = ConfigurationManager.AppSettings["Output"];
-        string Game = ConfigurationManager.AppSettings["Game"];
+        string InputLanguage = Config.Get<string>("Input");
+        string OutputLanguage = Config.Get<string>("Output");
+        string Game = Config.Get<string>("Game");
         string version = Assembly.GetExecutingAssembly().GetName().Version.ToString();
         INotifyIcon notify;
         Data data;
@@ -324,7 +323,7 @@ namespace GI_Subtitles
                     {
                         lastRes = res;
                         SubtitleText.Text = res;
-                        SubtitleText.FontSize = Convert.ToInt16(ConfigurationManager.AppSettings["Size"]);
+                        SubtitleText.FontSize = Config.Get<int>("Size");
                         if (!AudioList.Contains(key))
                         {
                             string text = key;
@@ -401,11 +400,9 @@ namespace GI_Subtitles
         private void MainWindow_LocationChanged(object sender, EventArgs e)
         {
             Pad = Convert.ToInt16(this.Top - Convert.ToInt16(notify.Region[1]) / Scale);
-            Configuration config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
-            config.AppSettings.Settings["Pad"].Value = Pad.ToString();
-            if (Math.Abs(Pad) < 500)
+            if (Pad < 500)
             {
-                config.Save(ConfigurationSaveMode.Modified);
+                Config.Set("Pad", Pad);
             }
         }
 

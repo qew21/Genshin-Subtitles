@@ -18,7 +18,6 @@ using Newtonsoft.Json.Linq;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.Window;
 using System.Net.Http;
 using Newtonsoft.Json;
-using System.Configuration;
 using System.Windows.Forms;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
 using System.Text.RegularExpressions;
@@ -34,9 +33,9 @@ namespace GI_Subtitles
     public partial class Data : Window
     {
         public string repoUrl = "https://gitlab.com/Dimbreath/AnimeGameData/-/refs/master/logs_tree/TextMap?format=json&offset=0&ref_type=heads";
-        string Game = ConfigurationManager.AppSettings["Game"];
-        string InputLanguage = ConfigurationManager.AppSettings["Input"];
-        string OutputLanguage = ConfigurationManager.AppSettings["Output"];
+        string Game = Config.Get<string>("Game");
+        string InputLanguage = Config.Get<string>("Input");
+        string OutputLanguage = Config.Get<string>("Output");
         private const int MaxRetries = 1; // 最大重试次数
         private static readonly HttpClient client = new HttpClient();
         public Dictionary<string, string> contentDict = new Dictionary<string, string>();
@@ -133,10 +132,7 @@ namespace GI_Subtitles
                         Directory.CreateDirectory(Game);
                     }
                     DisplayLocalFileDates();
-                    Configuration config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
-                    config.AppSettings.Settings["Game"].Value = newValue;
-                    config.Save(ConfigurationSaveMode.Modified);
-                    ConfigurationManager.RefreshSection("appSettings");
+                    Config.Set("Game", newValue);
                     await CheckDataAsync(true);
                 }
             }
@@ -156,10 +152,7 @@ namespace GI_Subtitles
                 {
                     InputLanguage = newValue;
                     DisplayLocalFileDates();
-                    Configuration config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
-                    config.AppSettings.Settings["Input"].Value = InputLanguage;
-                    config.Save(ConfigurationSaveMode.Modified);
-                    ConfigurationManager.RefreshSection("appSettings");
+                    Config.Set("Input", InputLanguage);
                     await CheckDataAsync(true);
                 }
             }
@@ -179,10 +172,7 @@ namespace GI_Subtitles
                 {
                     OutputLanguage = newValue;
                     DisplayLocalFileDates();
-                    Configuration config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
-                    config.AppSettings.Settings["Output"].Value = OutputLanguage;
-                    config.Save(ConfigurationSaveMode.Modified);
-                    ConfigurationManager.RefreshSection("appSettings");
+                    Config.Set("Output", OutputLanguage);
                     await CheckDataAsync(true);
                 }
             }
