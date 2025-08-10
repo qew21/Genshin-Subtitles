@@ -24,6 +24,11 @@ using System.Text.RegularExpressions;
 using System.Collections.ObjectModel;
 using System.Reflection;
 using Emgu.CV.CvEnum;
+using PaddleOCRSharp;
+using System.Drawing;
+using System.Runtime.Remoting.Contexts;
+using System.Threading;
+using System.Windows.Markup;
 
 namespace GI_Subtitles
 {
@@ -48,6 +53,9 @@ namespace GI_Subtitles
             };
 
         readonly Stopwatch sw = new Stopwatch();
+        readonly string outpath = Path.Combine(Environment.CurrentDirectory, "out");
+        readonly bool mtuliline = Config.Get<bool>("Multiline", false);
+        public PaddleOCREngine engine;
 
         public Data(string version)
         {
@@ -72,6 +80,10 @@ namespace GI_Subtitles
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
             ServicePointManager.ServerCertificateValidationCallback += (sender, certificate, chain, sslPolicyErrors) => true;
             client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3");
+            if (contentDict.Count > 100)
+            {
+                Status.Content = $"加载了 {contentDict.Count} 对数据";
+            }
         }
 
         public async Task Load()
@@ -185,7 +197,14 @@ namespace GI_Subtitles
 
         public async Task CheckDataAsync(bool renew = false)
         {
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                Status.Content = "数据加载中......(首次加载可能需要几十秒进行转换)";
+                Logger.Log.Debug(Status.Content);
+                contentDict.Clear();
+            });
             string userName = (OutputLanguage == "CHS") ? "旅行者" : "Traveler";
+
             if (FileExists())
             {
                 string inputFilePath = $"{Game}\\TextMap{InputLanguage}.json";
@@ -198,8 +217,12 @@ namespace GI_Subtitles
                 }
                 contentDict = await Task.Run(() =>
                     VoiceContentHelper.CreateVoiceContentDictionary(inputFilePath, outputFilePath, userName));
-                Logger.Log.Info($"加载 {contentDict.Count} 对数据");
             }
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                Status.Content = $"加载了 {contentDict.Count} 对数据，{InputLanguage} -> {OutputLanguage}";
+                Logger.Log.Debug(Status.Content);
+            });
             DisplayLocalFileDates();
         }
 
@@ -387,7 +410,6 @@ namespace GI_Subtitles
             }
             string baseDir = AppDomain.CurrentDomain.BaseDirectory;
             fileName = Path.Combine(baseDir, fileName);
-            System.Windows.MessageBox.Show(fileName);
             int attempt = 0;
             bool success = false;
             long existingLength = 0;
@@ -490,6 +512,74 @@ namespace GI_Subtitles
             string executablePath = Assembly.GetEntryAssembly().Location;
             Process.Start(executablePath, "Restart");
             Environment.Exit(0);
+        }
+
+        public void LoadEngine()
+        {
+            if (engine != null)
+            {
+                engine.Dispose();
+            }
+
+            if (!Directory.Exists(outpath))
+            { Directory.CreateDirectory(outpath); }
+
+            OCRModelConfig config = null;
+            OCRParameter oCRParameter = new OCRParameter
+            {
+                cpu_math_library_num_threads = 5,//预测并发线程数
+                enable_mkldnn = true,//web部署该值建议设置为0,否则出错，内存如果使用很大，建议该值也设置为0.
+                cls = false, //是否执行文字方向分类；默认false
+                det = false,//是否开启方向检测，用于检测识别180旋转
+                use_angle_cls = false,//是否开启方向检测，用于检测识别180旋转
+                det_db_score_mode = false,//是否使用多段线，即文字区域是用多段线还是用矩形，
+                max_side_len = 1560
+            };
+            oCRParameter.cls = mtuliline;
+            oCRParameter.det = mtuliline;
+
+            if (InputLanguage == "JP")
+            {
+                config = new OCRModelConfig();
+                string root = System.IO.Path.GetDirectoryName(typeof(OCRModelConfig).Assembly.Location);
+                string modelPathroot = root + @"\inference";
+                config.det_infer = modelPathroot + @"\ch_PP-OCRv3_det_infer";
+                config.cls_infer = modelPathroot + @"\ch_ppocr_mobile_v2.0_cls_infer";
+                config.rec_infer = modelPathroot + @"\japan_PP-OCRv3_rec_infer";
+                config.keys = modelPathroot + @"\japan_dict.txt";
+                oCRParameter.max_side_len = 1560;
+            }
+
+
+            //初始化OCR引擎
+            engine = new PaddleOCREngine(config, oCRParameter);
+        }
+        private void TestButton_Click(object sender, RoutedEventArgs e)
+        {
+            LoadEngine();
+            string testFile = InputLanguage + ".jpg";
+            string report = "";
+            try
+            {
+                while (contentDict.Count < 10)
+                {
+                    Thread.Sleep(1000);
+                    Console.WriteLine("Sleeping ...");
+                }
+                DateTime dateTime = DateTime.Now;
+                Bitmap target = (Bitmap)Bitmap.FromFile(testFile);
+                var enhanced = ImageProcessor.EnhanceTextInImage(target);
+                OCRResult ocrResult = engine.DetectText(enhanced);
+                string ocrText = ocrResult.Text;
+                dateTime = DateTime.Now;
+                string res = VoiceContentHelper.FindClosestMatch(ocrText, contentDict, out string key);
+                report = $"OCR: {ocrText}\nMatch: {key}\nTranslate: {res}";
+            }
+            catch (Exception ex)
+            {
+                report = ex.Message;
+            }
+            System.Windows.MessageBox.Show(report);
         }
     }
 }

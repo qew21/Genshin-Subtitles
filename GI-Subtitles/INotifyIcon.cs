@@ -31,6 +31,7 @@ namespace GI_Subtitles
         public string[] Region = Config.Get<string>("Region").Split(',');
         string version = Assembly.GetExecutingAssembly().GetName().Version.ToString();
         double Scale = 1;
+        private Data data;
 
 
         public NotifyIcon InitializeNotifyIcon(double scale)
@@ -87,13 +88,15 @@ namespace GI_Subtitles
             return notifyIcon;
         }
 
+        public void SetData(Data data)
+        {
+            this.data = data;
+        }
 
         private void DateUpdate()
         {
-            Data data = new Data(version);
             data.ShowDialog();
         }
-
 
         public void ChooseRegion()
         {

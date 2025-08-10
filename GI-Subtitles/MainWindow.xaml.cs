@@ -54,16 +54,13 @@ namespace GI_Subtitles
     {
         private static int OCR_TIMER = 0;
         private static int UI_TIMER = 0;
-        private PaddleOCREngine engine;
         string ocrText = null;
         private NotifyIcon notifyIcon;
         string lastRes = null;
         readonly Dictionary<string, string> resDict = new Dictionary<string, string>();
         public System.Windows.Threading.DispatcherTimer OCRTimer = new System.Windows.Threading.DispatcherTimer();
         public System.Windows.Threading.DispatcherTimer UITimer = new System.Windows.Threading.DispatcherTimer();
-        readonly string outpath = Path.Combine(Environment.CurrentDirectory, "out");
         readonly bool debug = Config.Get<bool>("Debug", false);
-        readonly bool mtuliline = Config.Get<bool>("Multiline", false);
         readonly string server = Config.Get<string>("Server");
         readonly string token = Config.Get<string>("Token");
         int Pad = Config.Get<int>("Pad");
@@ -107,6 +104,7 @@ namespace GI_Subtitles
 
         public MainWindow()
         {
+            Logger.Log.Debug("Start App");
             InitializeComponent();
             Loaded += MainWindow_Loaded;
         }
@@ -123,10 +121,10 @@ namespace GI_Subtitles
             // 监听窗口消息
             HwndSource source = HwndSource.FromHwnd(handle);
             source.AddHook(WndProc);
-
+            data = new Data(version);
             notify = new INotifyIcon();
             notifyIcon = notify.InitializeNotifyIcon(Scale);
-            data = new Data(version);
+            notify.SetData(data);
             if (!data.FileExists())
             {
                 data.ShowDialog();
@@ -165,26 +163,8 @@ namespace GI_Subtitles
                 About about = new About(version);
                 about.Show();
             }
-            LoadEngine();
-            string testFile = "testOCR.png";
-            if (File.Exists(testFile))
-            {
-                while (data.contentDict.Count < 10)
-                {
-                    Thread.Sleep(1000);
-                    Console.WriteLine("Sleeping ...");
-                }
-                DateTime dateTime = DateTime.Now;
-                Bitmap target = (Bitmap)Bitmap.FromFile(testFile);
-                var enhanced = ImageProcessor.EnhanceTextInImage(target);
-                OCRResult ocrResult = engine.DetectText(enhanced);
-                ocrText = ocrResult.Text;
-                ocrText += '.';
-                Console.WriteLine($"Convert ocrResult: {ocrText}, cost {(DateTime.Now - dateTime).TotalMilliseconds}ms");
-                dateTime = DateTime.Now;
-                string res = VoiceContentHelper.FindClosestMatch(ocrText, data.contentDict, out string key);
-                Console.WriteLine($"Convert ocrResult: {res}, cost {(DateTime.Now - dateTime).TotalMilliseconds}ms");
-            }
+            data.LoadEngine();
+
 
             OCRTimer.Interval = new TimeSpan(0, 0, 0, 0, 500);
             OCRTimer.Tick += GetOCR;    //委托，要执行的方法
@@ -222,7 +202,7 @@ namespace GI_Subtitles
                     }
                     else
                     {
-                        OCRResult ocrResult = engine.DetectText(enhanced);
+                        OCRResult ocrResult = data.engine.DetectText(enhanced);
                         ocrText = ocrResult.Text;
                         if (debug)
                         {
@@ -469,41 +449,7 @@ namespace GI_Subtitles
             return IntPtr.Zero;
         }
 
-        public void LoadEngine()
-        {
-            if (!Directory.Exists(outpath))
-            { Directory.CreateDirectory(outpath); }
 
-            OCRModelConfig config = null;
-            OCRParameter oCRParameter = new OCRParameter
-            {
-                cpu_math_library_num_threads = 5,//预测并发线程数
-                enable_mkldnn = true,//web部署该值建议设置为0,否则出错，内存如果使用很大，建议该值也设置为0.
-                cls = false, //是否执行文字方向分类；默认false
-                det = false,//是否开启方向检测，用于检测识别180旋转
-                use_angle_cls = false,//是否开启方向检测，用于检测识别180旋转
-                det_db_score_mode = false,//是否使用多段线，即文字区域是用多段线还是用矩形，
-                max_side_len = 1560
-            };
-            oCRParameter.cls = mtuliline;
-            oCRParameter.det = mtuliline;
-
-            if (InputLanguage == "JP")
-            {
-                config = new OCRModelConfig();
-                string root = System.IO.Path.GetDirectoryName(typeof(OCRModelConfig).Assembly.Location);
-                string modelPathroot = root + @"\inference";
-                config.det_infer = modelPathroot + @"\ch_PP-OCRv3_det_infer";
-                config.cls_infer = modelPathroot + @"\ch_ppocr_mobile_v2.0_cls_infer";
-                config.rec_infer = modelPathroot + @"\japan_PP-OCRv3_rec_infer";
-                config.keys = modelPathroot + @"\japan_dict.txt";
-                oCRParameter.max_side_len = 1560;
-            }
-
-
-            //初始化OCR引擎
-            engine = new PaddleOCREngine(config, oCRParameter);
-        }
 
         public void PlayAudio(string filePath)
         {

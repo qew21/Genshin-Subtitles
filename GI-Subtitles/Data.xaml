@@ -53,6 +53,7 @@
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="10"/>
                 <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
             <!-- 本地文件信息 -->
@@ -92,6 +93,8 @@
                 <ProgressBar Name="DownloadProgressBar" Height="20" Minimum="0" Maximum="100"/>
                 <TextBlock Name="DownloadSpeedText" Margin="0,5,0,0"/>
             </StackPanel>
+
+            <Label Grid.Row="5" Name="Status" HorizontalAlignment="Center">数据加载中......</Label>
         </Grid>
 
         <!-- 底部按钮 -->
@@ -99,7 +102,8 @@
             <Button x:Name="SyncButton" Content="同步仓库时间" Width="120" Height="30" Margin="0,0,30,0" Click="SyncButton_Click"/>
             <Button x:Name="DownloadButton1" Content="下载文件1" Width="100" Margin="0,0,30,0" Height="30" Click="DownloadButton1_Click"/>
             <Button x:Name="DownloadButton2" Content="下载文件2" Width="100" Margin="0,0,30,0" Height="30" Click="DownloadButton2_Click"/>
-            <Button x:Name="RestartButton" Content="重新启动" Width="100" Height="30" Click="RestartButton_Click"/>
+            <Button x:Name="RestartButton" Content="重新启动" Width="100" Margin="0,0,30,0" Height="30" Click="RestartButton_Click"/>
+            <Button x:Name="OCRButton" Content="测试语言" Width="100" Height="30" Click="TestButton_Click"/>
         </StackPanel>
     </Grid>
 </Window>
