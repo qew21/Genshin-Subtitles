@@ -54,6 +54,7 @@
                 <RowDefinition Height="10"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
             <!-- 本地文件信息 -->
@@ -95,15 +96,17 @@
             </StackPanel>
 
             <Label Grid.Row="5" Name="Status" HorizontalAlignment="Center">数据加载中......</Label>
+            <Image Grid.Row="6" Name="Capture" HorizontalAlignment="Center"></Image>
         </Grid>
 
         <!-- 底部按钮 -->
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Grid.Row="2" Margin="0,10,0,0">
-            <Button x:Name="SyncButton" Content="同步仓库时间" Width="120" Height="30" Margin="0,0,30,0" Click="SyncButton_Click"/>
-            <Button x:Name="DownloadButton1" Content="下载文件1" Width="100" Margin="0,0,30,0" Height="30" Click="DownloadButton1_Click"/>
-            <Button x:Name="DownloadButton2" Content="下载文件2" Width="100" Margin="0,0,30,0" Height="30" Click="DownloadButton2_Click"/>
-            <Button x:Name="RestartButton" Content="重新启动" Width="100" Margin="0,0,30,0" Height="30" Click="RestartButton_Click"/>
-            <Button x:Name="OCRButton" Content="测试语言" Width="100" Height="30" Click="TestButton_Click"/>
+            <Button x:Name="SyncButton" Content="同步" Width="80" Height="30" Margin="0,0,30,0" Click="SyncButton_Click"/>
+            <Button x:Name="DownloadButton1" Content="下载1" Width="80" Margin="0,0,30,0" Height="30" Click="DownloadButton1_Click"/>
+            <Button x:Name="DownloadButton2" Content="下载2" Width="80" Margin="0,0,30,0" Height="30" Click="DownloadButton2_Click"/>
+            <Button x:Name="RestartButton" Content="重启" Width="80" Margin="0,0,30,0" Height="30" Click="RestartButton_Click"/>
+            <Button x:Name="OCRButton" Content="语言" Width="80" Margin="0,0,30,0" Height="30" Click="TestButton_Click"/>
+            <Button x:Name="RegionButton" Content="区域" Width="80" Height="30" Click="RegionButton_Click"/>
         </StackPanel>
     </Grid>
 </Window>

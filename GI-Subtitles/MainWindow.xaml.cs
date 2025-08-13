@@ -36,6 +36,7 @@ using NAudio.Wave;
 using System.Net;
 using Microsoft.Win32;
 using System.Diagnostics;
+using System.Web;
 
 
 [assembly: log4net.Config.XmlConfigurator(Watch = true)]
@@ -77,11 +78,13 @@ namespace GI_Subtitles
         private const int HOTKEY_ID_1 = 9000; // 自定义热键ID
         private const int HOTKEY_ID_2 = 9001; // 自定义热键ID
         private const int HOTKEY_ID_3 = 9002; // 自定义热键ID
+        private const int HOTKEY_ID_4 = 9003;
         private const uint MOD_CTRL = 0x0002; // Ctrl键
         private const uint MOD_SHIFT = 0x0004; // Shift键
         private const uint VK_S = 0x53; // S键的虚拟键码
         private const uint VK_R = 0x52; // R键的虚拟键码
         private const uint VK_H = 0x48; // H键的虚拟键码
+        private const uint VK_D = 0x44;
         private double Scale = GetDpiForSystem() / 96f;
         Dictionary<string, string> BitmapDict = new Dictionary<string, string>();
         List<string> AudioList = new List<string>();
@@ -117,11 +120,12 @@ namespace GI_Subtitles
             RegisterHotKey(handle, HOTKEY_ID_1, MOD_CTRL | MOD_SHIFT, VK_S);
             RegisterHotKey(handle, HOTKEY_ID_2, MOD_CTRL | MOD_SHIFT, VK_R);
             RegisterHotKey(handle, HOTKEY_ID_3, MOD_CTRL | MOD_SHIFT, VK_H);
+            RegisterHotKey(handle, HOTKEY_ID_4, MOD_CTRL | MOD_SHIFT, VK_D);
 
             // 监听窗口消息
             HwndSource source = HwndSource.FromHwnd(handle);
             source.AddHook(WndProc);
-            data = new Data(version);
+            data = new Data(version, Scale);
             notify = new INotifyIcon();
             notifyIcon = notify.InitializeNotifyIcon(Scale);
             notify.SetData(data);
@@ -163,8 +167,9 @@ namespace GI_Subtitles
                 About about = new About(version);
                 about.Show();
             }
-            data.LoadEngine();
 
+
+            data.LoadEngine();
 
             OCRTimer.Interval = new TimeSpan(0, 0, 0, 0, 500);
             OCRTimer.Tick += GetOCR;    //委托，要执行的方法
@@ -194,6 +199,10 @@ namespace GI_Subtitles
                         notify.ChooseRegion();
                     }
                     target = CaptureRegion(Convert.ToInt16(notify.Region[0]), Convert.ToInt16(notify.Region[1]), Convert.ToInt16(notify.Region[2]), Convert.ToInt16(notify.Region[3]));
+                    if (data.IsVisible)
+                    {
+                        data.SetImage(target);
+                    }
                     var enhanced = ImageProcessor.EnhanceTextInImage(target);
                     string bitStr = Bitmap2String(enhanced);
                     if (BitmapDict.ContainsKey(bitStr))
@@ -375,6 +384,7 @@ namespace GI_Subtitles
             UnregisterHotKey(handle, HOTKEY_ID_1);
             UnregisterHotKey(handle, HOTKEY_ID_2);
             UnregisterHotKey(handle, HOTKEY_ID_3);
+            UnregisterHotKey(handle, HOTKEY_ID_4);
         }
 
         private void MainWindow_LocationChanged(object sender, EventArgs e)
@@ -444,6 +454,11 @@ namespace GI_Subtitles
                     {
                         SystemSounds.Exclamation.Play();
                     }
+                }
+                else if (wParam.ToInt32() == HOTKEY_ID_4)
+                {
+                    ShowRegionOverlay();
+                    handled = true;
                 }
             }
             return IntPtr.Zero;
@@ -520,6 +535,56 @@ namespace GI_Subtitles
 
             // 计算缩放比例（基准 DPI 为 96）
             return dpiX / 96.0;
+        }
+
+        private void ShowRegionOverlay()
+        {
+            if (notify.Region[1] == "0") return;
+            int x = Convert.ToInt16(int.Parse(notify.Region[0]) / Scale);
+            int y = Convert.ToInt16(int.Parse(notify.Region[1]) / Scale);
+            int w = Convert.ToInt16(int.Parse(notify.Region[2]) / Scale);
+            int h = Convert.ToInt16(int.Parse(notify.Region[3]) / Scale);
+            Logger.Log.Debug($"x {x} y {y} w {w} h {h}");
+
+            var overlay = new Window
+            {
+                WindowStyle = WindowStyle.None,
+                AllowsTransparency = true,
+                Background = System.Windows.Media.Brushes.Transparent,
+                Topmost = true,
+                ShowInTaskbar = false,
+                Width = SystemParameters.VirtualScreenWidth,
+                Height = SystemParameters.VirtualScreenHeight,
+                Left = 0,
+                Top = 0
+            };
+
+            var canvas = new Canvas();
+            var rect = new System.Windows.Shapes.Rectangle
+            {
+                Stroke = System.Windows.Media.Brushes.LimeGreen,
+                StrokeThickness = 10,
+                Width = w,
+                Height = h,
+                IsHitTestVisible = true // 确保可以捕获鼠标事件
+            };
+            Canvas.SetLeft(rect, x);
+            Canvas.SetTop(rect, y);
+            canvas.Children.Add(rect);
+            overlay.Content = canvas;
+
+            overlay.Show();
+
+            var timer = new System.Windows.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(10)
+            };
+            timer.Tick += (_, __) =>
+                        {
+                            timer.Stop();
+                            overlay.Close();
+                        };
+            timer.Start();
         }
 
         public class NativeMethods

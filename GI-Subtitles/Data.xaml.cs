@@ -56,10 +56,13 @@ namespace GI_Subtitles
         readonly string outpath = Path.Combine(Environment.CurrentDirectory, "out");
         readonly bool mtuliline = Config.Get<bool>("Multiline", false);
         public PaddleOCREngine engine;
+        private Bitmap bitmap;
+        double Scale = 1;
 
-        public Data(string version)
+        public Data(string version, double scale = 1)
         {
             InitializeComponent();
+            Scale = scale;
             this.Title += $"({version})";
             GameSelector.SelectionChanged += OnGameSelectorChanged;
             InputSelector.SelectionChanged += OnInputSelectorChanged;
@@ -514,7 +517,7 @@ namespace GI_Subtitles
             Environment.Exit(0);
         }
 
-        public void LoadEngine()
+        public void LoadEngine(bool enableMultiLine = false)
         {
             if (engine != null)
             {
@@ -535,8 +538,8 @@ namespace GI_Subtitles
                 det_db_score_mode = false,//是否使用多段线，即文字区域是用多段线还是用矩形，
                 max_side_len = 1560
             };
-            oCRParameter.cls = mtuliline;
-            oCRParameter.det = mtuliline;
+            oCRParameter.cls = mtuliline | enableMultiLine;
+            oCRParameter.det = mtuliline | enableMultiLine;
 
             if (InputLanguage == "JP")
             {
@@ -567,7 +570,15 @@ namespace GI_Subtitles
                     Console.WriteLine("Sleeping ...");
                 }
                 DateTime dateTime = DateTime.Now;
-                Bitmap target = (Bitmap)Bitmap.FromFile(testFile);
+                Bitmap target;
+                if (bitmap == null)
+                {
+                    target = (Bitmap)Bitmap.FromFile(testFile);
+                }
+                else
+                {
+                    target = bitmap;
+                }
                 var enhanced = ImageProcessor.EnhanceTextInImage(target);
                 OCRResult ocrResult = engine.DetectText(enhanced);
                 string ocrText = ocrResult.Text;
@@ -580,6 +591,71 @@ namespace GI_Subtitles
                 report = ex.Message;
             }
             System.Windows.MessageBox.Show(report);
+        }
+
+        public void SetImage(Bitmap bitmap)
+        {
+            using (MemoryStream ms = new MemoryStream())
+            {
+                this.bitmap = bitmap;
+                bitmap.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
+                ms.Position = 0;
+
+                BitmapImage bitmapImage = new BitmapImage();
+                bitmapImage.BeginInit();
+                bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
+                bitmapImage.UriSource = null;
+                bitmapImage.StreamSource = ms;
+                bitmapImage.EndInit();
+                bitmapImage.Freeze(); // 冻结，使其可以在多个线程中使用
+
+                // 设置 Image 控件的 Source 属性
+                Capture.Source = bitmapImage;
+            }
+        }
+
+        private void RegionButton_Click(object sender, RoutedEventArgs e)
+        {
+            LoadEngine(true);
+
+            int idx = 0;
+            string configRegion = Config.Get<string>("Region");
+            Logger.Log.Debug($"Config Region: {configRegion}");
+            foreach (var screen in Screen.AllScreens)
+            {
+                Logger.Log.Debug($"Capturing screen {idx}: {screen.DeviceName}");
+                Logger.Log.Debug($"Bounds: {screen.Bounds.Width}x{screen.Bounds.Height} at {screen.Bounds.Location}");
+
+                // Use 'using' to ensure resources are properly disposed
+                using (Bitmap bitmap = new Bitmap(screen.Bounds.Width, screen.Bounds.Height))
+                {
+                    // Create a Graphics object from the bitmap
+                    using (Graphics g = Graphics.FromImage(bitmap))
+                    {
+                        // Copy the screen contents to the bitmap
+                        g.CopyFromScreen(screen.Bounds.Location, System.Drawing.Point.Empty, screen.Bounds.Size);
+                    }
+
+                    // Now save the bitmap, which contains the screenshot
+                    bitmap.Save($"{idx}.png", System.Drawing.Imaging.ImageFormat.Png);
+                    if (bitmap == null)
+                    {
+                        continue;
+                    }
+                    var res = engine.DetectStructure(bitmap);
+                    foreach (var i in res.Cells)
+                    {
+                        if (i.TextBlocks.Count > 0)
+                        {
+                            Logger.Log.Debug(i.TextBlocks);
+                            List<OCRPoint> point = i.TextBlocks[0].BoxPoints;
+                            Logger.Log.Debug($"Region:\"{point[0].X - 400},{point[0].Y - 20},{point[1].X - point[0].X + 800},{point[2].Y - point[0].Y + 40}\"");
+                        }
+                    }
+                }
+                idx++;
+            }
+            System.Windows.MessageBox.Show("Finished");
         }
     }
 }
