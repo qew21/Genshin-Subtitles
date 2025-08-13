@@ -29,6 +29,7 @@ using System.Drawing;
 using System.Runtime.Remoting.Contexts;
 using System.Threading;
 using System.Windows.Markup;
+using System.Collections;
 
 namespace GI_Subtitles
 {
@@ -51,7 +52,12 @@ namespace GI_Subtitles
                 { "English", "EN"},
                 { "日本語", "JP"}
             };
-
+        readonly Dictionary<string, string> GameDict = new Dictionary<string, string>
+        {
+            ["原神"] = "Genshin",
+            ["星穹铁道"] = "StarRail",
+            ["绝区零"] = "Zenless",
+        };
         readonly Stopwatch sw = new Stopwatch();
         readonly string outpath = Path.Combine(Environment.CurrentDirectory, "out");
         readonly bool mtuliline = Config.Get<bool>("Multiline", false);
@@ -67,9 +73,15 @@ namespace GI_Subtitles
             GameSelector.SelectionChanged += OnGameSelectorChanged;
             InputSelector.SelectionChanged += OnInputSelectorChanged;
             OutputSelector.SelectionChanged += OnOutputSelectorChanged;
+            Dictionary<string, string> GameNames = GameDict.ToDictionary(x => x.Value, x => x.Key);
             Dictionary<string, string> InputNames = InputLanguages.ToDictionary(x => x.Value, x => x.Key);
             Dictionary<string, string> OutputNames = OutputLanguages.ToDictionary(x => x.Value, x => x.Key);
-            var item = InputSelector.Items.Cast<ComboBoxItem>().FirstOrDefault(i => i.Content.ToString() == InputNames[InputLanguage]);
+            var item = GameSelector.Items.Cast<ComboBoxItem>().FirstOrDefault(i => i.Content.ToString() == GameNames[Game]);
+            if (item != null)
+            {
+                GameSelector.SelectedItem = item;
+            }
+            item = InputSelector.Items.Cast<ComboBoxItem>().FirstOrDefault(i => i.Content.ToString() == InputNames[InputLanguage]);
             if (item != null)
             {
                 InputSelector.SelectedItem = item;
@@ -117,6 +129,10 @@ namespace GI_Subtitles
             string url = "https://git.mero.moe/dimbreath/ZenlessData/raw/branch/master/TextMap/TextMapTemplateTb.json";
             if (language != "CHS")
             {
+                if (language == "JP")
+                {
+                    language = "JA";
+                }
                 url = $"https://git.mero.moe/dimbreath/ZenlessData/raw/branch/master/TextMap/TextMap_{language}TemplateTb.json";
             }
             return url;
@@ -124,13 +140,6 @@ namespace GI_Subtitles
 
         private async void OnGameSelectorChanged(object sender, SelectionChangedEventArgs e)
         {
-            Dictionary<string, string> GameDict = new Dictionary<string, string>
-            {
-                ["原神"] = "Genshin",
-                ["星穹铁道"] = "StarRail",
-                ["绝区零"] = "Zenless",
-            };
-
             if (!(sender is System.Windows.Controls.ComboBox comboBox))
             {
                 return;
@@ -313,9 +322,14 @@ namespace GI_Subtitles
                     JArray jsonArray = JArray.Parse(responseText);
                     if (jsonArray.Count > 0)
                     {
-                        JObject firstElement = (JObject)jsonArray[0];
-                        string committedDate = firstElement["commit"]?["committed_date"]?.ToString();
-                        RepoModifiedDate.Text = !string.IsNullOrEmpty(committedDate) ? committedDate : "无法获取 committed_date";
+                        List<string> dateList = new List<string>();
+                        foreach (var date in jsonArray)
+                        {
+                            dateList.Add(date["commit"]?["committed_date"]?.ToString());
+                        }
+                        dateList.Sort();
+                        dateList.Reverse();
+                        RepoModifiedDate.Text = dateList.Count > 0 ? dateList[0] : "无法获取 committed_date";
                     }
                     else
                     {
@@ -338,12 +352,7 @@ namespace GI_Subtitles
                 response.EnsureSuccessStatusCode();
 
                 string responseText = await response.Content.ReadAsStringAsync();
-                if (game == "StarRail")
-                {
-                    dynamic json = JsonConvert.DeserializeObject(responseText);
-                    return json.pushed_at.ToString();
-                }
-                else if (Game == "Zenless")
+                if (Game == "Zenless")
                 {
                     string pattern = @"datetime=""([^""]*)""";
                     Match match = Regex.Match(responseText, pattern);
@@ -373,8 +382,14 @@ namespace GI_Subtitles
                     JArray jsonArray = JArray.Parse(responseText);
                     if (jsonArray.Count > 0)
                     {
-                        JObject firstElement = (JObject)jsonArray[0];
-                        return firstElement["commit"]?["committed_date"]?.ToString();
+                        List<string> dateList = new List<string>();
+                        foreach (var date in jsonArray)
+                        {
+                            dateList.Add(date["commit"]?["committed_date"]?.ToString());
+                        }
+                        dateList.Sort();
+                        dateList.Reverse();
+                        return dateList[0];
                     }
                 }
             }
