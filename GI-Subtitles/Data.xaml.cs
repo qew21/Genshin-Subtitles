@@ -30,6 +30,7 @@ using System.Runtime.Remoting.Contexts;
 using System.Threading;
 using System.Windows.Markup;
 using System.Collections;
+using System.Globalization;
 
 namespace GI_Subtitles
 {
@@ -69,6 +70,7 @@ namespace GI_Subtitles
         {
             InitializeComponent();
             Scale = scale;
+            ApplyLanguage("zh-CN");
             this.Title += $"({version})";
             GameSelector.SelectionChanged += OnGameSelectorChanged;
             InputSelector.SelectionChanged += OnInputSelectorChanged;
@@ -97,10 +99,70 @@ namespace GI_Subtitles
             client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3");
             if (contentDict.Count > 100)
             {
-                Status.Content = $"加载了 {contentDict.Count} 对数据";
+                Status.Content = $"Loaded {contentDict.Count} key-values";
             }
         }
 
+        private void UILangSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (UILangSelector.SelectedItem is ComboBoxItem item && item.Tag is string tag)
+            {
+                ApplyLanguage(tag);
+            }
+        }
+
+        private void ApplyLanguage(string cultureTag)
+        {
+            // 可选：设置线程文化（如果你在其他地方需要）
+            try
+            {
+                var culture = new CultureInfo(cultureTag);
+                CultureInfo.DefaultThreadCurrentCulture = culture;
+                CultureInfo.DefaultThreadCurrentUICulture = culture;
+            }
+            catch { /* 忽略非法 culture */ }
+
+            // 先移除旧的语言资源
+            var oldLangs = System.Windows.Application.Current.Resources.MergedDictionaries
+                .Where(d => d.Source != null && d.Source.OriginalString.Contains("Resources/Strings"))
+                .ToList();
+            foreach (var d in oldLangs)
+                System.Windows.Application.Current.Resources.MergedDictionaries.Remove(d);
+
+            // 合并新的语言资源
+            var rd = new ResourceDictionary();
+            switch (cultureTag)
+            {
+                case "en-US":
+                    rd.Source = new Uri("Resources/Strings.en-US.xaml", UriKind.Relative);
+                    break;
+                case "ja-JP":
+                    rd.Source = new Uri("Resources/Strings.ja-JP.xaml", UriKind.Relative);
+                    break;
+                default:
+                    rd.Source = new Uri("Resources/Strings.zh-CN.xaml", UriKind.Relative);
+                    break;
+            }
+            System.Windows.Application.Current.Resources.MergedDictionaries.Add(rd);
+
+            // 强制刷新窗口上的绑定
+            this.InvalidateVisual();
+        }
+
+        /// <summary>
+        /// 统一的帮助按钮点击处理：根据 Tag 查资源并弹窗
+        /// </summary>
+        private void HelpButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is System.Windows.Controls.Button btn && btn.Tag is string key)
+            {
+                var titleObj = TryFindResource("App_Title");
+                var msgObj = TryFindResource(key);
+                string title = titleObj?.ToString() ?? "Help";
+                string message = msgObj?.ToString() ?? key;
+                System.Windows.MessageBox.Show(this, message, title, MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
         public async Task Load()
         {
             await CheckDataAsync();
@@ -108,19 +170,19 @@ namespace GI_Subtitles
 
         public void RefreshUrl()
         {
-            DownloadURL1.Text = $"https://gitlab.com/Dimbreath/AnimeGameData/-/raw/master/TextMap/TextMap{InputLanguage}.json?inline=false";
-            DownloadURL2.Text = $"https://gitlab.com/Dimbreath/AnimeGameData/-/raw/master/TextMap/TextMap{OutputLanguage}.json?inline=false";
+            InputLangDownloadUrl.Text = $"https://gitlab.com/Dimbreath/AnimeGameData/-/raw/master/TextMap/TextMap{InputLanguage}.json?inline=false";
+            OutputLangDownloadUrl.Text = $"https://gitlab.com/Dimbreath/AnimeGameData/-/raw/master/TextMap/TextMap{OutputLanguage}.json?inline=false";
             if (Game == "StarRail")
             {
                 repoUrl = "https://gitlab.com/Dimbreath/turnbasedgamedata/-/refs/main/logs_tree/?format=json&offset=0&ref_type=HEADS";
-                DownloadURL1.Text = $"https://gitlab.com/Dimbreath/turnbasedgamedata/-/raw/main/TextMap/TextMap{InputLanguage}.json?inline=false";
-                DownloadURL2.Text = $"https://gitlab.com/Dimbreath/turnbasedgamedata/-/raw/main/TextMap/TextMap{OutputLanguage}.json?inline=false";
+                InputLangDownloadUrl.Text = $"https://gitlab.com/Dimbreath/turnbasedgamedata/-/raw/main/TextMap/TextMap{InputLanguage}.json?inline=false";
+                OutputLangDownloadUrl.Text = $"https://gitlab.com/Dimbreath/turnbasedgamedata/-/raw/main/TextMap/TextMap{OutputLanguage}.json?inline=false";
             }
             else if (Game == "Zenless")
             {
                 repoUrl = "https://git.mero.moe/dimbreath/ZenlessData";
-                DownloadURL1.Text = ZenlessUrl(InputLanguage);
-                DownloadURL2.Text = ZenlessUrl(OutputLanguage);
+                InputLangDownloadUrl.Text = ZenlessUrl(InputLanguage);
+                OutputLangDownloadUrl.Text = ZenlessUrl(OutputLanguage);
             }
         }
 
@@ -211,7 +273,7 @@ namespace GI_Subtitles
         {
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
-                Status.Content = "数据加载中......(首次加载可能需要几十秒进行转换)";
+                Status.Content = "Data loading......";
                 Logger.Log.Debug(Status.Content);
                 contentDict.Clear();
             });
@@ -232,7 +294,7 @@ namespace GI_Subtitles
             }
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
-                Status.Content = $"加载了 {contentDict.Count} 对数据，{InputLanguage} -> {OutputLanguage}";
+                Status.Content = $"Loaded {contentDict.Count} key-values，{InputLanguage} -> {OutputLanguage}";
                 Logger.Log.Debug(Status.Content);
             });
             DisplayLocalFileDates();
@@ -246,21 +308,21 @@ namespace GI_Subtitles
             if (File.Exists(inputFilePath))
             {
                 DateTime modDate1 = File.GetLastWriteTime(inputFilePath);
-                inputFilePathDate.Text = $"{inputFilePath}修改日期 {modDate1}";
+                inputFilePathDate.Text = $"{inputFilePath} file date {modDate1}";
             }
             else
             {
-                inputFilePathDate.Text = $"{inputFilePath}不存在";
+                inputFilePathDate.Text = $"{inputFilePath} not found";
             }
 
             if (File.Exists(outputFilePath))
             {
                 DateTime modDate2 = File.GetLastWriteTime(outputFilePath);
-                outputFilePathDate.Text = $"{outputFilePath}修改日期 {modDate2}";
+                outputFilePathDate.Text = $"{outputFilePath} file date {modDate2}";
             }
             else
             {
-                outputFilePathDate.Text = $"{outputFilePath}不存在";
+                outputFilePathDate.Text = $"{outputFilePath} not found";
             }
         }
 
@@ -287,7 +349,7 @@ namespace GI_Subtitles
         {
             try
             {
-                Logger.Log.Info($"加载开始");
+                Logger.Log.Info($"Load start.");
                 HttpResponseMessage response = await client.GetAsync(repoUrl);
                 response.EnsureSuccessStatusCode();
 
@@ -329,18 +391,18 @@ namespace GI_Subtitles
                         }
                         dateList.Sort();
                         dateList.Reverse();
-                        RepoModifiedDate.Text = dateList.Count > 0 ? dateList[0] : "无法获取 committed_date";
+                        RepoModifiedDate.Text = dateList.Count > 0 ? dateList[0] : "Unable to get committed_date";
                     }
                     else
                     {
-                        RepoModifiedDate.Text = "响应列表为空";
+                        RepoModifiedDate.Text = "No response";
                     }
                 }
             }
             catch (Exception ex)
             {
                 Logger.Log.Error(ex);
-                RepoModifiedDate.Text = "错误: " + ex.Message;
+                RepoModifiedDate.Text = "Error: " + ex.Message;
             }
         }
 
@@ -409,13 +471,13 @@ namespace GI_Subtitles
         private async void DownloadButton1_Click(object sender, RoutedEventArgs e)
         {
             string inputFilePath = $"{Game}\\TextMap{InputLanguage}.json";
-            await DownloadFileAsync(DownloadURL1.Text, inputFilePath);
+            await DownloadFileAsync(InputLangDownloadUrl.Text, inputFilePath);
         }
 
         private async void DownloadButton2_Click(object sender, RoutedEventArgs e)
         {
             string outputFilePath = $"{Game}\\TextMap{OutputLanguage}.json";
-            await DownloadFileAsync(DownloadURL2.Text, outputFilePath);
+            await DownloadFileAsync(OutputLangDownloadUrl.Text, outputFilePath);
             await CheckDataAsync(true);
         }
 
@@ -423,7 +485,7 @@ namespace GI_Subtitles
         {
             if (!Uri.TryCreate(url, UriKind.Absolute, out Uri uri))
             {
-                System.Windows.MessageBox.Show("无效的下载 URL");
+                System.Windows.MessageBox.Show($"Invalid URL: {url}");
                 return;
             }
             string baseDir = AppDomain.CurrentDomain.BaseDirectory;
@@ -510,7 +572,7 @@ namespace GI_Subtitles
                     attempt++;
                     if (attempt >= MaxRetries)
                     {
-                        System.Windows.MessageBox.Show($"下载错误: {ex.Message}");
+                        System.Windows.MessageBox.Show($"Error: {ex.Message}");
                     }
                     else
                     {

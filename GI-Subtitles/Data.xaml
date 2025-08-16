@@ -1,8 +1,63 @@
 ﻿<Window x:Class="GI_Subtitles.Data"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="语言包管理" Height="450" Width="800" Icon="Resources/mask.ico" Topmost="True">
-    <Grid Margin="10">
+        Title="{DynamicResource App_Title}"
+        Height="500" Width="900"
+        Icon="Resources/mask.ico" Topmost="True">
+    <Window.Resources>
+        <!-- 统一按钮样式：更大的最小宽度与内边距，适配英文 -->
+        <Style TargetType="Button" x:Key="PrimaryButton">
+            <Setter Property="MinWidth" Value="100"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Margin" Value="0,0,24,0"/>
+        </Style>
+        <!-- 小问号帮助按钮样式 -->
+        <Style TargetType="Button" x:Key="HelpButton">
+            <Setter Property="MinWidth" Value="16"/>
+            <Setter Property="Height" Value="16"/>
+            <Setter Property="Margin" Value="0,0"/>
+            <Setter Property="Content" Value="?"/>
+            <Setter Property="ToolTip" Value="{DynamicResource Help_ClickToView}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border
+                    Padding="0"
+                    BorderThickness="0"
+                    Background="Transparent">
+                            <ContentPresenter
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        RecognizesAccessKey="True"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="Blue"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Foreground" Value="DarkBlue"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <!-- 链接式 TextBox 样式 -->
+        <Style TargetType="TextBox" x:Key="LinkTextBox">
+            <Setter Property="IsReadOnly" Value="True"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Foreground" Value="Blue"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="TextDecorations" Value="Underline"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <!-- 头部 -->
@@ -13,25 +68,39 @@
         </Grid.RowDefinitions>
 
         <!-- 头部区域 -->
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Grid.Row="0" Margin="0,0,0,10">
-            <TextBlock Text="选择游戏：" VerticalAlignment="Center" Margin="0,0,10,0"/>
-            <ComboBox Name="GameSelector" VerticalAlignment="Center" Margin="0,0,30,0" Width="100">
-                <ComboBoxItem Content="原神" IsSelected="True"/>
-                <ComboBoxItem Content="星穹铁道"/>
-                <ComboBoxItem Content="绝区零"/>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Grid.Row="0" Margin="0,0,0,12">
+            <!-- 界面语言 -->
+            <TextBlock Text="{DynamicResource UI_Language}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <ComboBox Name="UILangSelector" Width="100" VerticalAlignment="Center" Margin="0,0,24,0"
+                      SelectionChanged="UILangSelector_SelectionChanged">
+                <ComboBoxItem Content="简体中文" Tag="zh-CN" IsSelected="True"/>
+                <ComboBoxItem Content="English"   Tag="en-US"/>
+                <ComboBoxItem Content="日本語"     Tag="ja-JP"/>
             </ComboBox>
-            <TextBlock Text="识别语言：" VerticalAlignment="Center" Margin="0,0,10,0"/>
-            <ComboBox Name="InputSelector" VerticalAlignment="Center" Margin="0,0,30,0" Width="100">
-                <ComboBoxItem Content="简体中文" IsSelected="True"/>
+
+            <!-- 游戏选择 -->
+            <TextBlock Text="{DynamicResource Select_Game}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <ComboBox Name="GameSelector" VerticalAlignment="Center" Margin="0,0,24,0" Width="120">
+                <ComboBoxItem Content="{DynamicResource Game_Genshin}" IsSelected="True"/>
+                <ComboBoxItem Content="{DynamicResource Game_StarRail}"/>
+                <ComboBoxItem Content="{DynamicResource Game_zzz}"/>
+            </ComboBox>
+
+            <!-- 识别语言 -->
+            <TextBlock Text="{DynamicResource Recognize_Lang}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <ComboBox Name="InputSelector" VerticalAlignment="Center" Margin="0,0,24,0" Width="100">
+                <ComboBoxItem Content="中文" IsSelected="True"/>
                 <ComboBoxItem Content="English"/>
                 <ComboBoxItem Content="日本語"/>
             </ComboBox>
-            <TextBlock Text="输出语言：" VerticalAlignment="Center" Margin="0,0,10,0"/>
+
+            <!-- 输出语言 -->
+            <TextBlock Text="{DynamicResource Output_Lang}" VerticalAlignment="Center" Margin="0,0,8,0"/>
             <ComboBox Name="OutputSelector" VerticalAlignment="Center" Width="100">
-                <ComboBoxItem Content="简体中文"/>
+                <ComboBoxItem Content="{DynamicResource Lang_ZH_Simplified}"/>
                 <ComboBoxItem Content="English" IsSelected="True"/>
                 <ComboBoxItem Content="日本語"/>
-                <ComboBoxItem Content="繁體中文"/>
+                <ComboBoxItem Content="{DynamicResource Lang_ZH_Traditional}"/>
                 <ComboBoxItem Content="Deutsch"/>
                 <ComboBoxItem Content="Español"/>
                 <ComboBoxItem Content="Français"/>
@@ -41,7 +110,6 @@
                 <ComboBoxItem Content="Русский"/>
                 <ComboBoxItem Content="ไทย"/>
                 <ComboBoxItem Content="Tiếng Việt"/>
-                <!-- 其他语言 -->
             </ComboBox>
         </StackPanel>
 
@@ -49,64 +117,87 @@
         <Grid Grid.Row="1">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
-                <RowDefinition Height="10"/>
+                <RowDefinition Height="12"/>
                 <RowDefinition Height="Auto"/>
-                <RowDefinition Height="10"/>
+                <RowDefinition Height="12"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
             <!-- 本地文件信息 -->
-            <GroupBox Header="本地文件信息" Grid.Row="0">
+            <GroupBox Header="{DynamicResource Local_File_Info}" Grid.Row="0">
                 <StackPanel>
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="识别语言：" VerticalAlignment="Center"/>
-                        <TextBlock Name="inputFilePathDate" Margin="5,0,0,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="{DynamicResource Recognize_Lang}" VerticalAlignment="Center"/>
+                        <TextBlock Name="inputFilePathDate" Margin="6,0,0,0" VerticalAlignment="Center"/>
                     </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
-                        <TextBlock Text="输出语言：" VerticalAlignment="Center"/>
-                        <TextBlock Name="outputFilePathDate" Margin="5,0,0,0" VerticalAlignment="Center"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                        <TextBlock Text="{DynamicResource Output_Lang}" VerticalAlignment="Center"/>
+                        <TextBlock Name="outputFilePathDate" Margin="6,0,0,0" VerticalAlignment="Center"/>
                     </StackPanel>
                 </StackPanel>
             </GroupBox>
 
             <!-- 仓库信息 -->
-            <GroupBox Header="仓库信息" Grid.Row="2" Margin="0,10,0,0">
+            <GroupBox Header="{DynamicResource Repo_Info}" Grid.Row="2" Margin="0,0,0,0">
                 <StackPanel>
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="仓库最后修改：" VerticalAlignment="Center"/>
-                        <TextBlock Name="RepoModifiedDate" Margin="5,0,0,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="{DynamicResource Repo_Last_Modified}" VerticalAlignment="Center"/>
+                        <TextBlock Name="RepoModifiedDate" Margin="6,0,0,0" VerticalAlignment="Center"/>
                     </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
-                        <TextBlock Text="下载地址1：" VerticalAlignment="Center"/>
-                        <TextBox x:Name="DownloadURL1" TextWrapping="Wrap" Text="" IsReadOnly="True" Background="Transparent" BorderThickness="0" Padding="0" Foreground="Blue" TextDecorations="Underline" Cursor="Hand"/>
+
+                    <!-- 下载：识别语言 -->
+                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                        <TextBlock Text="{DynamicResource Download_Input_Lang}" VerticalAlignment="Center"/>
+                        <TextBox x:Name="InputLangDownloadUrl"
+                                 Style="{StaticResource LinkTextBox}"
+                                 Text=""/>
                     </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
-                        <TextBlock Text="下载地址2：" VerticalAlignment="Center"/>
-                        <TextBox x:Name="DownloadURL2" TextWrapping="Wrap" Text="" IsReadOnly="True" Background="Transparent" BorderThickness="0" Padding="0" Foreground="Blue" TextDecorations="Underline" Cursor="Hand"/>
+
+                    <!-- 下载：转换语言 -->
+                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                        <TextBlock Text="{DynamicResource Download_Output_Lang}" VerticalAlignment="Center"/>
+                        <TextBox x:Name="OutputLangDownloadUrl"
+                                 Style="{StaticResource LinkTextBox}"
+                                 Text=""/>
                     </StackPanel>
                 </StackPanel>
             </GroupBox>
 
             <!-- 进度条和下载速度 -->
-            <StackPanel Grid.Row="4" Margin="0,10,0,0">
+            <StackPanel Grid.Row="4" Margin="0,6,0,0">
                 <ProgressBar Name="DownloadProgressBar" Height="20" Minimum="0" Maximum="100"/>
-                <TextBlock Name="DownloadSpeedText" Margin="0,5,0,0"/>
+                <TextBlock Name="DownloadSpeedText" Margin="0,6,0,0"/>
             </StackPanel>
 
-            <Label Grid.Row="5" Name="Status" HorizontalAlignment="Center">数据加载中......</Label>
-            <Image Grid.Row="6" Name="Capture" HorizontalAlignment="Center"></Image>
+            <Label Grid.Row="5" Name="Status" HorizontalAlignment="Center"
+                   Content="{DynamicResource Status_Loading}"/>
+            <Image Grid.Row="6" Name="Capture" HorizontalAlignment="Center"/>
         </Grid>
 
         <!-- 底部按钮 -->
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Grid.Row="2" Margin="0,10,0,0">
-            <Button x:Name="SyncButton" Content="同步" Width="80" Height="30" Margin="0,0,30,0" Click="SyncButton_Click"/>
-            <Button x:Name="DownloadButton1" Content="下载1" Width="80" Margin="0,0,30,0" Height="30" Click="DownloadButton1_Click"/>
-            <Button x:Name="DownloadButton2" Content="下载2" Width="80" Margin="0,0,30,0" Height="30" Click="DownloadButton2_Click"/>
-            <Button x:Name="RestartButton" Content="重启" Width="80" Margin="0,0,30,0" Height="30" Click="RestartButton_Click"/>
-            <Button x:Name="OCRButton" Content="语言" Width="80" Margin="0,0,30,0" Height="30" Click="TestButton_Click"/>
-            <Button x:Name="RegionButton" Content="区域" Width="80" Height="30" Click="RegionButton_Click"/>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Grid.Row="2" Margin="0,12,0,0">
+            
+            <Button x:Name="SyncButton" Margin="0,0,0,0" Style="{StaticResource PrimaryButton}"
+                    Content="{DynamicResource Btn_Sync}" Click="SyncButton_Click"/>
+            <Button Style="{StaticResource HelpButton}" Margin="0,0,12,0" Tag="Help_Sync" Click="HelpButton_Click"/>
+            <Button x:Name="DownloadButton1" Margin="0,0,0,0" Style="{StaticResource PrimaryButton}"
+                    Content="{DynamicResource Btn_Download_Input}"  Click="DownloadButton1_Click"/>
+            <Button Style="{StaticResource HelpButton}" Margin="0,0,12,0" Tag="Help_Download_Input" Click="HelpButton_Click"/>
+            <Button x:Name="DownloadButton2" Margin="0,0,0,0" Style="{StaticResource PrimaryButton}"
+                    Content="{DynamicResource Btn_Download_Output}" Click="DownloadButton2_Click"/>
+            <Button Style="{StaticResource HelpButton}" Margin="0,0,12,0" Tag="Help_Download_Output" Click="HelpButton_Click"/>
+            <Button x:Name="RestartButton" Margin="0,0,0,0" Style="{StaticResource PrimaryButton}"
+                    Content="{DynamicResource Btn_Restart}" Click="RestartButton_Click"/>
+            <Button Style="{StaticResource HelpButton}" Margin="0,0,12,0" Tag="Help_Restart" Click="HelpButton_Click"/>
+            <Button x:Name="OCRButton" Margin="0,0,0,0" Style="{StaticResource PrimaryButton}"
+                    Content="{DynamicResource Btn_Language}" Click="TestButton_Click"/>
+            <Button Style="{StaticResource HelpButton}" Margin="0,0,12,0" Tag="Help_Language" Click="HelpButton_Click"/>
+            <Button x:Name="RegionButton" Margin="0,0,0,0" Style="{StaticResource PrimaryButton}"
+                    Content="{DynamicResource Btn_Region}" Click="RegionButton_Click" />
+            <Button Style="{StaticResource HelpButton}" Margin="0,0,12,0" Tag="Help_Region" Click="HelpButton_Click"/>
+            
         </StackPanel>
     </Grid>
 </Window>

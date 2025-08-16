@@ -1,0 +1,37 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <sys:String x:Key="App_Title" xmlns:sys="clr-namespace:System;assembly=mscorlib">Language Pack Manager</sys:String>
+    <sys:String x:Key="UI_Language" xmlns:sys="clr-namespace:System;assembly=mscorlib">UI Language:</sys:String>
+    <sys:String x:Key="Select_Game" xmlns:sys="clr-namespace:System;assembly=mscorlib">Game:</sys:String>
+    <sys:String x:Key="Recognize_Lang" xmlns:sys="clr-namespace:System;assembly=mscorlib">Input Language:</sys:String>
+    <sys:String x:Key="Output_Lang" xmlns:sys="clr-namespace:System;assembly=mscorlib">Output Language:</sys:String>
+
+    <sys:String x:Key="Game_Genshin" xmlns:sys="clr-namespace:System;assembly=mscorlib">Genshin Impact</sys:String>
+    <sys:String x:Key="Game_StarRail" xmlns:sys="clr-namespace:System;assembly=mscorlib">Honkai: Star Rail</sys:String>
+    <sys:String x:Key="Game_zzz" xmlns:sys="clr-namespace:System;assembly=mscorlib">Zenless Zone Zero</sys:String>
+
+    <sys:String x:Key="Lang_ZH_Simplified" xmlns:sys="clr-namespace:System;assembly=mscorlib">Chinese (Simplified)</sys:String>
+    <sys:String x:Key="Lang_ZH_Traditional" xmlns:sys="clr-namespace:System;assembly=mscorlib">Chinese (Traditional)</sys:String>
+
+    <sys:String x:Key="Local_File_Info" xmlns:sys="clr-namespace:System;assembly=mscorlib">Local Files</sys:String>
+    <sys:String x:Key="Repo_Info" xmlns:sys="clr-namespace:System;assembly=mscorlib">Repository</sys:String>
+    <sys:String x:Key="Repo_Last_Modified" xmlns:sys="clr-namespace:System;assembly=mscorlib">Last Modified:</sys:String>
+    <sys:String x:Key="Download_Input_Lang" xmlns:sys="clr-namespace:System;assembly=mscorlib">Download Input Language:</sys:String>
+    <sys:String x:Key="Download_Output_Lang" xmlns:sys="clr-namespace:System;assembly=mscorlib">Download Output Language:</sys:String>
+
+    <sys:String x:Key="Status_Loading" xmlns:sys="clr-namespace:System;assembly=mscorlib">Loading data...</sys:String>
+
+    <sys:String x:Key="Btn_Sync" xmlns:sys="clr-namespace:System;assembly=mscorlib">Sync</sys:String>
+    <sys:String x:Key="Btn_Download_Input" xmlns:sys="clr-namespace:System;assembly=mscorlib">Download Input</sys:String>
+    <sys:String x:Key="Btn_Download_Output" xmlns:sys="clr-namespace:System;assembly=mscorlib">Download Output</sys:String>
+    <sys:String x:Key="Btn_Restart" xmlns:sys="clr-namespace:System;assembly=mscorlib">Restart</sys:String>
+    <sys:String x:Key="Btn_Language" xmlns:sys="clr-namespace:System;assembly=mscorlib">OCR</sys:String>
+    <sys:String x:Key="Btn_Region" xmlns:sys="clr-namespace:System;assembly=mscorlib">Region</sys:String>
+
+    <sys:String x:Key="Help_Sync" xmlns:sys="clr-namespace:System;assembly=mscorlib">Synchronize with the remote repository to obtain the latest language packs and metadata.</sys:String>
+    <sys:String x:Key="Help_Download_Input" xmlns:sys="clr-namespace:System;assembly=mscorlib">Download the language pack or vocabulary resources for the current 'Recognition Language'.</sys:String>
+    <sys:String x:Key="Help_Download_Output" xmlns:sys="clr-namespace:System;assembly=mscorlib">Download the translation/replacement resources for the current 'Output Language'.</sys:String>
+    <sys:String x:Key="Help_Restart" xmlns:sys="clr-namespace:System;assembly=mscorlib">Restart the application to apply the latest settings or language resources.</sys:String>
+    <sys:String x:Key="Help_Language" xmlns:sys="clr-namespace:System;assembly=mscorlib">Test the OCR recognition function using existing screenshots.</sys:String>
+    <sys:String x:Key="Help_Region" xmlns:sys="clr-namespace:System;assembly=mscorlib">Test the recognition results of all current screens and save them to the log.</sys:String>
+</ResourceDictionary>

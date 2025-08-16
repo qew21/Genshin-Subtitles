@@ -1,0 +1,40 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <sys:String x:Key="App_Title" xmlns:sys="clr-namespace:System;assembly=mscorlib">语言包管理</sys:String>
+    <sys:String x:Key="Help_ClickToView" xmlns:sys="clr-namespace:System;assembly=mscorlib">点击查看说明</sys:String>
+    <sys:String x:Key="UI_Language" xmlns:sys="clr-namespace:System;assembly=mscorlib">界面语言：</sys:String>
+    <sys:String x:Key="Select_Game" xmlns:sys="clr-namespace:System;assembly=mscorlib">选择游戏：</sys:String>
+    <sys:String x:Key="Recognize_Lang" xmlns:sys="clr-namespace:System;assembly=mscorlib">识别语言：</sys:String>
+    <sys:String x:Key="Output_Lang" xmlns:sys="clr-namespace:System;assembly=mscorlib">输出语言：</sys:String>
+
+    <sys:String x:Key="Game_Genshin" xmlns:sys="clr-namespace:System;assembly=mscorlib">原神</sys:String>
+    <sys:String x:Key="Game_StarRail" xmlns:sys="clr-namespace:System;assembly=mscorlib">星穹铁道</sys:String>
+    <sys:String x:Key="Game_zzz" xmlns:sys="clr-namespace:System;assembly=mscorlib">绝区零</sys:String>
+
+    <sys:String x:Key="Lang_ZH_Simplified" xmlns:sys="clr-namespace:System;assembly=mscorlib">简体中文</sys:String>
+    <sys:String x:Key="Lang_ZH_Traditional" xmlns:sys="clr-namespace:System;assembly=mscorlib">繁體中文</sys:String>
+
+    <sys:String x:Key="Local_File_Info" xmlns:sys="clr-namespace:System;assembly=mscorlib">本地文件信息</sys:String>
+    <sys:String x:Key="Repo_Info" xmlns:sys="clr-namespace:System;assembly=mscorlib">仓库信息</sys:String>
+    <sys:String x:Key="Repo_Last_Modified" xmlns:sys="clr-namespace:System;assembly=mscorlib">仓库最后修改：</sys:String>
+    <sys:String x:Key="Download_Input_Lang" xmlns:sys="clr-namespace:System;assembly=mscorlib">下载识别语言：</sys:String>
+    <sys:String x:Key="Download_Output_Lang" xmlns:sys="clr-namespace:System;assembly=mscorlib">下载转换语言：</sys:String>
+
+    <sys:String x:Key="Status_Loading" xmlns:sys="clr-namespace:System;assembly=mscorlib">数据加载中......</sys:String>
+
+    <sys:String x:Key="Btn_Sync" xmlns:sys="clr-namespace:System;assembly=mscorlib">同步</sys:String>
+    <sys:String x:Key="Btn_Download_Input" xmlns:sys="clr-namespace:System;assembly=mscorlib">下载识别</sys:String>
+    <sys:String x:Key="Btn_Download_Output" xmlns:sys="clr-namespace:System;assembly=mscorlib">下载转换</sys:String>
+    <sys:String x:Key="Btn_Restart" xmlns:sys="clr-namespace:System;assembly=mscorlib">重启</sys:String>
+    <sys:String x:Key="Btn_Language" xmlns:sys="clr-namespace:System;assembly=mscorlib">OCR</sys:String>
+    <sys:String x:Key="Btn_Region" xmlns:sys="clr-namespace:System;assembly=mscorlib">区域</sys:String>
+
+
+    <!-- 帮助文案 -->
+    <sys:String x:Key="Help_Sync" xmlns:sys="clr-namespace:System;assembly=mscorlib">与远程仓库同步最新语言包与元数据。</sys:String>
+    <sys:String x:Key="Help_Download_Input" xmlns:sys="clr-namespace:System;assembly=mscorlib">下载当前“识别语言”的语言包或词库资源。</sys:String>
+    <sys:String x:Key="Help_Download_Output" xmlns:sys="clr-namespace:System;assembly=mscorlib">下载当前“输出语言”的翻译/替换资源。</sys:String>
+    <sys:String x:Key="Help_Restart" xmlns:sys="clr-namespace:System;assembly=mscorlib">重启应用以应用最新配置或语言资源。</sys:String>
+    <sys:String x:Key="Help_Language" xmlns:sys="clr-namespace:System;assembly=mscorlib">测试 OCR 识别功能，基于已有截图。</sys:String>
+    <sys:String x:Key="Help_Region" xmlns:sys="clr-namespace:System;assembly=mscorlib">测试当前所有屏幕的识别结果，存储到日志。</sys:String>
+</ResourceDictionary>
