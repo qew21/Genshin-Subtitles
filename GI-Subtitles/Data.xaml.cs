@@ -31,6 +31,9 @@ using System.Threading;
 using System.Windows.Markup;
 using System.Collections;
 using System.Globalization;
+using System.Web.UI.WebControls;
+using System.Xml;
+using System.ServiceModel.Syndication;
 
 namespace GI_Subtitles
 {
@@ -58,6 +61,7 @@ namespace GI_Subtitles
             ["原神"] = "Genshin",
             ["星穹铁道"] = "StarRail",
             ["绝区零"] = "Zenless",
+            ["鸣潮"] = "Wuthering",
         };
         readonly Stopwatch sw = new Stopwatch();
         readonly string outpath = Path.Combine(Environment.CurrentDirectory, "out");
@@ -184,6 +188,12 @@ namespace GI_Subtitles
                 InputLangDownloadUrl.Text = ZenlessUrl(InputLanguage);
                 OutputLangDownloadUrl.Text = ZenlessUrl(OutputLanguage);
             }
+            else if (Game == "Wuthering")
+            {
+                repoUrl = "https://github.com/Dimbreath/WutheringData/commits/master.atom";
+                InputLangDownloadUrl.Text = WutheringUrl(InputLanguage);
+                OutputLangDownloadUrl.Text = WutheringUrl(OutputLanguage);
+            }
         }
 
         private string ZenlessUrl(string language)
@@ -196,6 +206,20 @@ namespace GI_Subtitles
                     language = "JA";
                 }
                 url = $"https://git.mero.moe/dimbreath/ZenlessData/raw/branch/master/TextMap/TextMap_{language}TemplateTb.json";
+            }
+            return url;
+        }
+
+        private string WutheringUrl(string language)
+        {
+            string url = "https://raw.githubusercontent.com/Dimbreath/WutheringData/refs/heads/master/TextMap/zh-Hant/MultiText.json";
+            if (language != "CHS")
+            {
+                if (language == "JP")
+                {
+                    language = "JA";
+                }
+                url = $"https://raw.githubusercontent.com/Dimbreath/WutheringData/refs/heads/master/TextMap/{language.ToLower()}/MultiText.json";
             }
             return url;
         }
@@ -352,7 +376,6 @@ namespace GI_Subtitles
                 Logger.Log.Info($"Load start.");
                 HttpResponseMessage response = await client.GetAsync(repoUrl);
                 response.EnsureSuccessStatusCode();
-
                 string responseText = await response.Content.ReadAsStringAsync();
                 if (Game == "Zenless")
                 {
@@ -378,6 +401,14 @@ namespace GI_Subtitles
                         Logger.Log.Error("No datetime attribute found in the input string.");
                     }
 
+                }
+                else if (Game == "Wuthering")
+                {
+                    var reader = XmlReader.Create(new System.IO.StringReader(responseText));
+                    var feed = SyndicationFeed.Load(reader);
+                    var item = feed?.Items?.FirstOrDefault();
+                    var dateTime = item?.LastUpdatedTime ?? item?.PublishDate;
+                    RepoModifiedDate.Text = dateTime.ToString();
                 }
                 else
                 {

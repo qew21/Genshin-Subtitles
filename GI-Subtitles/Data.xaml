@@ -84,6 +84,7 @@
                 <ComboBoxItem Content="{DynamicResource Game_Genshin}" IsSelected="True"/>
                 <ComboBoxItem Content="{DynamicResource Game_StarRail}"/>
                 <ComboBoxItem Content="{DynamicResource Game_zzz}"/>
+                <ComboBoxItem Content="{DynamicResource Game_Wuthering}"/>
             </ComboBox>
 
             <!-- 识别语言 -->
