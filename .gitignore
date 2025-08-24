@@ -10,4 +10,4 @@ Thumbs.db
 .vs
 installer
 .idea
-
+*.msi

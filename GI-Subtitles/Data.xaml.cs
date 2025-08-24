@@ -212,7 +212,7 @@ namespace GI_Subtitles
 
         private string WutheringUrl(string language)
         {
-            string url = "https://raw.githubusercontent.com/Dimbreath/WutheringData/refs/heads/master/TextMap/zh-Hant/MultiText.json";
+            string url = "https://raw.githubusercontent.com/Dimbreath/WutheringData/refs/heads/master/TextMap/zh-Hans/MultiText.json";
             if (language != "CHS")
             {
                 if (language == "JP")
@@ -669,6 +669,10 @@ namespace GI_Subtitles
         {
             LoadEngine();
             string testFile = InputLanguage + ".jpg";
+            if (Game == "Wuthering")
+            {
+                testFile = "Wuthering.png";
+            }
             string report = "";
             try
             {
@@ -688,7 +692,7 @@ namespace GI_Subtitles
                     target = bitmap;
                 }
                 var enhanced = ImageProcessor.EnhanceTextInImage(target);
-                OCRResult ocrResult = engine.DetectText(enhanced);
+                OCRResult ocrResult = engine.DetectText(target);
                 string ocrText = ocrResult.Text;
                 dateTime = DateTime.Now;
                 string res = VoiceContentHelper.FindClosestMatch(ocrText, contentDict, out string key);

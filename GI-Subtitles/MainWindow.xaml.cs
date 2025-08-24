@@ -203,7 +203,12 @@ namespace GI_Subtitles
                     {
                         data.SetImage(target);
                     }
-                    var enhanced = ImageProcessor.EnhanceTextInImage(target);
+                    Bitmap enhanced = target;
+                    if (Game != "Wuthering")
+                    {
+                        enhanced = ImageProcessor.EnhanceTextInImage(target);
+                    }
+
                     string bitStr = Bitmap2String(enhanced);
                     if (BitmapDict.ContainsKey(bitStr))
                     {

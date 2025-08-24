@@ -14,6 +14,7 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <StackPanel Orientation="Horizontal" Grid.Row="1" HorizontalAlignment="Center">
@@ -25,13 +26,16 @@
             <TextBlock Text="使用说明" VerticalAlignment="Center" FontWeight="Bold"/>
         </StackPanel>
         <StackPanel Orientation="Horizontal" Grid.Row="3" HorizontalAlignment="Center">
-            <TextBlock Text="1.可以通过快捷键Ctrl+Shift+S启动和暂停识别；使用快捷键Ctrl+Shift+R可以画框选择识别区域，请选择首行文本所在的区域；使用快捷键Ctrl+Shift+H可以隐藏和关闭字幕" Height="55" TextWrapping="Wrap" Width="367" TextAlignment="Left" />
+            <TextBlock Text="1.使用流程：语言包管理界面下载对应文件，打开游戏选择对话区域的第一行，使用快捷键开始识别和展示" Height="55" TextWrapping="Wrap" Width="367" TextAlignment="Left" />
         </StackPanel>
         <StackPanel Orientation="Horizontal" Grid.Row="4" HorizontalAlignment="Center">
-            <TextBlock Text="2.鼠标在字幕上展示为手形时可以拖动和记录字幕位置" Height="35" TextWrapping="Wrap" Width="367" TextAlignment="Left" />
+            <TextBlock Text="2.可以通过快捷键Ctrl+Shift+S启动和暂停识别；使用快捷键Ctrl+Shift+R可以画框选择识别区域，请选择首行文本所在的区域；使用快捷键Ctrl+Shift+H可以隐藏和关闭字幕" Height="55" TextWrapping="Wrap" Width="367" TextAlignment="Left" />
         </StackPanel>
         <StackPanel Orientation="Horizontal" Grid.Row="5" HorizontalAlignment="Center">
-            <Image Width="281" Height="245" Source="Resources/qrcode.jpg"></Image>
+            <TextBlock Text="3.鼠标在字幕上展示为手形时可以拖动和记录字幕位置" Height="35" TextWrapping="Wrap" Width="367" TextAlignment="Left" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Grid.Row="6" HorizontalAlignment="Center">
+            <Image Width="241" Height="205" Source="Resources/qrcode.jpg"></Image>
         </StackPanel>
     </Grid>
 </Window>
