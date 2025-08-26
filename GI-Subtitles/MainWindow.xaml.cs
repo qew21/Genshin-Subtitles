@@ -602,11 +602,19 @@ namespace GI_Subtitles
 
         async void CheckAndUpdate(string url)
         {
-            HttpClient client = new HttpClient();
-            HttpResponseMessage response = await client.GetAsync(url);
-            response.EnsureSuccessStatusCode();
-            string responseText = await response.Content.ReadAsStringAsync();
-            Dictionary<string, string> remote = JsonConvert.DeserializeObject<Dictionary<string, string>>(responseText);
+            Dictionary<string, string> remote = new Dictionary<string, string>();
+            try
+            {
+                HttpClient client = new HttpClient();
+                HttpResponseMessage response = await client.GetAsync(url);
+                response.EnsureSuccessStatusCode();
+                string responseText = await response.Content.ReadAsStringAsync();
+                remote = JsonConvert.DeserializeObject<Dictionary<string, string>>(responseText);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+            }
 
             if (remote == null || !remote.ContainsKey("version"))
             {
