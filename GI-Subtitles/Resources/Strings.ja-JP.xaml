@@ -36,4 +36,5 @@
     <sys:String x:Key="Help_Restart" xmlns:sys="clr-namespace:System;assembly=mscorlib">最新の設定または言語リソースを適用するためにアプリケーションを再起動します。</sys:String>
     <sys:String x:Key="Help_Language" xmlns:sys="clr-namespace:System;assembly=mscorlib">OCR 認識機能をテストし、既存のスクリーンショットを使用します。</sys:String>
     <sys:String x:Key="Help_Region" xmlns:sys="clr-namespace:System;assembly=mscorlib">現在のすべてのスクリーンの認識結果をテストし、ログに保存します。</sys:String>
+    <sys:String x:Key="Help_Folder" xmlns:sys="clr-namespace:System;assembly=mscorlib">プログラムフォルダを開く</sys:String>
 </ResourceDictionary>

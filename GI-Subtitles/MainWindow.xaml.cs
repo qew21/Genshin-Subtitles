@@ -37,6 +37,11 @@ using System.Net;
 using Microsoft.Win32;
 using System.Diagnostics;
 using System.Web;
+using System.Runtime.InteropServices.ComTypes;
+using Newtonsoft.Json;
+using System.Security.Policy;
+using System.ServiceModel.PeerResolvers;
+using System.Net.Http;
 
 
 [assembly: log4net.Config.XmlConfigurator(Watch = true)]
@@ -91,7 +96,9 @@ namespace GI_Subtitles
         string InputLanguage = Config.Get<string>("Input");
         string OutputLanguage = Config.Get<string>("Output");
         string Game = Config.Get<string>("Game");
+        string Update = Config.Get<string>("Update");
         string version = Assembly.GetExecutingAssembly().GetName().Version.ToString();
+        string dataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GI-Subtitles");
         INotifyIcon notify;
         Data data;
         Dictionary<string, string> VoiceMap = new Dictionary<string, string>();
@@ -110,6 +117,7 @@ namespace GI_Subtitles
             Logger.Log.Debug("Start App");
             InitializeComponent();
             Loaded += MainWindow_Loaded;
+            CheckAndUpdate(Update);
         }
 
 
@@ -160,7 +168,7 @@ namespace GI_Subtitles
                     }
                 }
                 );
-                VoiceMap = VoiceContentHelper.LoadAudioMap(server, Game);
+                VoiceMap = VoiceContentHelper.LoadAudioMap(server, Path.Combine(dataDir, Game));
             }
             if (notify.Region[1] == "0")
             {
@@ -221,7 +229,7 @@ namespace GI_Subtitles
                         if (debug)
                         {
                             Logger.Log.Debug(DateTime.Now.ToString("yyyy-MM-dd_HH_mm_ss_ffffff") + ".png");
-                            target.Save(DateTime.Now.ToString("yyyy-MM-dd_HH_mm_ss_ffffff") + ".png");
+                            target.Save(Path.Combine(dataDir, DateTime.Now.ToString("yyyy-MM-dd_HH_mm_ss_ffffff") + ".png"));
                             Logger.Log.Debug(ocrText);
                         }
                         var maxY = 0;
@@ -590,6 +598,51 @@ namespace GI_Subtitles
                             overlay.Close();
                         };
             timer.Start();
+        }
+
+        async void CheckAndUpdate(string url)
+        {
+            HttpClient client = new HttpClient();
+            HttpResponseMessage response = await client.GetAsync(url);
+            response.EnsureSuccessStatusCode();
+            string responseText = await response.Content.ReadAsStringAsync();
+            Dictionary<string, string> remote = JsonConvert.DeserializeObject<Dictionary<string, string>>(responseText);
+
+            if (remote == null || !remote.ContainsKey("version"))
+            {
+                return;
+            }
+            if (new Version(remote["version"]) > new Version(version))
+            {
+                System.Windows.Forms.DialogResult dr = System.Windows.Forms.MessageBox.Show($"发现新版本 {remote["version"]}，是否更新？\n更新日期：{remote["date"]}\n更新内容：\n{remote["info"]}",
+                                                  "更新提示", System.Windows.Forms.MessageBoxButtons.YesNo);
+                if (dr == System.Windows.Forms.DialogResult.Yes)
+                {
+                    try
+                    {
+                        var msi = Path.GetTempFileName() + ".msi";
+                        new WebClient().DownloadFile(remote["url"], msi);
+
+                        var startInfo = new ProcessStartInfo
+                        {
+                            FileName = "msiexec.exe",
+                            // 使用 /i 安装新版本，/quiet 静默，/norestart 防止自动重启
+                            Arguments = $"/i \"{msi}\" /quiet /norestart",
+                            UseShellExecute = true,
+                            Verb = "runas"  // 请求管理员权限（如果 MSI 需要）
+                        };
+
+                        Process updaterProcess = Process.Start(startInfo);
+                        Logger.Log.Debug($"启动安装: msiexec {startInfo.Arguments}");
+                        System.Windows.Application.Current.Shutdown();
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Log.Error(ex);
+                    }
+                }
+            }
+
         }
 
         public class NativeMethods

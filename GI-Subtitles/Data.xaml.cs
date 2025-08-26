@@ -64,8 +64,9 @@ namespace GI_Subtitles
             ["鸣潮"] = "Wuthering",
         };
         readonly Stopwatch sw = new Stopwatch();
-        readonly string outpath = Path.Combine(Environment.CurrentDirectory, "out");
         readonly bool mtuliline = Config.Get<bool>("Multiline", false);
+        readonly static string dataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GI-Subtitles");
+        readonly string outpath = Path.Combine(dataDir, "out");
         public PaddleOCREngine engine;
         private Bitmap bitmap;
         double Scale = 1;
@@ -104,6 +105,10 @@ namespace GI_Subtitles
             if (contentDict.Count > 100)
             {
                 Status.Content = $"Loaded {contentDict.Count} key-values";
+            }
+            if (!Directory.Exists(Path.Combine(dataDir, Game)))
+            {
+                Directory.CreateDirectory(Path.Combine(dataDir, Game));
             }
         }
 
@@ -153,20 +158,6 @@ namespace GI_Subtitles
             this.InvalidateVisual();
         }
 
-        /// <summary>
-        /// 统一的帮助按钮点击处理：根据 Tag 查资源并弹窗
-        /// </summary>
-        private void HelpButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (sender is System.Windows.Controls.Button btn && btn.Tag is string key)
-            {
-                var titleObj = TryFindResource("App_Title");
-                var msgObj = TryFindResource(key);
-                string title = titleObj?.ToString() ?? "Help";
-                string message = msgObj?.ToString() ?? key;
-                System.Windows.MessageBox.Show(this, message, title, MessageBoxButton.OK, MessageBoxImage.Information);
-            }
-        }
         public async Task Load()
         {
             await CheckDataAsync();
@@ -237,9 +228,9 @@ namespace GI_Subtitles
                 if (Game != newValue)
                 {
                     Game = newValue;
-                    if (!Directory.Exists(Game))
+                    if (!Directory.Exists(Path.Combine(dataDir, Game)))
                     {
-                        Directory.CreateDirectory(Game);
+                        Directory.CreateDirectory(Path.Combine(dataDir, Game));
                     }
                     DisplayLocalFileDates();
                     Config.Set("Game", newValue);
@@ -289,8 +280,8 @@ namespace GI_Subtitles
         }
         public bool FileExists()
         {
-            return File.Exists($"{Game}\\TextMap{InputLanguage}_TextMap{OutputLanguage}.json") || (File.Exists($"{Game}\\TextMap{InputLanguage}.json") &&
-                              File.Exists($"{Game}\\TextMap{OutputLanguage}.json"));
+            return File.Exists($"{Path.Combine(dataDir, Game)}\\TextMap{InputLanguage}_TextMap{OutputLanguage}.json") || (File.Exists($"{Path.Combine(dataDir, Game)}\\TextMap{InputLanguage}.json") &&
+                              File.Exists($"{Path.Combine(dataDir, Game)}\\TextMap{OutputLanguage}.json"));
         }
 
         public async Task CheckDataAsync(bool renew = false)
@@ -305,8 +296,8 @@ namespace GI_Subtitles
 
             if (FileExists())
             {
-                string inputFilePath = $"{Game}\\TextMap{InputLanguage}.json";
-                string outputFilePath = $"{Game}\\TextMap{OutputLanguage}.json";
+                string inputFilePath = $"{Path.Combine(dataDir, Game)}\\TextMap{InputLanguage}.json";
+                string outputFilePath = $"{Path.Combine(dataDir, Game)}\\TextMap{OutputLanguage}.json";
                 var jsonFilePath = Path.Combine(Path.GetDirectoryName(inputFilePath),
                     $"{Path.GetFileNameWithoutExtension(inputFilePath)}_{Path.GetFileNameWithoutExtension(outputFilePath)}.json");
                 if (renew && File.Exists(jsonFilePath))
@@ -327,8 +318,8 @@ namespace GI_Subtitles
         private void DisplayLocalFileDates()
         {
             RefreshUrl();
-            string inputFilePath = $"{Game}\\TextMap{InputLanguage}.json";
-            string outputFilePath = $"{Game}\\TextMap{OutputLanguage}.json";
+            string inputFilePath = $"{Path.Combine(dataDir, Game)}\\TextMap{InputLanguage}.json";
+            string outputFilePath = $"{Path.Combine(dataDir, Game)}\\TextMap{OutputLanguage}.json";
             if (File.Exists(inputFilePath))
             {
                 DateTime modDate1 = File.GetLastWriteTime(inputFilePath);
@@ -352,8 +343,8 @@ namespace GI_Subtitles
 
         public DateTime GetLocalFileDates(string input, string output, string game)
         {
-            string inputFilePath = $"{game}\\TextMap{input}.json";
-            string outputFilePath = $"{game}\\TextMap{output}.json";
+            string inputFilePath = $"{Path.Combine(dataDir, Game)}\\TextMap{input}.json";
+            string outputFilePath = $"{Path.Combine(dataDir, Game)}\\TextMap{output}.json";
             if (File.Exists(inputFilePath))
             {
                 return File.GetLastWriteTime(inputFilePath);
@@ -501,13 +492,13 @@ namespace GI_Subtitles
 
         private async void DownloadButton1_Click(object sender, RoutedEventArgs e)
         {
-            string inputFilePath = $"{Game}\\TextMap{InputLanguage}.json";
+            string inputFilePath = $"{Path.Combine(dataDir, Game)}\\TextMap{InputLanguage}.json";
             await DownloadFileAsync(InputLangDownloadUrl.Text, inputFilePath);
         }
 
         private async void DownloadButton2_Click(object sender, RoutedEventArgs e)
         {
-            string outputFilePath = $"{Game}\\TextMap{OutputLanguage}.json";
+            string outputFilePath = $"{Path.Combine(dataDir, Game)}\\TextMap{OutputLanguage}.json";
             await DownloadFileAsync(OutputLangDownloadUrl.Text, outputFilePath);
             await CheckDataAsync(true);
         }
@@ -519,8 +510,7 @@ namespace GI_Subtitles
                 System.Windows.MessageBox.Show($"Invalid URL: {url}");
                 return;
             }
-            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-            fileName = Path.Combine(baseDir, fileName);
+            fileName = Path.Combine(dataDir, fileName);
             int attempt = 0;
             bool success = false;
             long existingLength = 0;
@@ -768,6 +758,19 @@ namespace GI_Subtitles
                 idx++;
             }
             System.Windows.MessageBox.Show("Finished");
+        }
+
+        private void OpenAppDataFolder_Click(object sender, RoutedEventArgs e)
+        {
+            string dir = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "GI-Subtitles");
+
+            if (!Directory.Exists(dir))
+                Directory.CreateDirectory(dir);
+
+            // 直接打开资源管理器并定位到该目录
+            Process.Start("explorer.exe", dir);
         }
     }
 }

@@ -179,26 +179,26 @@
 
         <!-- 底部按钮 -->
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Grid.Row="2" Margin="0,12,0,0">
-            
-            <Button x:Name="SyncButton" Margin="0,0,0,0" Style="{StaticResource PrimaryButton}"
+
+            <Button x:Name="SyncButton"  Style="{StaticResource PrimaryButton}" ToolTip="{DynamicResource Help_Sync}"
                     Content="{DynamicResource Btn_Sync}" Click="SyncButton_Click"/>
-            <Button Style="{StaticResource HelpButton}" Margin="0,0,12,0" Tag="Help_Sync" Click="HelpButton_Click"/>
-            <Button x:Name="DownloadButton1" Margin="0,0,0,0" Style="{StaticResource PrimaryButton}"
+            <Button x:Name="DownloadButton1"  Style="{StaticResource PrimaryButton}" ToolTip="{DynamicResource Help_Download_Input}"
                     Content="{DynamicResource Btn_Download_Input}"  Click="DownloadButton1_Click"/>
-            <Button Style="{StaticResource HelpButton}" Margin="0,0,12,0" Tag="Help_Download_Input" Click="HelpButton_Click"/>
-            <Button x:Name="DownloadButton2" Margin="0,0,0,0" Style="{StaticResource PrimaryButton}"
-                    Content="{DynamicResource Btn_Download_Output}" Click="DownloadButton2_Click"/>
-            <Button Style="{StaticResource HelpButton}" Margin="0,0,12,0" Tag="Help_Download_Output" Click="HelpButton_Click"/>
-            <Button x:Name="RestartButton" Margin="0,0,0,0" Style="{StaticResource PrimaryButton}"
+            <Button x:Name="DownloadButton2"  Style="{StaticResource PrimaryButton}" ToolTip="{DynamicResource Help_Download_Output}"
+                    Content="{DynamicResource Btn_Download_Output}" Click="DownloadButton2_Click"/> 
+            <Button x:Name="RestartButton"  Style="{StaticResource PrimaryButton}"  ToolTip="{DynamicResource Help_Restart}"
                     Content="{DynamicResource Btn_Restart}" Click="RestartButton_Click"/>
-            <Button Style="{StaticResource HelpButton}" Margin="0,0,12,0" Tag="Help_Restart" Click="HelpButton_Click"/>
-            <Button x:Name="OCRButton" Margin="0,0,0,0" Style="{StaticResource PrimaryButton}"
+            <Button x:Name="OCRButton"  Style="{StaticResource PrimaryButton}"  ToolTip="{DynamicResource Help_Language}"
                     Content="{DynamicResource Btn_Language}" Click="TestButton_Click"/>
-            <Button Style="{StaticResource HelpButton}" Margin="0,0,12,0" Tag="Help_Language" Click="HelpButton_Click"/>
-            <Button x:Name="RegionButton" Margin="0,0,0,0" Style="{StaticResource PrimaryButton}"
+            <Button x:Name="RegionButton"  Style="{StaticResource PrimaryButton}" ToolTip="{DynamicResource Help_Region}"
                     Content="{DynamicResource Btn_Region}" Click="RegionButton_Click" />
-            <Button Style="{StaticResource HelpButton}" Margin="0,0,12,0" Tag="Help_Region" Click="HelpButton_Click"/>
-            
+            <Button Click="OpenAppDataFolder_Click"
+        ToolTip="{DynamicResource Help_Folder}"
+        Style="{StaticResource HelpButton}"   
+                Margin="0,0,0,0">
+                <TextBlock  Text="📂" FontSize="12"/>
+            </Button>
+
         </StackPanel>
     </Grid>
 </Window>

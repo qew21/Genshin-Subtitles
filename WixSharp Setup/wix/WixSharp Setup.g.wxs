@@ -6,7 +6,7 @@
     To suppress generation of this file remove `set ide=true` from the PostBuildEvent of the VS project
 </auto-generated>
 -->
-  <Package Compressed="yes" ProductCode="c726e977-2d40-452b-b425-b8ec07d18e47" Name="GI-Subtitles" Language="1033" Version="1.4.8.0" UpgradeCode="6ee5aa0c-5e19-4e14-b585-7334de8c81a2" Manufacturer="jwhu" InstallerVersion="200">
+  <Package Compressed="yes" ProductCode="0c1825f0-a375-4b88-84ae-180f9f52dc29" Name="GI-Subtitles" Language="1033" Version="1.4.8.0" UpgradeCode="6ee5aa0c-5e19-4e14-b585-7334de8c81a2" Manufacturer="jwhu" InstallerVersion="200">
     <SummaryInformation Codepage="Windows-1252" />
     <Media Id="1" Cabinet="GI2dSubtitles.cab" EmbedCab="yes" />
 
@@ -157,6 +157,10 @@
           <File Id="vcruntime140_1.dll_2319247740" Source="bin\Files\vcruntime140_1.dll" />
         </Component>
 
+        <Component Id="Component.Wuthering.png_3996392861" Guid="6ee5aa0c-5e19-4e14-b585-73343553e455">
+          <File Id="Wuthering.png_3996392861" Source="bin\Files\Wuthering.png" />
+        </Component>
+
         <Component Id="Component.Yt.ImageView.dll_689913902" Guid="6ee5aa0c-5e19-4e14-b585-7334deb05e2c">
           <File Id="Yt.ImageView.dll_689913902" Source="bin\Files\Yt.ImageView.dll" />
         </Component>
@@ -169,11 +173,30 @@
           <File Id="ZedGraph.dll_2921095464" Source="bin\Files\ZedGraph.dll" />
         </Component>
 
-        <Directory Id="Genshin" Name="Genshin">
+        <Directory Id="DesktopFolder" Name="DesktopFolder">
 
-          <Component Id="Component.Genshin.EmptyDirectory" Guid="6ee5aa0c-5e19-4e14-b585-733450f16ebe" KeyPath="yes">
+          <Component Id="Component.GI2dSubtitles__" Guid="6ee5aa0c-5e19-4e14-b585-733497ea01f2">
+            <Shortcut Id="DesktopFolder.GI2dSubtitles__" WorkingDirectory="INSTALLDIR" Target="[INSTALLDIR]\GI-Subtitles.exe" Name="GI-Subtitles.lnk" />
+
             <CreateFolder />
-            <RemoveFolder Id="Genshin" On="uninstall" />
+
+            <RegistryKey Root="HKCU" Key="Software\WixSharp\Used">
+              <RegistryValue Value="0" Type="string" KeyPath="yes" />
+            </RegistryKey>
+          </Component>
+
+        </Directory>
+
+        <Directory Id="ProgramMenuFolder" Name="ProgramMenuFolder">
+
+          <Component Id="Component.GI2dSubtitles.1" Guid="6ee5aa0c-5e19-4e14-b585-7334d99f01d8">
+            <Shortcut Id="ProgramMenuFolder.GI2dSubtitles.1" WorkingDirectory="INSTALLDIR" Target="[INSTALLDIR]\GI-Subtitles.exe" Name="GI-Subtitles.lnk" />
+
+            <CreateFolder />
+
+            <RegistryKey Root="HKCU" Key="Software\WixSharp\Used">
+              <RegistryValue Value="0" Type="string" KeyPath="yes" />
+            </RegistryKey>
           </Component>
 
         </Directory>
@@ -317,15 +340,6 @@
           </Directory>
         </Directory>
 
-        <Directory Id="out" Name="out">
-
-          <Component Id="Component.out.EmptyDirectory" Guid="6ee5aa0c-5e19-4e14-b585-733427ed6472" KeyPath="yes">
-            <CreateFolder />
-            <RemoveFolder Id="out" On="uninstall" />
-          </Component>
-
-        </Directory>
-
         <Directory Id="x64_" Name="x64">
 
           <Component Id="Component.concrt140.dll_112865082" Guid="6ee5aa0c-5e19-4e14-b585-733492e6e4fc">
@@ -350,15 +364,6 @@
 
         </Directory>
 
-        <Directory Id="Zenless" Name="Zenless">
-
-          <Component Id="Component.Zenless.EmptyDirectory" Guid="6ee5aa0c-5e19-4e14-b585-733491d73072" KeyPath="yes">
-            <CreateFolder />
-            <RemoveFolder Id="Zenless" On="uninstall" />
-          </Component>
-
-        </Directory>
-
         <Directory Id="zh2dcn" Name="zh-cn">
 
           <Component Id="Component.ZedGraph.resources.dll_3731648874" Guid="6ee5aa0c-5e19-4e14-b585-7334ade88572">
@@ -376,6 +381,8 @@
     <UI>
       <EmbeddedUI Id="WixSharp_EmbeddedUI_Asm" SourceFile="WixSharp.UI.CA.dll" />
     </UI>
+
+    <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="Higher version already installed, downgrade not possible." />
 
     <CustomAction Id="WixSharp_InitRuntime_Action" BinaryRef="WixSharp_InitRuntime_Action_File" DllEntry="WixSharp_InitRuntime_Action" Return="check" Execute="immediate" />
     <CustomAction Id="Set_CancelRequestHandler_Props" Property="CancelRequestHandler" Value="UpgradeCode=[UpgradeCode];INSTALLDIR=[INSTALLDIR];UILevel=[UILevel];ProductCode=[ProductCode];ADDLOCAL=[ADDLOCAL];ADDFEATURES=[ADDFEATURES]" />
@@ -400,6 +407,7 @@
     <Property Id="WixSharp_Load_Handlers" Value="WixSharp Setup, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null|WixSharp_Setup.Program|Msi_Load" />
     <Property Id="WixSharp_BeforeInstall_Handlers" Value="WixSharp Setup, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null|WixSharp_Setup.Program|Msi_BeforeInstall" />
     <Property Id="WixSharp_AfterInstall_Handlers" Value="WixSharp Setup, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null|WixSharp_Setup.Program|Msi_AfterInstall" />
+    <Property Id="REINSTALLMODE" Value="omus" />
 
     <Feature Id="Complete" Title="Complete" Level="1" AllowAbsent="yes">
       <ComponentRef Id="Component.CHS.jpg_4096715714" />
@@ -438,10 +446,12 @@
       <ComponentRef Id="Component.vcomp140.dll_1397172780" />
       <ComponentRef Id="Component.vcruntime140.dll_2249548691" />
       <ComponentRef Id="Component.vcruntime140_1.dll_2319247740" />
+      <ComponentRef Id="Component.Wuthering.png_3996392861" />
       <ComponentRef Id="Component.Yt.ImageView.dll_689913902" />
       <ComponentRef Id="Component.yt_CPUCheck.dll_325492037" />
       <ComponentRef Id="Component.ZedGraph.dll_2921095464" />
-      <ComponentRef Id="Component.Genshin.EmptyDirectory" />
+      <ComponentRef Id="Component.GI2dSubtitles__" />
+      <ComponentRef Id="Component.GI2dSubtitles.1" />
       <ComponentRef Id="Component.en_dict.txt_3365033" />
       <ComponentRef Id="Component.japan_dict.txt_1247434406" />
       <ComponentRef Id="Component.layout_publaynet_dict.txt_2106823682" />
@@ -470,13 +480,11 @@
       <ComponentRef Id="Component.api2dms2dwin2dcore2dlibraryloader2dl12d22d0.dll_1416525509" />
       <ComponentRef Id="Component.api2dms2dwin2dcore2dprocesstopology2dobsolete2dl12d12d0.dll_2397046568" />
       <ComponentRef Id="Component.API2dMS2dWin2dEventing2dProvider2dL12d12d0.dll_134705719" />
-      <ComponentRef Id="Component.out.EmptyDirectory" />
       <ComponentRef Id="Component.concrt140.dll_112865082" />
       <ComponentRef Id="Component.cvextern.dll_1479022450" />
       <ComponentRef Id="Component.msvcp140.dll_1066700652" />
       <ComponentRef Id="Component.opencv_ffmpeg410_64.dll_2158008890" />
       <ComponentRef Id="Component.vcruntime140.dll_3287830096" />
-      <ComponentRef Id="Component.Zenless.EmptyDirectory" />
       <ComponentRef Id="Component.ZedGraph.resources.dll_3731648874" />
     </Feature>
 

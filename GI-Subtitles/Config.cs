@@ -13,21 +13,22 @@ namespace GI_Subtitles
 {
     public static class Config
     {
-        private static readonly string SettingsFolder = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
+        private static readonly string SettingsFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GI-Subtitles");
         private static readonly string SettingsFile = Path.Combine(SettingsFolder, "Config.json");
         private static readonly Dictionary<string, JToken> _settings = new Dictionary<string, JToken>();
 
         static Config()
         {
-            Load();
+            Load(("Config.json"));
+            Load(SettingsFile);
         }
 
-        private static void Load()
+        private static void Load(string file)
         {
             if (!Directory.Exists(SettingsFolder))
                 Directory.CreateDirectory(SettingsFolder);
 
-            if (!File.Exists(SettingsFile))
+            if (!File.Exists(file))
             {
                 Save();
                 return;
@@ -35,17 +36,24 @@ namespace GI_Subtitles
 
             try
             {
-                var json = File.ReadAllText(SettingsFile);
+                var json = File.ReadAllText(file);
                 var jo = JObject.Parse(json);
-                _settings.Clear();
-                foreach (var prop in jo.Properties())
+                if (jo.Count > 0)
                 {
-                    _settings[prop.Name] = prop.Value;
+                    foreach (var prop in jo.Properties())
+                    {
+                        _settings[prop.Name] = prop.Value;
+                    }
                 }
+                else
+                {
+                    Save();
+                }
+
             }
-            catch
+            catch (Exception ex)
             {
-                _settings.Clear();
+                Logger.Log.Error(ex);
             }
         }
 

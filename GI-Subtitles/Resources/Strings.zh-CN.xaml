@@ -38,4 +38,5 @@
     <sys:String x:Key="Help_Restart" xmlns:sys="clr-namespace:System;assembly=mscorlib">重启应用以应用最新配置或语言资源。</sys:String>
     <sys:String x:Key="Help_Language" xmlns:sys="clr-namespace:System;assembly=mscorlib">测试 OCR 识别功能，基于已有截图。</sys:String>
     <sys:String x:Key="Help_Region" xmlns:sys="clr-namespace:System;assembly=mscorlib">测试当前所有屏幕的识别结果，存储到日志。</sys:String>
+    <sys:String x:Key="Help_Folder" xmlns:sys="clr-namespace:System;assembly=mscorlib">打开程序文件夹</sys:String>
 </ResourceDictionary>
