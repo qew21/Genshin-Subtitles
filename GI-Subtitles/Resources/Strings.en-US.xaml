@@ -27,6 +27,7 @@
     <sys:String x:Key="Btn_Download_Output" xmlns:sys="clr-namespace:System;assembly=mscorlib">Download Output</sys:String>
     <sys:String x:Key="Btn_Restart" xmlns:sys="clr-namespace:System;assembly=mscorlib">Restart</sys:String>
     <sys:String x:Key="Btn_Language" xmlns:sys="clr-namespace:System;assembly=mscorlib">OCR</sys:String>
+    <sys:String x:Key="Btn_Convert" xmlns:sys="clr-namespace:System;assembly=mscorlib">SRT</sys:String>
     <sys:String x:Key="Btn_Region" xmlns:sys="clr-namespace:System;assembly=mscorlib">Region</sys:String>
 
     <sys:String x:Key="Help_Sync" xmlns:sys="clr-namespace:System;assembly=mscorlib">Synchronize with the remote repository to obtain the latest language packs and metadata.</sys:String>
@@ -34,6 +35,7 @@
     <sys:String x:Key="Help_Download_Output" xmlns:sys="clr-namespace:System;assembly=mscorlib">Download the translation/replacement resources for the current 'Output Language'.</sys:String>
     <sys:String x:Key="Help_Restart" xmlns:sys="clr-namespace:System;assembly=mscorlib">Restart the application to apply the latest settings or language resources.</sys:String>
     <sys:String x:Key="Help_Language" xmlns:sys="clr-namespace:System;assembly=mscorlib">Test the OCR recognition function using existing screenshots.</sys:String>
+    <sys:String x:Key="Help_Convert" xmlns:sys="clr-namespace:System;assembly=mscorlib">Converting SRT Subtitle Files – Please Place in the "srt" Folder.</sys:String>
     <sys:String x:Key="Help_Region" xmlns:sys="clr-namespace:System;assembly=mscorlib">Test the recognition results of all current screens and save them to the log.</sys:String>
     <sys:String x:Key="Help_Folder" xmlns:sys="clr-namespace:System;assembly=mscorlib">Open application folder</sys:String>
 </ResourceDictionary>

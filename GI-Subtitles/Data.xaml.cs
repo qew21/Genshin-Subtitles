@@ -772,5 +772,30 @@ namespace GI_Subtitles
             // 直接打开资源管理器并定位到该目录
             Process.Start("explorer.exe", dir);
         }
+
+        private void ConvertButton_Click(object sender, RoutedEventArgs e)
+        {
+            string srtFolder = Path.Combine(dataDir, "srt");
+            if (Directory.Exists(srtFolder))
+            {
+                var processor = new SrtProcessor(this.contentDict);
+                foreach (var file in Directory.GetFiles(srtFolder))
+                {
+                    if (file.EndsWith(".convert.srt"))
+                    {
+                        continue;
+                    }
+                    var subtitles = processor.ReadSrtFile(file);
+                    var processedSubtitles = processor.ProcessSubtitles(subtitles);
+                    string outputPath = file.Replace(".srt", ".convert.srt");
+                    processor.WriteSrtFile(outputPath, processedSubtitles);
+                }
+                System.Windows.MessageBox.Show($"Convert finished.");
+            }
+            else
+            {
+                System.Windows.MessageBox.Show($"{srtFolder} folder is empty.");
+            }
+        }
     }
 }

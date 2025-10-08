@@ -95,6 +95,7 @@
     <Compile Include="ImageProcessor.cs" />
     <Compile Include="INotifyIcon.cs" />
     <Compile Include="ScreenInfo.cs" />
+    <Compile Include="SrtProcessor.cs" />
     <Compile Include="VoiceContent.cs" />
     <Page Include="About.xaml">
       <SubType>Designer</SubType>

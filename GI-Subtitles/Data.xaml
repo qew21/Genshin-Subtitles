@@ -188,8 +188,10 @@
                     Content="{DynamicResource Btn_Download_Output}" Click="DownloadButton2_Click"/> 
             <Button x:Name="RestartButton"  Style="{StaticResource PrimaryButton}"  ToolTip="{DynamicResource Help_Restart}"
                     Content="{DynamicResource Btn_Restart}" Click="RestartButton_Click"/>
-            <Button x:Name="OCRButton"  Style="{StaticResource PrimaryButton}"  ToolTip="{DynamicResource Help_Language}"
-                    Content="{DynamicResource Btn_Language}" Click="TestButton_Click"/>
+            <!--<Button x:Name="OCRButton"  Style="{StaticResource PrimaryButton}"  ToolTip="{DynamicResource Help_Language}"
+                    Content="{DynamicResource Btn_Language}" Click="TestButton_Click"/> -->
+            <Button x:Name="ConvertButton"  Style="{StaticResource PrimaryButton}"  ToolTip="{DynamicResource Help_Convert}"
+        Content="{DynamicResource Btn_Convert}" Click="ConvertButton_Click"/>
             <Button x:Name="RegionButton"  Style="{StaticResource PrimaryButton}" ToolTip="{DynamicResource Help_Region}"
                     Content="{DynamicResource Btn_Region}" Click="RegionButton_Click" />
             <Button Click="OpenAppDataFolder_Click"
