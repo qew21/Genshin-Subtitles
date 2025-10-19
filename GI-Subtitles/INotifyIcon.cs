@@ -49,6 +49,7 @@ namespace GI_Subtitles
             fontSizeSelector.DropDownItems.Add(CreateSizeItem("24"));
 
             ToolStripMenuItem dataItem = new ToolStripMenuItem("语言包管理");
+            ToolStripMenuItem keyItem = new ToolStripMenuItem("快捷键");
             ToolStripMenuItem aboutItem = new ToolStripMenuItem("帮助");
             ToolStripMenuItem exitItem = new ToolStripMenuItem("退出程序");
             ToolStripMenuItem versionItem = new ToolStripMenuItem(version)
@@ -61,6 +62,14 @@ namespace GI_Subtitles
                 Checked = AutoStart    // 根据 AutoStart 设置初始状态
             };
             dataItem.Click += (sender, e) => { DateUpdate(); };
+
+            keyItem.Click += (sender, e) =>
+            {
+                {
+                    var settingsWindow = new HotkeyManager();
+                    settingsWindow.ShowDialog();
+                }
+            };
             aboutItem.Click += (sender, e) => { About about = new About(version); about.Show(); };
             exitItem.Click += (sender, e) => { System.Windows.Application.Current.Shutdown(); };
             startupItem.Click += (sender, e) =>
@@ -72,6 +81,7 @@ namespace GI_Subtitles
             contextMenuStrip.Items.Add(new ToolStripSeparator());
             contextMenuStrip.Items.Add(fontSizeSelector);
             contextMenuStrip.Items.Add(dataItem);
+            contextMenuStrip.Items.Add(keyItem);
             contextMenuStrip.Items.Add(startupItem);
             contextMenuStrip.Items.Add(aboutItem);
             contextMenuStrip.Items.Add(exitItem);

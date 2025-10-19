@@ -109,6 +109,7 @@ namespace GI_Subtitles
         private IWavePlayer waveOut;
         private MediaFoundationReader mediaReader;
         private string tempFilePath;
+        private HotkeyManager settingsWindow;
 
 
 
@@ -125,11 +126,8 @@ namespace GI_Subtitles
         {
             // 获取窗口句柄
             IntPtr handle = new WindowInteropHelper(this).Handle;
-            RegisterHotKey(handle, HOTKEY_ID_1, MOD_CTRL | MOD_SHIFT, VK_S);
-            RegisterHotKey(handle, HOTKEY_ID_2, MOD_CTRL | MOD_SHIFT, VK_R);
-            RegisterHotKey(handle, HOTKEY_ID_3, MOD_CTRL | MOD_SHIFT, VK_H);
-            RegisterHotKey(handle, HOTKEY_ID_4, MOD_CTRL | MOD_SHIFT, VK_D);
-
+            settingsWindow = new HotkeyManager();
+            settingsWindow.InitializeKey(handle);
             // 监听窗口消息
             HwndSource source = HwndSource.FromHwnd(handle);
             source.AddHook(WndProc);
@@ -393,11 +391,7 @@ namespace GI_Subtitles
         {
             notifyIcon.Dispose();
             notifyIcon = null;
-            IntPtr handle = new WindowInteropHelper(this).Handle;
-            UnregisterHotKey(handle, HOTKEY_ID_1);
-            UnregisterHotKey(handle, HOTKEY_ID_2);
-            UnregisterHotKey(handle, HOTKEY_ID_3);
-            UnregisterHotKey(handle, HOTKEY_ID_4);
+            settingsWindow.UnregisterAllHotkeys();
         }
 
         private void MainWindow_LocationChanged(object sender, EventArgs e)

@@ -92,6 +92,10 @@
     <Compile Include="Data.xaml.cs">
       <DependentUpon>Data.xaml</DependentUpon>
     </Compile>
+    <Compile Include="HotkeyManager.xaml.cs">
+      <DependentUpon>HotkeyManager.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="HotkeySettings.cs" />
     <Compile Include="ImageProcessor.cs" />
     <Compile Include="INotifyIcon.cs" />
     <Compile Include="ScreenInfo.cs" />
@@ -102,6 +106,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Data.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="HotkeyManager.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
