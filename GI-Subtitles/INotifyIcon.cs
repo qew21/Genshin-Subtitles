@@ -22,15 +22,17 @@ using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
 namespace GI_Subtitles
 {
 
-    internal class INotifyIcon
+    public class INotifyIcon
     {
         System.Windows.Forms.ContextMenuStrip contextMenuStrip;
         ToolStripMenuItem fontSizeSelector;
         private int Size = Config.Get<int>("Size");
         private bool AutoStart = Config.Get("AutoStart", false);
         public string[] Region = Config.Get<string>("Region").Split(',');
+        public string[] Region2 = Config.Get<string>("Region2", "").Split(',');
         string version = Assembly.GetExecutingAssembly().GetName().Version.ToString();
         double Scale = 1;
+        public bool isContextMenuOpen = false;
         private Data data;
 
 
@@ -39,7 +41,6 @@ namespace GI_Subtitles
             Scale = scale;
             NotifyIcon notifyIcon;
             contextMenuStrip = new ContextMenuStrip();
-
             fontSizeSelector = new ToolStripMenuItem("字号选择");
             fontSizeSelector.DropDownItems.Add(CreateSizeItem("14"));
             fontSizeSelector.DropDownItems.Add(CreateSizeItem("16"));
@@ -70,7 +71,7 @@ namespace GI_Subtitles
                     settingsWindow.ShowDialog();
                 }
             };
-            aboutItem.Click += (sender, e) => { About about = new About(version); about.Show(); };
+            aboutItem.Click += (sender, e) => { About about = new About(version, this); about.Show(); };
             exitItem.Click += (sender, e) => { System.Windows.Application.Current.Shutdown(); };
             startupItem.Click += (sender, e) =>
             {
@@ -85,7 +86,8 @@ namespace GI_Subtitles
             contextMenuStrip.Items.Add(startupItem);
             contextMenuStrip.Items.Add(aboutItem);
             contextMenuStrip.Items.Add(exitItem);
-
+            contextMenuStrip.Opening += ContextMenuStrip_Opening; // 菜单打开前触发
+            contextMenuStrip.Closed += ContextMenuStrip_Closed;   // 菜单关闭后触发
             Uri iconUri = new Uri("pack://application:,,,/Resources/mask.ico");
             Stream iconStream = System.Windows.Application.GetResourceStream(iconUri).Stream;
             notifyIcon = new NotifyIcon
@@ -115,6 +117,20 @@ namespace GI_Subtitles
                 var rect = Screenshot.Screenshot.GetRegion(Scale);
                 Config.Set("Region", $"{Convert.ToInt16(rect.TopLeft.X * Scale)},{Convert.ToInt16(rect.TopLeft.Y * Scale)},{Convert.ToInt16(rect.Width * Scale)},{Convert.ToInt16(rect.Height * Scale)}");
                 Region = Config.Get<string>("Region").ToString().Split(',');
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+            }
+        }
+
+        public void ChooseRegion2()
+        {
+            try
+            {
+                var rect = Screenshot.Screenshot.GetRegion(Scale);
+                Config.Set("Region2", $"{Convert.ToInt16(rect.TopLeft.X * Scale)},{Convert.ToInt16(rect.TopLeft.Y * Scale)},{Convert.ToInt16(rect.Width * Scale)},{Convert.ToInt16(rect.Height * Scale)}");
+                Region2 = Config.Get<string>("Region2").ToString().Split(',');
             }
             catch (Exception ex)
             {
@@ -186,6 +202,15 @@ namespace GI_Subtitles
                     Logger.Log.Info("开机启动项已移除！");
                 }
             }
+        }
+        private void ContextMenuStrip_Opening(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            isContextMenuOpen = true;
+        }
+
+        private void ContextMenuStrip_Closed(object sender, ToolStripDropDownClosedEventArgs e)
+        {
+            isContextMenuOpen = false;
         }
     }
 }

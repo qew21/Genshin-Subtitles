@@ -90,7 +90,7 @@
             <!-- 识别语言 -->
             <TextBlock Text="{DynamicResource Recognize_Lang}" VerticalAlignment="Center" Margin="0,0,8,0"/>
             <ComboBox Name="InputSelector" VerticalAlignment="Center" Margin="0,0,24,0" Width="100">
-                <ComboBoxItem Content="中文" IsSelected="True"/>
+                <ComboBoxItem Content="简体中文" IsSelected="True"/>
                 <ComboBoxItem Content="English"/>
                 <ComboBoxItem Content="日本語"/>
             </ComboBox>

@@ -110,6 +110,8 @@ namespace GI_Subtitles
         private MediaFoundationReader mediaReader;
         private string tempFilePath;
         private HotkeyManager settingsWindow;
+        private int failedCount = 0;
+        private bool usingRegion2 = false;
 
 
 
@@ -148,6 +150,7 @@ namespace GI_Subtitles
                     {
                         var modify = await data.GetRepositoryModificationDate(data.repoUrl, Game);
                         DateTime inputDate = data.GetLocalFileDates(InputLanguage, OutputLanguage, Game);
+
                         if (DateTime.TryParse(modify, out DateTime repoDate))
                         {
                             if (repoDate > inputDate)
@@ -170,7 +173,7 @@ namespace GI_Subtitles
             }
             if (notify.Region[1] == "0")
             {
-                About about = new About(version);
+                About about = new About(version, notify);
                 about.Show();
             }
 
@@ -193,6 +196,10 @@ namespace GI_Subtitles
 
         public void GetOCR(object sender, EventArgs e)
         {
+            if (notify.isContextMenuOpen)
+            {
+                return;
+            }
             if (Interlocked.Exchange(ref OCR_TIMER, 1) == 0)
             {
                 Logger.Log.Debug("Start OCR");
@@ -204,7 +211,30 @@ namespace GI_Subtitles
                     {
                         notify.ChooseRegion();
                     }
-                    target = CaptureRegion(Convert.ToInt16(notify.Region[0]), Convert.ToInt16(notify.Region[1]), Convert.ToInt16(notify.Region[2]), Convert.ToInt16(notify.Region[3]));
+                    if (failedCount > 4 && notify.Region2.Length == 4)
+                    {
+                        if (usingRegion2)
+                        {
+                            target = CaptureRegion(notify.Region);
+                        }
+                        else
+                        {
+                            target = CaptureRegion(notify.Region2);
+                        }
+                        failedCount = 0;
+                        usingRegion2 = !usingRegion2;
+                    }
+                    else
+                    {
+                        if (usingRegion2)
+                        {
+                            target = CaptureRegion(notify.Region2);
+                        }
+                        else
+                        {
+                            target = CaptureRegion(notify.Region);
+                        }
+                    }
                     if (data.IsVisible)
                     {
                         data.SetImage(target);
@@ -242,31 +272,15 @@ namespace GI_Subtitles
                             }
                         }
 
-                        if (Math.Abs(Pad) > 500)
-                        {
-                            Pad = 100;
-                        }
-                        double top = Convert.ToInt16(notify.Region[1]) / Scale + Pad;
+                        double top = Convert.ToInt16(notify.Region[1]) / Scale + Config.Get<int>("Pad");
                         foreach (var screen in Screen.AllScreens)
                         {
                             if (screen.WorkingArea.Contains(new System.Drawing.Point(Convert.ToInt16(notify.Region[0]), Convert.ToInt16(notify.Region[1]))))
                             {
                                 double scale = GetScaleForScreen(screen);
                                 double left = screen.Bounds.Left / scale;
-                                if (top > screen.Bounds.Bottom / scale - 20 || notify.Region[1] == "0")
-                                {
-                                    top = screen.Bounds.Bottom / scale - 20;
-                                }
-                                if (top < screen.Bounds.Top / scale + 20)
-                                {
-                                    top = screen.Bounds.Top / scale + 20;
-                                }
                                 this.Top = top;
                                 double width = Convert.ToInt16(notify.Region[2]) / scale + 200;
-                                if (width > screen.Bounds.Width / scale)
-                                {
-                                    width = screen.Bounds.Width / scale;
-                                }
                                 this.Left = left + (screen.Bounds.Width / scale - width) / 2;
                                 this.Width = width;
                             }
@@ -280,6 +294,11 @@ namespace GI_Subtitles
                         }
                     }
                     Logger.Log.Debug($"OCR Content: {ocrText}");
+                    if (ocrText.Length < 2)
+                    {
+                        failedCount++;
+                    }
+
 
                 }
                 catch (Exception ex)
@@ -366,8 +385,12 @@ namespace GI_Subtitles
         }
 
 
-        public static Bitmap CaptureRegion(int x, int y, int width, int height)
+        public static Bitmap CaptureRegion(string[] region)
         {
+            int x = Convert.ToInt16(region[0]);
+            int y = Convert.ToInt16(region[1]);
+            int width = Convert.ToInt16(region[2]);
+            int height = Convert.ToInt16(region[3]);
             using (Bitmap bitmap = new Bitmap(width, height))
             {
                 using (Graphics g = Graphics.FromImage(bitmap))
@@ -397,10 +420,7 @@ namespace GI_Subtitles
         private void MainWindow_LocationChanged(object sender, EventArgs e)
         {
             Pad = Convert.ToInt16(this.Top - Convert.ToInt16(notify.Region[1]) / Scale);
-            if (Pad < 500)
-            {
-                Config.Set("Pad", Pad);
-            }
+            Config.Set("Pad", Pad);
         }
 
 
