@@ -13,6 +13,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Forms;
 using System.Windows.Media.Animation;
@@ -33,7 +34,7 @@ namespace GI_Subtitles
         string version = Assembly.GetExecutingAssembly().GetName().Version.ToString();
         double Scale = 1;
         public bool isContextMenuOpen = false;
-        private Data data;
+        private SettingsWindow data;
 
 
         public NotifyIcon InitializeNotifyIcon(double scale)
@@ -49,42 +50,21 @@ namespace GI_Subtitles
             fontSizeSelector.DropDownItems.Add(CreateSizeItem("22"));
             fontSizeSelector.DropDownItems.Add(CreateSizeItem("24"));
 
-            ToolStripMenuItem dataItem = new ToolStripMenuItem("语言包管理");
-            ToolStripMenuItem keyItem = new ToolStripMenuItem("快捷键");
-            ToolStripMenuItem aboutItem = new ToolStripMenuItem("帮助");
+            ToolStripMenuItem settingItem = new ToolStripMenuItem("程序设定");
             ToolStripMenuItem exitItem = new ToolStripMenuItem("退出程序");
             ToolStripMenuItem versionItem = new ToolStripMenuItem(version)
             {
                 Enabled = false
             };
-            ToolStripMenuItem startupItem = new ToolStripMenuItem("开机启动")
+            settingItem.Click += (sender, e) =>
             {
-                CheckOnClick = true,   // 允许点击打钩
-                Checked = AutoStart    // 根据 AutoStart 设置初始状态
+                data.ShowDialog();
             };
-            dataItem.Click += (sender, e) => { DateUpdate(); };
-
-            keyItem.Click += (sender, e) =>
-            {
-                {
-                    var settingsWindow = new HotkeyManager();
-                    settingsWindow.ShowDialog();
-                }
-            };
-            aboutItem.Click += (sender, e) => { About about = new About(version, this); about.Show(); };
             exitItem.Click += (sender, e) => { System.Windows.Application.Current.Shutdown(); };
-            startupItem.Click += (sender, e) =>
-            {
-                AutoStart = startupItem.Checked;
-                SetAutoStart(AutoStart);
-            };
             contextMenuStrip.Items.Add(versionItem);
             contextMenuStrip.Items.Add(new ToolStripSeparator());
             contextMenuStrip.Items.Add(fontSizeSelector);
-            contextMenuStrip.Items.Add(dataItem);
-            contextMenuStrip.Items.Add(keyItem);
-            contextMenuStrip.Items.Add(startupItem);
-            contextMenuStrip.Items.Add(aboutItem);
+            contextMenuStrip.Items.Add(settingItem);
             contextMenuStrip.Items.Add(exitItem);
             contextMenuStrip.Opening += ContextMenuStrip_Opening; // 菜单打开前触发
             contextMenuStrip.Closed += ContextMenuStrip_Closed;   // 菜单关闭后触发
@@ -100,7 +80,7 @@ namespace GI_Subtitles
             return notifyIcon;
         }
 
-        public void SetData(Data data)
+        public void SetData(SettingsWindow data)
         {
             this.data = data;
         }
@@ -211,6 +191,56 @@ namespace GI_Subtitles
         private void ContextMenuStrip_Closed(object sender, ToolStripDropDownClosedEventArgs e)
         {
             isContextMenuOpen = false;
+        }
+
+        public void ShowRegionOverlay()
+        {
+            if (Region[1] == "0") return;
+            int x = Convert.ToInt16(int.Parse(Region[0]) / Scale);
+            int y = Convert.ToInt16(int.Parse(Region[1]) / Scale);
+            int w = Convert.ToInt16(int.Parse(Region[2]) / Scale);
+            int h = Convert.ToInt16(int.Parse(Region[3]) / Scale);
+            Logger.Log.Debug($"x {x} y {y} w {w} h {h}");
+
+            var overlay = new Window
+            {
+                WindowStyle = WindowStyle.None,
+                AllowsTransparency = true,
+                Background = System.Windows.Media.Brushes.Transparent,
+                Topmost = true,
+                ShowInTaskbar = false,
+                Width = SystemParameters.VirtualScreenWidth,
+                Height = SystemParameters.VirtualScreenHeight,
+                Left = 0,
+                Top = 0
+            };
+
+            var canvas = new Canvas();
+            var rect = new System.Windows.Shapes.Rectangle
+            {
+                Stroke = System.Windows.Media.Brushes.LimeGreen,
+                StrokeThickness = 10,
+                Width = w,
+                Height = h,
+                IsHitTestVisible = true // 确保可以捕获鼠标事件
+            };
+            Canvas.SetLeft(rect, x);
+            Canvas.SetTop(rect, y);
+            canvas.Children.Add(rect);
+            overlay.Content = canvas;
+
+            overlay.Show();
+
+            var timer = new System.Windows.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(10)
+            };
+            timer.Tick += (_, __) =>
+            {
+                timer.Stop();
+                overlay.Close();
+            };
+            timer.Start();
         }
     }
 }

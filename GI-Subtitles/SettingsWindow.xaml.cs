@@ -34,13 +34,14 @@ using System.Globalization;
 using System.Web.UI.WebControls;
 using System.Xml;
 using System.ServiceModel.Syndication;
+using System.Runtime.InteropServices;
 
 namespace GI_Subtitles
 {
     /// <summary>
-    /// Data.xaml 的交互逻辑
+    /// SettingsWindow.xaml 的交互逻辑
     /// </summary>
-    public partial class Data : Window
+    public partial class SettingsWindow : Window
     {
         public string repoUrl = "https://gitlab.com/Dimbreath/AnimeGameData/-/refs/master/logs_tree/TextMap?format=json&offset=0&ref_type=heads";
         string Game = Config.Get<string>("Game");
@@ -70,8 +71,28 @@ namespace GI_Subtitles
         public PaddleOCREngine engine;
         private Bitmap bitmap;
         double Scale = 1;
+        INotifyIcon notifyIcon;
+        // Windows API 函数用于注册和注销热键
+        [DllImport("user32.dll")]
+        private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
 
-        public Data(string version, double scale = 1)
+        [DllImport("user32.dll")]
+        private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+
+        // 热键常量
+        private const int HOTKEY_ID_1 = 9000;
+        private const int HOTKEY_ID_2 = 9001;
+        private const int HOTKEY_ID_3 = 9002;
+        private const int HOTKEY_ID_4 = 9003;
+
+        private const uint MOD_NONE = 0x0000;
+        private const uint MOD_ALT = 0x0001;
+        private const uint MOD_CTRL = 0x0002;
+        private const uint MOD_SHIFT = 0x0004;
+
+        private IntPtr _windowHandle;
+        private ObservableCollection<HotkeyViewModel> _hotkeys;
+        public SettingsWindow(string version, INotifyIcon notify, double scale = 1)
         {
             InitializeComponent();
             Scale = scale;
@@ -110,6 +131,42 @@ namespace GI_Subtitles
             {
                 Directory.CreateDirectory(Path.Combine(dataDir, Game));
             }
+            notifyIcon = notify;
+            DataContext = this;
+
+            // 初始化热键列表
+            InitializeHotkeys();
+            Console.WriteLine("InitializeHotkeys");
+            // 绑定按钮事件
+            saveButton.Click += SaveButton_Click;
+            resetButton.Click += ResetButton_Click;
+            // Pad
+            PadTextBox.Text = Config.Get("Pad", 86).ToString();
+
+            // Region: 解析字符串 "x,y,w,h"
+            var regionStr = Config.Get("Region", "763,1797,2226,110");
+            var parts = regionStr.Split(',');
+            if (parts.Length == 4)
+            {
+                RegionX.Text = parts[0];
+                RegionY.Text = parts[1];
+                RegionWidth.Text = parts[2];
+                RegionHeight.Text = parts[3];
+            }
+
+            // Boolean flags
+            MultilineCheckBox.IsChecked = Config.Get("Multiline", false);
+            AutoStartCheckBox.IsChecked = Config.Get("AutoStart", false);
+        }
+
+        private void ResetLocation_Click(object sender, RoutedEventArgs e)
+        {
+            Config.Set("Pad", 86);
+        }
+
+        private void SecondRegion_Click(object sender, RoutedEventArgs e)
+        {
+            notifyIcon.ChooseRegion2();
         }
 
         private void UILangSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -311,6 +368,7 @@ namespace GI_Subtitles
             {
                 Status.Content = $"Loaded {contentDict.Count} key-values，{InputLanguage} -> {OutputLanguage}";
                 Logger.Log.Debug(Status.Content);
+                Logger.Log.Debug(12333);
             });
             DisplayLocalFileDates();
         }
@@ -796,6 +854,223 @@ namespace GI_Subtitles
             {
                 System.Windows.MessageBox.Show($"{srtFolder} folder is empty.");
             }
+        }
+
+        // 修改InitializeHotkeys方法
+        public void InitializeHotkeys()
+        {
+            // 从设置加载热键
+            var settings = HotkeySettingsManager.LoadSettings();
+
+            // 创建可用按键列表 (A-Z)
+            var availableKeys = Enumerable.Range(65, 26).Select(c => (char)c).ToList();
+
+            // 初始化热键集合
+            _hotkeys = new ObservableCollection<HotkeyViewModel>(
+                settings.Hotkeys.Select(h => new HotkeyViewModel
+                {
+                    Id = h.Id,
+                    Description = h.Description,
+                    IsCtrl = h.IsCtrl,
+                    IsShift = h.IsShift,
+                    SelectedKey = h.SelectedKey,
+                    AvailableKeys = availableKeys
+                })
+            );
+
+            hotkeyListView.ItemsSource = _hotkeys;
+        }
+
+        // 修改SaveButton_Click方法，添加保存到文件的功能
+        private void SaveButton_Click(object sender, RoutedEventArgs e)
+        {
+            // 验证每个热键：必须包含 Ctrl 或 Shift
+            foreach (var hotkey in _hotkeys)
+            {
+                if (!hotkey.IsCtrl && !hotkey.IsShift)
+                {
+                    System.Windows.MessageBox.Show($"快捷键 \"{hotkey.Description}\" 必须包含 Ctrl 或 Shift。",
+                                    "无效快捷键", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                // 确保选中的是 A-Z（防御性检查）
+                if (!char.IsLetter(hotkey.SelectedKey) || hotkey.SelectedKey < 'A' || hotkey.SelectedKey > 'Z')
+                {
+                    System.Windows.MessageBox.Show($"快捷键 \"{hotkey.Description}\" 必须选择 A-Z 之间的字母。",
+                                    "无效按键", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+            }
+
+            // 检查重复
+            var hotkeyTexts = _hotkeys.Select(h => h.GetHotkeyText()).ToList();
+            if (hotkeyTexts.GroupBy(t => t).Any(g => g.Count() > 1))
+            {
+                System.Windows.MessageBox.Show("发现重复的快捷键组合，请修改后再保存。",
+                                "重复的快捷键", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            // 保存设置
+            var settings = new HotkeySettings
+            {
+                Hotkeys = _hotkeys.Select(h => new HotkeyData
+                {
+                    Id = h.Id,
+                    Description = h.Description,
+                    IsCtrl = h.IsCtrl,
+                    IsShift = h.IsShift,
+                    SelectedKey = h.SelectedKey
+                }).ToList()
+            };
+
+            HotkeySettingsManager.SaveSettings(settings);
+            RegisterAllHotkeys();
+
+            System.Windows.MessageBox.Show("快捷键设置已保存。", "保存成功",
+                            MessageBoxButton.OK, MessageBoxImage.Information);
+
+            foreach (var hotkey in _hotkeys)
+            {
+                hotkey.IsEditing = false;
+            }
+        }
+        public void InitializeKey(IntPtr handle)
+        {
+            Console.WriteLine("OnSourceInitialized");
+            _windowHandle = handle;
+            RegisterAllHotkeys();
+        }
+
+
+        private void HandleHotkeyPress(int hotkeyId)
+        {
+            var hotkey = _hotkeys.FirstOrDefault(h => h.Id == hotkeyId);
+            if (hotkey != null)
+            {
+                System.Windows.MessageBox.Show($"触发快捷键: {hotkey.Description}\n组合键: {hotkey.GetHotkeyText()}",
+                                "快捷键触发", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+
+        private void RegisterAllHotkeys()
+        {
+            // 先注销所有热键
+            UnregisterAllHotkeys();
+
+            // 注册所有热键
+            foreach (var hotkey in _hotkeys)
+            {
+                RegisterHotkey(hotkey);
+            }
+        }
+
+        // 添加这个辅助方法到你的类中
+        private uint GetVirtualKeyFromChar(char c)
+        {
+            // 对于字母字符，直接转换为对应的虚拟键码
+            if (char.IsLetter(c))
+            {
+                // 字母的虚拟键码是ASCII码值 (A=65, B=66, ..., Z=90)
+                return (uint)char.ToUpper(c);
+            }
+
+            return 0;
+        }
+
+        private void RegisterHotkey(HotkeyViewModel hotkey)
+        {
+            uint modifiers = 0;
+            if (hotkey.IsCtrl) modifiers |= MOD_CTRL;
+            if (hotkey.IsShift) modifiers |= MOD_SHIFT;
+
+            // 使用这个自定义转换方法
+            uint virtualKey = GetVirtualKeyFromChar(hotkey.SelectedKey);
+
+
+
+            if (!RegisterHotKey(_windowHandle, hotkey.Id, modifiers, virtualKey))
+            {
+                // 注册失败，可能是因为热键冲突
+                System.Windows.MessageBox.Show($"无法注册快捷键 {hotkey.GetHotkeyText()}\n可能与其他应用程序冲突。",
+                                "注册失败", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        public void UnregisterAllHotkeys()
+        {
+            foreach (var hotkey in _hotkeys)
+            {
+                UnregisterHotKey(_windowHandle, hotkey.Id);
+            }
+        }
+
+
+        private void ResetButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (System.Windows.MessageBox.Show("确定要恢复默认快捷键设置吗？", "确认恢复默认",
+                               MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+            {
+                InitializeHotkeys();
+                RegisterAllHotkeys();
+            }
+        }
+
+        protected override void OnClosed(EventArgs e)
+        {
+            base.OnClosed(e);
+            UnregisterAllHotkeys();
+        }
+
+        private void PreviewRegion_Click(object sender, RoutedEventArgs e)
+        {
+            notifyIcon.ShowRegionOverlay();
+        }
+
+        private void PadTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (int.TryParse(PadTextBox.Text, out int pad))
+                Config.Set("Pad", pad);
+        }
+
+        private void RegionField_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (int.TryParse(RegionX.Text, out _) &&
+                int.TryParse(RegionY.Text, out _) &&
+                int.TryParse(RegionWidth.Text, out _) &&
+                int.TryParse(RegionHeight.Text, out _))
+            {
+                string region = $"{RegionX.Text},{RegionY.Text},{RegionWidth.Text},{RegionHeight.Text}";
+                Config.Set("Region", region);
+            }
+        }
+
+        private void MultilineCheckBox_Checked(object sender, RoutedEventArgs e)
+        {
+            Config.Set("Multiline", MultilineCheckBox.IsChecked == true);
+        }
+
+        private void AutoStartCheckBox_Checked(object sender, RoutedEventArgs e)
+        {
+            Config.Set("AutoStart", AutoStartCheckBox.IsChecked == true);
+        }
+
+        private void Hyperlink_RequestNavigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
+        {
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = e.Uri.AbsoluteUri,
+                    UseShellExecute = true // 必须为 true 才能用默认浏览器打开
+                });
+            }
+            catch (Exception ex)
+            {
+                Logger.Log.Error(ex);
+            }
+            e.Handled = true;
         }
     }
 }

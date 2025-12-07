@@ -6,7 +6,7 @@
     To suppress generation of this file remove `set ide=true` from the PostBuildEvent of the VS project
 </auto-generated>
 -->
-  <Package Compressed="yes" ProductCode="050f1c03-954a-4e01-a2c0-2f8cdb0308f4" Name="GI-Subtitles" Language="1033" Version="1.5.0.0" UpgradeCode="6ee5aa0c-5e19-4e14-b585-7334de8c81a2" Manufacturer="jwhu" InstallerVersion="200">
+  <Package Compressed="yes" ProductCode="f3023517-78fe-4184-881b-f5460c7cce59" Name="GI-Subtitles" Language="1033" Version="1.5.0.0" UpgradeCode="6ee5aa0c-5e19-4e14-b585-7334de8c81a2" Manufacturer="jwhu" InstallerVersion="200">
     <SummaryInformation Codepage="Windows-1252" />
     <Media Id="1" Cabinet="GI2dSubtitles.cab" EmbedCab="yes" />
 

@@ -100,7 +100,7 @@ namespace GI_Subtitles
         string version = Assembly.GetExecutingAssembly().GetName().Version.ToString();
         string dataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GI-Subtitles");
         INotifyIcon notify;
-        Data data;
+        SettingsWindow data;
         Dictionary<string, string> VoiceMap = new Dictionary<string, string>();
         SoundPlayer player = new SoundPlayer();
         private System.Drawing.Rectangle screenBounds = Screen.PrimaryScreen.Bounds;
@@ -109,7 +109,6 @@ namespace GI_Subtitles
         private IWavePlayer waveOut;
         private MediaFoundationReader mediaReader;
         private string tempFilePath;
-        private HotkeyManager settingsWindow;
         private int failedCount = 0;
         private bool usingRegion2 = false;
 
@@ -128,14 +127,13 @@ namespace GI_Subtitles
         {
             // 获取窗口句柄
             IntPtr handle = new WindowInteropHelper(this).Handle;
-            settingsWindow = new HotkeyManager();
-            settingsWindow.InitializeKey(handle);
             // 监听窗口消息
             HwndSource source = HwndSource.FromHwnd(handle);
             source.AddHook(WndProc);
-            data = new Data(version, Scale);
+
             notify = new INotifyIcon();
             notifyIcon = notify.InitializeNotifyIcon(Scale);
+            data = new SettingsWindow(version, notify, Scale);
             notify.SetData(data);
             if (!data.FileExists())
             {
@@ -173,8 +171,7 @@ namespace GI_Subtitles
             }
             if (notify.Region[1] == "0")
             {
-                About about = new About(version, notify);
-                about.Show();
+                data.Show();
             }
 
 
@@ -414,7 +411,7 @@ namespace GI_Subtitles
         {
             notifyIcon.Dispose();
             notifyIcon = null;
-            settingsWindow.UnregisterAllHotkeys();
+            data.UnregisterAllHotkeys();
         }
 
         private void MainWindow_LocationChanged(object sender, EventArgs e)
@@ -484,7 +481,7 @@ namespace GI_Subtitles
                 }
                 else if (wParam.ToInt32() == HOTKEY_ID_4)
                 {
-                    ShowRegionOverlay();
+                    notify.ShowRegionOverlay();
                     handled = true;
                 }
             }
@@ -564,55 +561,6 @@ namespace GI_Subtitles
             return dpiX / 96.0;
         }
 
-        private void ShowRegionOverlay()
-        {
-            if (notify.Region[1] == "0") return;
-            int x = Convert.ToInt16(int.Parse(notify.Region[0]) / Scale);
-            int y = Convert.ToInt16(int.Parse(notify.Region[1]) / Scale);
-            int w = Convert.ToInt16(int.Parse(notify.Region[2]) / Scale);
-            int h = Convert.ToInt16(int.Parse(notify.Region[3]) / Scale);
-            Logger.Log.Debug($"x {x} y {y} w {w} h {h}");
-
-            var overlay = new Window
-            {
-                WindowStyle = WindowStyle.None,
-                AllowsTransparency = true,
-                Background = System.Windows.Media.Brushes.Transparent,
-                Topmost = true,
-                ShowInTaskbar = false,
-                Width = SystemParameters.VirtualScreenWidth,
-                Height = SystemParameters.VirtualScreenHeight,
-                Left = 0,
-                Top = 0
-            };
-
-            var canvas = new Canvas();
-            var rect = new System.Windows.Shapes.Rectangle
-            {
-                Stroke = System.Windows.Media.Brushes.LimeGreen,
-                StrokeThickness = 10,
-                Width = w,
-                Height = h,
-                IsHitTestVisible = true // 确保可以捕获鼠标事件
-            };
-            Canvas.SetLeft(rect, x);
-            Canvas.SetTop(rect, y);
-            canvas.Children.Add(rect);
-            overlay.Content = canvas;
-
-            overlay.Show();
-
-            var timer = new System.Windows.Threading.DispatcherTimer
-            {
-                Interval = TimeSpan.FromSeconds(10)
-            };
-            timer.Tick += (_, __) =>
-                        {
-                            timer.Stop();
-                            overlay.Close();
-                        };
-            timer.Start();
-        }
 
         async void CheckAndUpdate(string url)
         {

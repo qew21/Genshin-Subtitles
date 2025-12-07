@@ -1,6 +1,9 @@
 ﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <sys:String x:Key="App_Title" xmlns:sys="clr-namespace:System;assembly=mscorlib">语言包管理</sys:String>
+    <sys:String x:Key="Tab_Language" xmlns:sys="clr-namespace:System;assembly=mscorlib">语言包管理</sys:String>
+    <sys:String x:Key="Tab_Hotkeys" xmlns:sys="clr-namespace:System;assembly=mscorlib">快捷键设置</sys:String>
+    <sys:String x:Key="Tab_Help" xmlns:sys="clr-namespace:System;assembly=mscorlib">帮助</sys:String>
+    <sys:String x:Key="App_Settings" xmlns:sys="clr-namespace:System;assembly=mscorlib">程序设置</sys:String>
     <sys:String x:Key="Help_ClickToView" xmlns:sys="clr-namespace:System;assembly=mscorlib">点击查看说明</sys:String>
     <sys:String x:Key="UI_Language" xmlns:sys="clr-namespace:System;assembly=mscorlib">界面语言：</sys:String>
     <sys:String x:Key="Select_Game" xmlns:sys="clr-namespace:System;assembly=mscorlib">选择游戏：</sys:String>
@@ -30,6 +33,8 @@
     <sys:String x:Key="Btn_Language" xmlns:sys="clr-namespace:System;assembly=mscorlib">OCR</sys:String>
     <sys:String x:Key="Btn_Convert" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕</sys:String>
     <sys:String x:Key="Btn_Region" xmlns:sys="clr-namespace:System;assembly=mscorlib">区域</sys:String>
+    <sys:String x:Key="Btn_Save" xmlns:sys="clr-namespace:System;assembly=mscorlib">保存</sys:String>
+    <sys:String x:Key="Btn_ResetDefault" xmlns:sys="clr-namespace:System;assembly=mscorlib">恢复默认</sys:String>
 
 
     <!-- 帮助文案 -->
@@ -41,4 +46,19 @@
     <sys:String x:Key="Help_Convert" xmlns:sys="clr-namespace:System;assembly=mscorlib">用于转换srt字幕文件，请放置于srt文件夹中。</sys:String>
     <sys:String x:Key="Help_Region" xmlns:sys="clr-namespace:System;assembly=mscorlib">测试当前所有屏幕的识别结果，存储到日志。</sys:String>
     <sys:String x:Key="Help_Folder" xmlns:sys="clr-namespace:System;assembly=mscorlib">打开程序文件夹</sys:String>
+    <sys:String x:Key="Github_Url_Label" xmlns:sys="clr-namespace:System;assembly=mscorlib">仓库地址</sys:String>
+
+    <!-- Config Tab -->
+    <sys:String x:Key="Tab_Config" xmlns:sys="clr-namespace:System;assembly=mscorlib">其他配置选项</sys:String>
+    <sys:String x:Key="Config_Pad_Label" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕偏移 (Pad)</sys:String>
+    <sys:String x:Key="Config_Pad_Hint" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕显示在识别区域下方的像素数</sys:String>
+    <sys:String x:Key="Config_Region_Label" xmlns:sys="clr-namespace:System;assembly=mscorlib">识别区域</sys:String>
+    <sys:String x:Key="Config_Width" xmlns:sys="clr-namespace:System;assembly=mscorlib">宽</sys:String>
+    <sys:String x:Key="Config_Height" xmlns:sys="clr-namespace:System;assembly=mscorlib">高</sys:String>
+    <sys:String x:Key="Config_PreviewRegion_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">在屏幕上高亮显示此区域5秒</sys:String>
+    <sys:String x:Key="Config_Multiline" xmlns:sys="clr-namespace:System;assembly=mscorlib">启用多行识别（性能较低）</sys:String>
+    <sys:String x:Key="Config_AutoStart" xmlns:sys="clr-namespace:System;assembly=mscorlib">开机自动启动</sys:String>
+    <sys:String x:Key="Btn_OpenFolder" xmlns:sys="clr-namespace:System;assembly=mscorlib">打开程序文件夹</sys:String>
+    <sys:String x:Key="Btn_ResetLocation" xmlns:sys="clr-namespace:System;assembly=mscorlib">重设字幕位置</sys:String>
+    <sys:String x:Key="Btn_SecondRegion" xmlns:sys="clr-namespace:System;assembly=mscorlib">添加第二识别区域</sys:String>
 </ResourceDictionary>

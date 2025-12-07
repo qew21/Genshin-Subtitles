@@ -1,0 +1,340 @@
+﻿<Window x:Class="GI_Subtitles.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{DynamicResource App_Settings}" 
+        Height="550" Width="850"
+        Icon="Resources/mask.ico" 
+        Topmost="True"
+        WindowStartupLocation="CenterOwner">
+
+    <Window.Resources>
+        <!-- 统一按钮样式 -->
+        <Style TargetType="Button" x:Key="PrimaryButton">
+            <Setter Property="MinWidth" Value="90"/>
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="Padding" Value="10,4"/>
+            <Setter Property="Margin" Value="0,0,12,0"/>
+        </Style>
+
+        <!-- 小问号帮助按钮 -->
+        <Style TargetType="Button" x:Key="HelpButton">
+            <Setter Property="MinWidth" Value="16"/>
+            <Setter Property="Height" Value="16"/>
+            <Setter Property="Margin" Value="2,0"/>
+            <Setter Property="Content" Value="?"/>
+            <Setter Property="ToolTip" Value="{DynamicResource Help_ClickToView}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Padding="0" BorderThickness="0" Background="Transparent">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="Blue"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Foreground" Value="DarkBlue"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 链接式 TextBox -->
+        <Style TargetType="TextBox" x:Key="LinkTextBox">
+            <Setter Property="IsReadOnly" Value="True"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Foreground" Value="Blue"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="TextDecorations" Value="Underline"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="16">
+        <TabControl>
+            <!-- Tab 1: Language & Data Management -->
+            <TabItem Header="{DynamicResource Tab_Language}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- 控制面板：语言 & 游戏选择 -->
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,16">
+                            <TextBlock Text="{DynamicResource UI_Language}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <ComboBox Name="UILangSelector" Width="100" VerticalAlignment="Center" Margin="0,0,16,0"
+                                      SelectionChanged="UILangSelector_SelectionChanged">
+                                <ComboBoxItem Content="简体中文" Tag="zh-CN" IsSelected="True"/>
+                                <ComboBoxItem Content="English" Tag="en-US"/>
+                                <ComboBoxItem Content="日本語" Tag="ja-JP"/>
+                            </ComboBox>
+
+                            <TextBlock Text="{DynamicResource Select_Game}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <ComboBox Name="GameSelector" Width="120" VerticalAlignment="Center" Margin="0,0,16,0">
+                                <ComboBoxItem Content="{DynamicResource Game_Genshin}" IsSelected="True"/>
+                                <ComboBoxItem Content="{DynamicResource Game_StarRail}"/>
+                                <ComboBoxItem Content="{DynamicResource Game_zzz}"/>
+                                <ComboBoxItem Content="{DynamicResource Game_Wuthering}"/>
+                            </ComboBox>
+
+                            <TextBlock Text="{DynamicResource Recognize_Lang}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <ComboBox Name="InputSelector" Width="100" VerticalAlignment="Center" Margin="0,0,16,0">
+                                <ComboBoxItem Content="简体中文" IsSelected="True"/>
+                                <ComboBoxItem Content="English"/>
+                                <ComboBoxItem Content="日本語"/>
+                            </ComboBox>
+
+                            <TextBlock Text="{DynamicResource Output_Lang}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <ComboBox Name="OutputSelector" Width="100" VerticalAlignment="Center">
+                                <ComboBoxItem Content="{DynamicResource Lang_ZH_Simplified}"/>
+                                <ComboBoxItem Content="English" IsSelected="True"/>
+                                <ComboBoxItem Content="日本語"/>
+                                <ComboBoxItem Content="{DynamicResource Lang_ZH_Traditional}"/>
+                                <ComboBoxItem Content="Deutsch"/>
+                                <ComboBoxItem Content="Español"/>
+                                <ComboBoxItem Content="Français"/>
+                                <ComboBoxItem Content="Bahasa Indonesia"/>
+                                <ComboBoxItem Content="한국어"/>
+                                <ComboBoxItem Content="Português"/>
+                                <ComboBoxItem Content="Русский"/>
+                                <ComboBoxItem Content="ไทย"/>
+                                <ComboBoxItem Content="Tiếng Việt"/>
+                            </ComboBox>
+                        </StackPanel>
+
+                        <!-- 数据信息区域 -->
+                        <StackPanel Grid.Row="1" Margin="0,0,0,16">
+                            <GroupBox Header="{DynamicResource Local_File_Info}">
+                                <StackPanel>
+                                    <TextBlock>
+                                        <Run Text="{DynamicResource Recognize_Lang}"/>
+                                        <TextBlock Name="inputFilePathDate" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                                    </TextBlock>
+                                    <TextBlock Margin="0,4,0,0">
+                                        <Run Text="{DynamicResource Output_Lang}"/>
+                                        <TextBlock Name="outputFilePathDate" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                                    </TextBlock>
+                                </StackPanel>
+                            </GroupBox>
+
+                            <GroupBox Header="{DynamicResource Repo_Info}" Margin="0,8,0,0">
+                                <StackPanel>
+                                    <TextBlock>
+                                        <Run Text="{DynamicResource Repo_Last_Modified}"/>
+                                        <TextBlock Name="RepoModifiedDate" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                                    </TextBlock>
+                                    <TextBlock Margin="0,4,0,0">
+                                        <Run Text="{DynamicResource Download_Input_Lang}"/>
+                                        <TextBox x:Name="InputLangDownloadUrl" Style="{StaticResource LinkTextBox}" Text=""/>
+                                    </TextBlock>
+                                    <TextBlock Margin="0,4,0,0">
+                                        <Run Text="{DynamicResource Download_Output_Lang}"/>
+                                        <TextBox x:Name="OutputLangDownloadUrl" Style="{StaticResource LinkTextBox}" Text=""/>
+                                    </TextBlock>
+                                </StackPanel>
+                            </GroupBox>
+                        </StackPanel>
+
+                        <!-- 进度条和下载速度 -->
+                        <StackPanel Grid.Row="4" Margin="0,6,0,0">
+                            <ProgressBar Name="DownloadProgressBar" Height="20" Minimum="0" Maximum="100"/>
+                            <TextBlock Name="DownloadSpeedText" Margin="0,6,0,0"/>
+                        </StackPanel>
+
+                        <Label Grid.Row="5" Name="Status" HorizontalAlignment="Center" Margin="0,3,0,0"
+                   Content="Loading..."/>
+                        <Image Grid.Row="6" Name="Capture" HorizontalAlignment="Center"/>
+
+                        <!-- 操作按钮 -->
+                        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center">
+                            <Button x:Name="SyncButton" Style="{StaticResource PrimaryButton}" 
+                                    Content="{DynamicResource Btn_Sync}" Click="SyncButton_Click"
+                                    ToolTip="{DynamicResource Help_Sync}"/>
+                            <Button x:Name="DownloadButton1" Style="{StaticResource PrimaryButton}"
+                                    Content="{DynamicResource Btn_Download_Input}" Click="DownloadButton1_Click"
+                                    ToolTip="{DynamicResource Help_Download_Input}"/>
+                            <Button x:Name="DownloadButton2" Style="{StaticResource PrimaryButton}"
+                                    Content="{DynamicResource Btn_Download_Output}" Click="DownloadButton2_Click"
+                                    ToolTip="{DynamicResource Help_Download_Output}"/>
+                            <Button x:Name="RestartButton" Style="{StaticResource PrimaryButton}"
+                                    Content="{DynamicResource Btn_Restart}" Click="RestartButton_Click"
+                                    ToolTip="{DynamicResource Help_Restart}"/>
+                            <Button x:Name="ConvertButton" Style="{StaticResource PrimaryButton}"
+                                    Content="{DynamicResource Btn_Convert}" Click="ConvertButton_Click"
+                                    ToolTip="{DynamicResource Help_Convert}"/>
+                            <Button x:Name="RegionButton" Style="{StaticResource PrimaryButton}"
+                                    Content="{DynamicResource Btn_Region}" Click="RegionButton_Click"
+                                    ToolTip="{DynamicResource Help_Region}"/>
+                        </StackPanel>
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- Tab 2: Hotkey Settings -->
+            <TabItem Header="{DynamicResource Tab_Hotkeys}">
+                <Grid Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <ListView x:Name="hotkeyListView" Margin="0,0,0,10">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="2*"/>
+                                        <ColumnDefinition Width="3*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{Binding Description}" VerticalAlignment="Center" FontSize="14"/>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"
+                                                Margin="10,0,0,0">
+                                        <CheckBox Content="Ctrl" IsChecked="{Binding IsCtrl}" Margin="0,0,5,0"/>
+                                        <CheckBox Content="Shift" IsChecked="{Binding IsShift}" Margin="0,0,5,0"/>
+                                        <ComboBox ItemsSource="{Binding AvailableKeys}" SelectedItem="{Binding SelectedKey}"
+                                                  Width="70"/>
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Content="{DynamicResource Btn_Save}" x:Name="saveButton" Width="80" Height="30" Margin="0,0,10,0"/>
+                        <Button Content="{DynamicResource Btn_ResetDefault}" x:Name="resetButton" Width="80" Height="30"/>
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+
+           
+            <!-- Tab 3: Configuration -->
+            <TabItem Header="{DynamicResource Tab_Config}">
+                <Grid Margin="20">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Pad -->
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,12">
+                        <TextBlock Text="{DynamicResource Config_Pad_Label}" VerticalAlignment="Center" Width="200"/>
+                        <TextBox x:Name="PadTextBox" Width="80" VerticalContentAlignment="Center" Text="86" Margin="0,0,8,0"/>
+                        <TextBlock Text="{DynamicResource Config_Pad_Hint}" VerticalAlignment="Center" Foreground="Gray" FontStyle="Italic"/>
+                    </StackPanel>
+
+                    <!-- Region -->
+                    <GroupBox Header="{DynamicResource Config_Region_Label}" Grid.Row="1" Margin="0,0,0,12">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="X:" Margin="0,0,4,0"/>
+                                <TextBox x:Name="RegionX" LostFocus="PadTextBox_LostFocus" Width="60" Text="763" Margin="0,0,8,0"/>
+
+                                <TextBlock Text="Y:" Margin="0,0,4,0"/>
+                                <TextBox x:Name="RegionY" LostFocus="PadTextBox_LostFocus" Width="60" Text="1797" Margin="0,0,8,0"/>
+
+                                <TextBlock Text="{DynamicResource Config_Width}" Margin="0,0,4,0"/>
+                                <TextBox x:Name="RegionWidth" LostFocus="PadTextBox_LostFocus" Width="60" Text="2226" Margin="0,0,8,0"/>
+
+                                <TextBlock Text="{DynamicResource Config_Height}" Margin="0,0,4,0"/>
+                                <TextBox x:Name="RegionHeight" LostFocus="PadTextBox_LostFocus" Width="60" Text="110" Margin="0,0,8,0"/>
+                            </StackPanel>
+
+                            <Button Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center"
+                        ToolTip="{DynamicResource Config_PreviewRegion_Tooltip}"
+                        Click="PreviewRegion_Click" Width="28" Height="28">
+                                <TextBlock Text="👁️" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Button>
+                        </Grid>
+                    </GroupBox>
+
+                    <!-- Boolean Flags -->
+                    <StackPanel Grid.Row="2" Margin="0,0,0,12">
+                        <CheckBox x:Name="MultilineCheckBox" Checked="MultilineCheckBox_Checked" Unchecked="MultilineCheckBox_Checked" Content="{DynamicResource Config_Multiline}" Margin="0,0,0,6"/>
+                        <CheckBox x:Name="AutoStartCheckBox" Checked="AutoStartCheckBox_Checked" Unchecked="AutoStartCheckBox_Checked" Content="{DynamicResource Config_AutoStart}" />
+                    </StackPanel>
+
+                    <!-- Action Buttons -->
+                    <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,10,0,0">
+                        <Button Content="{DynamicResource Btn_ResetLocation}" Margin="0,0,20,0" Click="ResetLocation_Click"/>
+                        <Button Content="{DynamicResource Btn_SecondRegion}" Click="SecondRegion_Click"/>
+                        <Button Content="{DynamicResource Btn_OpenFolder}" Click="OpenAppDataFolder_Click"/>
+                    </StackPanel>
+
+                </Grid>
+            </TabItem>
+
+            <!-- Tab 4: Help / About -->
+            <TabItem Header="{DynamicResource Tab_Help}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <Grid Margin="20">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Text="{DynamicResource App_HelpTitle}" FontSize="16" FontWeight="Bold" Grid.Row="0" HorizontalAlignment="Center" Margin="0,0,0,12"/>
+
+                        <!-- 第一行：GitHub -->
+                        <StackPanel Orientation="Horizontal" Grid.Row="0" VerticalAlignment="Center">
+                            <TextBlock Text="Github:" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <TextBlock VerticalAlignment="Center">
+            <Hyperlink NavigateUri="https://github.com/qew21/GI-Subtitles" 
+                       RequestNavigate="Hyperlink_RequestNavigate">
+                https://github.com/qew21/GI-Subtitles
+            </Hyperlink>
+                            </TextBlock>
+                        </StackPanel>
+
+                        <!-- 第二行：Wiki -->
+                        <StackPanel Orientation="Horizontal" Grid.Row="1" VerticalAlignment="Center" Margin="0,6,0,0">
+                            <TextBlock Text="Wiki:" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <TextBlock VerticalAlignment="Center">
+                                <Hyperlink NavigateUri="https://www.2langs.com/gi" 
+                                           RequestNavigate="Hyperlink_RequestNavigate">
+                                    https://www.2langs.com/gi
+                                </Hyperlink>            
+                            </TextBlock>
+                        </StackPanel>
+
+                        <TextBlock Grid.Row="2" Text="{DynamicResource Help_Instructions}" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,12,0,6"/>
+
+                        <TextBlock Grid.Row="3" Text="1. 使用流程：语言包管理界面下载对应文件，打开游戏选择对话区域的第一行，使用快捷键开始识别和展示。"
+                        TextWrapping="Wrap" Margin="0,0,0,8"/>
+
+                        <TextBlock Grid.Row="4" Text="2. 可通过快捷键 Ctrl+Shift+S 启动/暂停；Ctrl+Shift+R 选择识别区域（请框选首行）；Ctrl+Shift+H 隐藏字幕。若冲突，可在「快捷键」标签修改。"
+                        TextWrapping="Wrap" Margin="0,0,0,8"/>
+
+                        <TextBlock Grid.Row="5" Text="3. 鼠标悬停字幕变为手形时，可拖动调整位置（建议游戏使用「无边框窗口」模式而非独占全屏）。"
+                        TextWrapping="Wrap" Margin="0,0,0,16"/>
+
+                        <StackPanel Orientation="Horizontal" Grid.Row="6" HorizontalAlignment="Center">
+                            <Image Width="184" Height="155" Source="Resources/qrcode.jpg" Margin="30,0,0,0"/>
+                        </StackPanel>
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</Window>
