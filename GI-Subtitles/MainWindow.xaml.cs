@@ -134,6 +134,7 @@ namespace GI_Subtitles
             notify = new INotifyIcon();
             notifyIcon = notify.InitializeNotifyIcon(Scale);
             data = new SettingsWindow(version, notify, Scale);
+            data.InitializeKey(handle);
             notify.SetData(data);
             if (!data.FileExists())
             {
@@ -412,6 +413,7 @@ namespace GI_Subtitles
             notifyIcon.Dispose();
             notifyIcon = null;
             data.UnregisterAllHotkeys();
+            data.RealClose();
         }
 
         private void MainWindow_LocationChanged(object sender, EventArgs e)

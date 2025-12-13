@@ -92,6 +92,7 @@ namespace GI_Subtitles
 
         private IntPtr _windowHandle;
         private ObservableCollection<HotkeyViewModel> _hotkeys;
+        private bool REAL_CLOSE = false;
         public SettingsWindow(string version, INotifyIcon notify, double scale = 1)
         {
             InitializeComponent();
@@ -1020,7 +1021,7 @@ namespace GI_Subtitles
         protected override void OnClosed(EventArgs e)
         {
             base.OnClosed(e);
-            UnregisterAllHotkeys();
+
         }
 
         private void PreviewRegion_Click(object sender, RoutedEventArgs e)
@@ -1071,6 +1072,26 @@ namespace GI_Subtitles
                 Logger.Log.Error(ex);
             }
             e.Handled = true;
+        }
+
+        // 重写关闭事件
+        protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+        {
+            if (!REAL_CLOSE)
+            {
+                // 取消默认关闭行为
+                e.Cancel = true;
+                // 改为隐藏窗口
+                this.Hide();
+            }
+            base.OnClosing(e);
+        }
+
+        // 提供手动关闭窗口的方法（比如程序退出时调用）
+        public void RealClose()
+        {
+            REAL_CLOSE = true;
+            this.Close();
         }
     }
 }
