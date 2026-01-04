@@ -740,7 +740,6 @@ namespace GI_Subtitles
                 {
                     target = bitmap;
                 }
-                var enhanced = ImageProcessor.EnhanceTextInImage(target);
                 OCRResult ocrResult = engine.DetectText(target);
                 string ocrText = ocrResult.Text;
                 dateTime = DateTime.Now;

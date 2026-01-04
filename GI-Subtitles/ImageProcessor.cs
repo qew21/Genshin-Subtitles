@@ -3,6 +3,7 @@ using Emgu.CV;
 using System.Drawing;
 using Emgu.CV.CvEnum;
 using Emgu.CV.Util;
+using System.Text;
 
 namespace GI_Subtitles
 {
@@ -24,6 +25,25 @@ namespace GI_Subtitles
             Bitmap processedImage = gray.Bitmap;
 
             return processedImage;
+        }
+
+        public static string ComputeDHash(Bitmap bmp)
+        {
+            var resized = new Bitmap(9, 8);
+            var g = Graphics.FromImage(resized);
+            g.DrawImage(bmp, 0, 0, 9, 8);
+
+            var hash = new StringBuilder();
+            for (int y = 0; y < 8; y++)
+            {
+                for (int x = 0; x < 8; x++)
+                {
+                    var left = resized.GetPixel(x, y).GetBrightness();
+                    var right = resized.GetPixel(x + 1, y).GetBrightness();
+                    hash.Append(left > right ? '1' : '0');
+                }
+            }
+            return hash.ToString();
         }
 
         public static Bitmap EnhanceAndExtractText(Bitmap inputImage)

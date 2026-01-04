@@ -190,6 +190,15 @@ namespace GI_Subtitles
             this.Top = screenBounds.Bottom / Scale - this.Height;
             this.Left = screenBounds.Left / Scale;
             this.LocationChanged += MainWindow_LocationChanged;
+
+            if (Directory.Exists("Images"))
+            {
+                OCRSummary.ProcessFolder("Images", data.engine);
+                notifyIcon.Dispose();
+                notifyIcon = null;
+                data.UnregisterAllHotkeys();
+                data.RealClose();
+            }
         }
 
         public void GetOCR(object sender, EventArgs e)
@@ -238,12 +247,7 @@ namespace GI_Subtitles
                         data.SetImage(target);
                     }
                     Bitmap enhanced = target;
-                    if (Game != "Wuthering")
-                    {
-                        enhanced = ImageProcessor.EnhanceTextInImage(target);
-                    }
-
-                    string bitStr = Bitmap2String(enhanced);
+                    string bitStr = ImageProcessor.ComputeDHash(enhanced);
                     if (BitmapDict.ContainsKey(bitStr))
                     {
                         ocrText = BitmapDict[bitStr];
@@ -368,18 +372,6 @@ namespace GI_Subtitles
                 }
                 Interlocked.Exchange(ref UI_TIMER, 0);
             }
-        }
-
-
-        public static string Bitmap2String(Bitmap bmp)
-        {
-            MemoryStream ms = new MemoryStream();
-            bmp.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
-            byte[] arr = new byte[ms.Length];
-            ms.Position = 0;
-            ms.Read(arr, 0, (int)ms.Length);
-            ms.Close();
-            return Convert.ToBase64String(arr);
         }
 
 

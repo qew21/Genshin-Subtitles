@@ -89,6 +89,7 @@
       <SubType>Designer</SubType>
     </ApplicationDefinition>
     <Compile Include="Config.cs" />
+    <Compile Include="OCRSummary.cs" />
     <Compile Include="HotkeySettings.cs" />
     <Compile Include="ImageProcessor.cs" />
     <Compile Include="INotifyIcon.cs" />
