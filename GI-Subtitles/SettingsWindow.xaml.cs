@@ -707,7 +707,16 @@ namespace GI_Subtitles
                 config.cls_infer = modelPathroot + @"\ch_ppocr_mobile_v2.0_cls_infer";
                 config.rec_infer = modelPathroot + @"\japan_PP-OCRv3_rec_infer";
                 config.keys = modelPathroot + @"\japan_dict.txt";
-                oCRParameter.max_side_len = 1560;
+            }
+            else
+            {
+                config = new OCRModelConfig();
+                string root = System.IO.Path.GetDirectoryName(typeof(OCRModelConfig).Assembly.Location);
+                string modelPathroot = root + @"\inference";
+                config.det_infer = modelPathroot + @"\ch_PP-OCRv3_det_infer";
+                config.cls_infer = modelPathroot + @"\ch_ppocr_mobile_v2.0_cls_infer";
+                config.rec_infer = modelPathroot + @"\ch_PP-OCRv3_rec_infer";
+                config.keys = modelPathroot + @"\ppocr_keys.txt";
             }
 
 
