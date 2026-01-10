@@ -72,8 +72,16 @@ public static class VoiceContentHelper
                 temp = temp.Substring(0, length);
             }
 
-            int distance = CalculateLevenshteinDistance(input, temp);
-
+            // 如果input长度大于10且input在temp中，则直接返回完全匹配
+            int distance;
+            if (length > 10 && key.Contains(input))
+            {
+                distance = 0;
+            }
+            else
+            {
+                distance = CalculateLevenshteinDistance(input, temp);
+            }
             lock (voiceContentDict)
             {
                 if (distance < closestDistance)

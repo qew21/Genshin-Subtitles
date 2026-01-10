@@ -254,46 +254,57 @@ namespace GI_Subtitles
                     }
                     else
                     {
-                        OCRResult ocrResult = data.engine.DetectText(enhanced);
-                        ocrText = ocrResult.Text;
-                        if (debug)
+                        string matchedImageHash = ImageProcessor.FindSimilarImageHash(bitStr, BitmapDict, maxDistance: 5);
+                        if (matchedImageHash != null)
                         {
-                            Logger.Log.Debug(DateTime.Now.ToString("yyyy-MM-dd_HH_mm_ss_ffffff") + ".png");
-                            target.Save(Path.Combine(dataDir, DateTime.Now.ToString("yyyy-MM-dd_HH_mm_ss_ffffff") + ".png"));
-                            Logger.Log.Debug(ocrText);
+                            int distance = ImageProcessor.CalculateHammingDistance(bitStr, matchedImageHash);
+                            ocrText = BitmapDict[matchedImageHash];
+                            BitmapDict[bitStr] = ocrText;
                         }
-                        var maxY = 0;
-                        foreach (var i in ocrResult.TextBlocks)
+                        else
                         {
-                            foreach (var j in i.BoxPoints)
+                            OCRResult ocrResult = data.engine.DetectText(enhanced);
+                            ocrText = ocrResult.Text;
+                            if (debug)
                             {
-                                if (j.Y > maxY)
+                                Logger.Log.Debug(DateTime.Now.ToString("yyyy-MM-dd_HH_mm_ss_ffffff") + ".png");
+                                target.Save(Path.Combine(dataDir, DateTime.Now.ToString("yyyy-MM-dd_HH_mm_ss_ffffff") + ".png"));
+                                Logger.Log.Debug(ocrText);
+                            }
+                            var maxY = 0;
+                            foreach (var i in ocrResult.TextBlocks)
+                            {
+                                foreach (var j in i.BoxPoints)
                                 {
-                                    maxY = j.Y;
+                                    if (j.Y > maxY)
+                                    {
+                                        maxY = j.Y;
+                                    }
                                 }
                             }
-                        }
 
-                        double top = Convert.ToInt16(notify.Region[1]) / Scale + Config.Get<int>("Pad");
-                        foreach (var screen in Screen.AllScreens)
-                        {
-                            if (screen.WorkingArea.Contains(new System.Drawing.Point(Convert.ToInt16(notify.Region[0]), Convert.ToInt16(notify.Region[1]))))
+                            double top = Convert.ToInt16(notify.Region[1]) / Scale + Config.Get<int>("Pad");
+                            foreach (var screen in Screen.AllScreens)
                             {
-                                double scale = GetScaleForScreen(screen);
-                                double left = screen.Bounds.Left / scale;
-                                this.Top = top;
-                                double width = Convert.ToInt16(notify.Region[2]) / scale + 200;
-                                this.Left = left + (screen.Bounds.Width / scale - width) / 2;
-                                this.Width = width;
+                                if (screen.WorkingArea.Contains(new System.Drawing.Point(Convert.ToInt16(notify.Region[0]), Convert.ToInt16(notify.Region[1]))))
+                                {
+                                    double scale = GetScaleForScreen(screen);
+                                    double left = screen.Bounds.Left / scale;
+                                    this.Top = top;
+                                    double width = Convert.ToInt16(notify.Region[2]) / scale + 200;
+                                    this.Left = left + (screen.Bounds.Width / scale - width) / 2;
+                                    this.Width = width;
+                                }
+                            }
+
+                            this.Height = 100;
+                            BitmapDict.Add(bitStr, ocrText);
+                            if (BitmapDict.Count > 10)
+                            {
+                                BitmapDict.Remove(BitmapDict.ElementAt(0).Key);
                             }
                         }
 
-                        this.Height = 100;
-                        BitmapDict.Add(bitStr, ocrText);
-                        if (BitmapDict.Count > 10)
-                        {
-                            BitmapDict.Remove(BitmapDict.ElementAt(0).Key);
-                        }
                     }
                     Logger.Log.Debug($"OCR Content: {ocrText}");
                     if (ocrText.Length < 2)
@@ -330,8 +341,9 @@ namespace GI_Subtitles
                         else
                         {
                             DateTime dateTime = DateTime.Now;
+                            Logger.Log.Debug($"Convert ocrResult for {ocrText}: {data.contentDict.Count}");
                             res = VoiceContentHelper.FindClosestMatch(ocrText, data.contentDict, out key);
-                            Logger.Log.Debug($"Convert ocrResult: {res}");
+                            Logger.Log.Debug($"Convert ocrResult for {ocrText}: {res},{key}");
                             resDict[ocrText] = res;
                             resDict[res] = key;
                             if (BitmapDict.Count > 20)

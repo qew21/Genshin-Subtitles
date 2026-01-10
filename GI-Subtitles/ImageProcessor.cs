@@ -4,6 +4,9 @@ using System.Drawing;
 using Emgu.CV.CvEnum;
 using Emgu.CV.Util;
 using System.Text;
+using System;
+using System.Collections.Generic;
+using PaddleOCRSharp;
 
 namespace GI_Subtitles
 {
@@ -43,95 +46,55 @@ namespace GI_Subtitles
                     hash.Append(left > right ? '1' : '0');
                 }
             }
+            resized.Dispose();
             return hash.ToString();
         }
 
-        public static Bitmap EnhanceAndExtractText(Bitmap inputImage)
+        /// <summary>
+        /// 计算两个哈希字符串的汉明距离（不同位的数量）
+        /// </summary>
+        public static int CalculateHammingDistance(string hash1, string hash2)
         {
-            Image<Gray, byte> img = new Image<Gray, byte>(inputImage);
+            if (hash1 == null || hash2 == null || hash1.Length != hash2.Length)
+                return int.MaxValue;
 
-            // 二值化
-            double thresholdValue = 128;
-            double maxValue = 255;
-            img = img.ThresholdBinary(new Gray(thresholdValue), new Gray(maxValue));
-
-            // 形态学操作：去除小的噪点
-            var kernel = CvInvoke.GetStructuringElement(ElementShape.Rectangle, new Size(3, 3), new Point(-1, -1));
-            CvInvoke.MorphologyEx(img, img, MorphOp.Open, kernel, new Point(-1, -1), 1, BorderType.Reflect, new MCvScalar(0));
-
-            // 找到轮廓并提取最大轮廓区域
-            VectorOfVectorOfPoint contours = new VectorOfVectorOfPoint();
-            Mat hier = new Mat();
-            CvInvoke.FindContours(img, contours, hier, RetrType.External, ChainApproxMethod.ChainApproxSimple);
-            if (contours.Size > 0)
+            int distance = 0;
+            for (int i = 0; i < hash1.Length; i++)
             {
-                // 假设最大轮廓是我们感兴趣的区域
-                double maxArea = 0;
-                int maxAreaIndex = 0;
-                for (int i = 0; i < contours.Size; i++)
-                {
-                    double area = CvInvoke.ContourArea(contours[i]);
-                    if (area > maxArea)
-                    {
-                        maxArea = area;
-                        maxAreaIndex = i;
-                    }
-                }
-
-                Rectangle boundingBox = CvInvoke.BoundingRectangle(contours[maxAreaIndex]);
-                img.ROI = boundingBox;
+                if (hash1[i] != hash2[i])
+                    distance++;
             }
-
-            return img.ToBitmap();
+            return distance;
         }
 
-        public static Bitmap ExtractTextRegion(Bitmap inputImage)
+        /// <summary>
+        /// 查找最相似的图像哈希（基于汉明距离的模糊匹配）
+        /// </summary>
+        /// <param name="targetHash">目标哈希</param>
+        /// <param name="hashDict">哈希字典</param>
+        /// <param name="maxDistance">最大允许的汉明距离（默认5，约6%的差异）</param>
+        /// <returns>最相似的哈希键，如果未找到则返回null</returns>
+        public static string FindSimilarImageHash(string targetHash, Dictionary<string, string> hashDict, int maxDistance = 5)
         {
-            Image<Gray, byte> img = new Image<Gray, byte>(inputImage);
+            if (string.IsNullOrEmpty(targetHash) || hashDict == null || hashDict.Count == 0)
+                return null;
 
-            // 二值化
-            img = img.ThresholdBinaryInv(new Gray(200), new Gray(255));
+            string bestMatch = null;
+            int minDistance = int.MaxValue;
 
-            // 形态学操作：去除小噪声
-            Mat kernel = CvInvoke.GetStructuringElement(ElementShape.Rectangle, new Size(2, 2), new Point(-1, -1));
-            CvInvoke.MorphologyEx(img, img, MorphOp.Open, kernel, new Point(-1, -1), 1, BorderType.Reflect, new MCvScalar(0));
-
-            // 边缘检测
-            Image<Gray, byte> cannyEdges = img.Canny(120, 180);
-
-            // 找轮廓
-            VectorOfVectorOfPoint contours = new VectorOfVectorOfPoint();
-            Mat hier = new Mat();
-            CvInvoke.FindContours(cannyEdges, contours, hier, RetrType.List, ChainApproxMethod.ChainApproxSimple);
-
-            // 找到最合适的轮廓
-            Rectangle bestRect = Rectangle.Empty;
-            double bestRectArea = 0;
-            for (int i = 0; i < contours.Size; i++)
+            foreach (var kvp in hashDict)
             {
-                Rectangle rect = CvInvoke.BoundingRectangle(contours[i]);
-                double area = rect.Width * rect.Height;
-                // 确保轮廓区域足够大，并且长宽比合适（根据实际文本的长宽比调整条件）
-                if (area > bestRectArea && rect.Width > rect.Height)
+                int distance = CalculateHammingDistance(targetHash, kvp.Key);
+                if (distance < minDistance && distance <= maxDistance)
                 {
-                    bestRect = rect;
-                    bestRectArea = area;
+                    minDistance = distance;
+                    bestMatch = kvp.Key;
                 }
             }
 
-            // 如果找到合适的轮廓，则裁剪图像
-            Bitmap extractedTextRegion = null;
-            if (!bestRect.IsEmpty)
-            {
-                extractedTextRegion = new Bitmap(bestRect.Width, bestRect.Height);
-                using (Graphics g = Graphics.FromImage(extractedTextRegion))
-                {
-                    g.DrawImage(inputImage, 0, 0, bestRect, GraphicsUnit.Pixel);
-                }
-            }
-
-            return extractedTextRegion;
+            return bestMatch;
         }
+
     }
 
 }
