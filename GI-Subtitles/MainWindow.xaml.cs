@@ -63,7 +63,8 @@ namespace GI_Subtitles
         string ocrText = null;
         private NotifyIcon notifyIcon;
         string lastRes = null;
-        readonly Dictionary<string, string> resDict = new Dictionary<string, string>();
+        // 使用 LRU 缓存限制内存占用，限制为100个条目
+        readonly LRUCache<string, string> resDict = new LRUCache<string, string>(100);
         public System.Windows.Threading.DispatcherTimer OCRTimer = new System.Windows.Threading.DispatcherTimer();
         public System.Windows.Threading.DispatcherTimer UITimer = new System.Windows.Threading.DispatcherTimer();
         readonly bool debug = Config.Get<bool>("Debug", false);
@@ -91,7 +92,8 @@ namespace GI_Subtitles
         private const uint VK_H = 0x48; // H键的虚拟键码
         private const uint VK_D = 0x44;
         private double Scale = GetDpiForSystem() / 96f;
-        Dictionary<string, string> BitmapDict = new Dictionary<string, string>();
+        // 使用 LRU 缓存限制内存占用，限制为30个条目（图像哈希到OCR文本的映射）
+        LRUCache<string, string> BitmapDict = new LRUCache<string, string>(30);
         List<string> AudioList = new List<string>();
         string InputLanguage = Config.Get<string>("Input");
         string OutputLanguage = Config.Get<string>("Output");
@@ -243,15 +245,13 @@ namespace GI_Subtitles
                             target = CaptureRegion(notify.Region);
                         }
                     }
-                    if (data.IsVisible)
-                    {
-                        data.SetImage(target);
-                    }
                     Bitmap enhanced = target;
                     string bitStr = ImageProcessor.ComputeDHash(enhanced);
-                    if (BitmapDict.ContainsKey(bitStr))
+                    
+                    // 使用 LRU 缓存查找
+                    if (BitmapDict.TryGetValue(bitStr, out string cachedOcrText))
                     {
-                        ocrText = BitmapDict[bitStr];
+                        ocrText = cachedOcrText;
                     }
                     else
                     {
@@ -260,7 +260,7 @@ namespace GI_Subtitles
                         {
                             int distance = ImageProcessor.CalculateHammingDistance(bitStr, matchedImageHash);
                             ocrText = BitmapDict[matchedImageHash];
-                            BitmapDict[bitStr] = ocrText;
+                            BitmapDict[bitStr] = ocrText; // LRU 缓存会自动管理大小
                         }
                         else
                         {
@@ -289,13 +289,20 @@ namespace GI_Subtitles
                             }
 
                             this.Height = 100;
-                            BitmapDict.Add(bitStr, ocrText);
-                            if (BitmapDict.Count > 10)
-                            {
-                                BitmapDict.Remove(BitmapDict.ElementAt(0).Key);
-                            }
+                            BitmapDict[bitStr] = ocrText; // LRU 缓存会自动管理大小，无需手动检查
                         }
 
+                    }
+                    
+                    // 在 SetImage 之前设置图像（SetImage 会保存引用，所以不在这里释放）
+                    if (data.IsVisible)
+                    {
+                        data.SetImage(target);
+                    }
+                    else
+                    {
+                        // 如果不需要显示，立即释放资源
+                        target?.Dispose();
                     }
                     Logger.Log.Debug($"OCR Content: {ocrText}");
                     if (ocrText.Length < 2)
@@ -324,10 +331,15 @@ namespace GI_Subtitles
                     string key = "";
                     if (ocrText.Length > 1)
                     {
-                        if (resDict.ContainsKey(ocrText))
+                        // 使用 LRU 缓存查找
+                        if (resDict.TryGetValue(ocrText, out string cachedRes))
                         {
-                            res = resDict[ocrText];
-                            key = resDict[res];
+                            res = cachedRes;
+                            // 查找对应的 key
+                            if (resDict.TryGetValue(res, out string cachedKey))
+                            {
+                                key = cachedKey;
+                            }
                         }
                         else
                         {
@@ -340,12 +352,9 @@ namespace GI_Subtitles
                                 res = VoiceContentHelper.FindClosestMatch(ocrText, data.contentDict, out key);
                             }
                             Logger.Log.Debug($"Convert ocrResult for {ocrText}: {res},{key}");
+                            // LRU 缓存会自动管理大小，无需手动检查
                             resDict[ocrText] = res;
                             resDict[res] = key;
-                            if (BitmapDict.Count > 30)
-                            {
-                                BitmapDict.Remove(BitmapDict.ElementAt(0).Key);
-                            }
                         }
                     }
                     if (res != lastRes)
@@ -383,19 +392,31 @@ namespace GI_Subtitles
         }
 
 
+        /// <summary>
+        /// 捕获屏幕区域，修复内存泄漏问题
+        /// 优化：直接返回 Bitmap，由调用者负责释放，避免 Clone() 导致的内存问题
+        /// </summary>
         public static Bitmap CaptureRegion(string[] region)
         {
             int x = Convert.ToInt16(region[0]);
             int y = Convert.ToInt16(region[1]);
             int width = Convert.ToInt16(region[2]);
             int height = Convert.ToInt16(region[3]);
-            using (Bitmap bitmap = new Bitmap(width, height))
+            
+            Bitmap bitmap = new Bitmap(width, height);
+            try
             {
                 using (Graphics g = Graphics.FromImage(bitmap))
                 {
                     g.CopyFromScreen(x, y, 0, 0, new System.Drawing.Size(width, height));
                 }
-                return (Bitmap)bitmap.Clone();
+                return bitmap; // 直接返回，由调用者负责释放
+            }
+            catch
+            {
+                // 如果出错，确保释放资源
+                bitmap?.Dispose();
+                throw;
             }
         }
 

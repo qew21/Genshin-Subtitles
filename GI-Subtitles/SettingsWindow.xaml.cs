@@ -687,13 +687,13 @@ namespace GI_Subtitles
             OCRModelConfig config = null;
             OCRParameter oCRParameter = new OCRParameter
             {
-                cpu_math_library_num_threads = 5,//预测并发线程数
+                cpu_math_library_num_threads = 3,//预测并发线程数
                 enable_mkldnn = true,//web部署该值建议设置为0,否则出错，内存如果使用很大，建议该值也设置为0.
                 cls = false, //是否执行文字方向分类；默认false
                 det = false,//是否开启方向检测，用于检测识别180旋转
                 use_angle_cls = false,//是否开启方向检测，用于检测识别180旋转
                 det_db_score_mode = false,//是否使用多段线，即文字区域是用多段线还是用矩形，
-                max_side_len = 1560
+                max_side_len = 960
             };
             oCRParameter.cls = mtuliline | enableMultiLine;
             oCRParameter.det = mtuliline | enableMultiLine;
