@@ -95,8 +95,11 @@ namespace GI_Subtitles
             try
             {
                 var rect = Screenshot.Screenshot.GetRegion();
-                Config.Set("Region", $"{Convert.ToInt16(rect.TopLeft.X)},{Convert.ToInt16(rect.TopLeft.Y)},{Convert.ToInt16(rect.Width)},{Convert.ToInt16(rect.Height)}");
-                Region = Config.Get<string>("Region").ToString().Split(',');
+                if (Convert.ToInt16(rect.Width) > 0 && Convert.ToInt16(rect.Height) > 0)
+                {
+                    Config.Set("Region", $"{Convert.ToInt16(rect.TopLeft.X)},{Convert.ToInt16(rect.TopLeft.Y)},{Convert.ToInt16(rect.Width)},{Convert.ToInt16(rect.Height)}");
+                    Region = Config.Get<string>("Region").ToString().Split(',');
+                }
             }
             catch (Exception ex)
             {
@@ -109,8 +112,11 @@ namespace GI_Subtitles
             try
             {
                 var rect = Screenshot.Screenshot.GetRegion();
-                Config.Set("Region2", $"{Convert.ToInt16(rect.TopLeft.X)},{Convert.ToInt16(rect.TopLeft.Y)},{Convert.ToInt16(rect.Width)},{Convert.ToInt16(rect.Height)}");
-                Region2 = Config.Get<string>("Region2").ToString().Split(',');
+                if (Convert.ToInt16(rect.Width) > 0 && Convert.ToInt16(rect.Height) > 0)
+                {
+                    Config.Set("Region2", $"{Convert.ToInt16(rect.TopLeft.X)},{Convert.ToInt16(rect.TopLeft.Y)},{Convert.ToInt16(rect.Width)},{Convert.ToInt16(rect.Height)}");
+                    Region2 = Config.Get<string>("Region2").ToString().Split(',');
+                }
             }
             catch (Exception ex)
             {

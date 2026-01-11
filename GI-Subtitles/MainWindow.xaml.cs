@@ -221,7 +221,12 @@ namespace GI_Subtitles
                     {
                         notify.ChooseRegion();
                     }
-                    if (failedCount > 4 && notify.Region2.Length == 4)
+
+                    bool isRegion2Valid = notify.Region2 != null && notify.Region2.Length == 4 &&
+                                         int.TryParse(notify.Region2[2], out int region2Width) && region2Width > 0 &&
+                                         int.TryParse(notify.Region2[3], out int region2Height) && region2Height > 0;
+
+                    if (failedCount > 4 && isRegion2Valid)
                     {
                         if (usingRegion2)
                         {
@@ -236,7 +241,7 @@ namespace GI_Subtitles
                     }
                     else
                     {
-                        if (usingRegion2)
+                        if (usingRegion2 && isRegion2Valid)
                         {
                             target = CaptureRegion(notify.Region2);
                         }
@@ -247,7 +252,7 @@ namespace GI_Subtitles
                     }
                     Bitmap enhanced = target;
                     string bitStr = ImageProcessor.ComputeDHash(enhanced);
-                    
+
                     // 使用 LRU 缓存查找
                     if (BitmapDict.TryGetValue(bitStr, out string cachedOcrText))
                     {
@@ -293,7 +298,7 @@ namespace GI_Subtitles
                         }
 
                     }
-                    
+
                     // 在 SetImage 之前设置图像（SetImage 会保存引用，所以不在这里释放）
                     if (data.IsVisible)
                     {
@@ -344,7 +349,8 @@ namespace GI_Subtitles
                         else
                         {
                             DateTime dateTime = DateTime.Now;
-                            if (Multi){
+                            if (Multi)
+                            {
                                 res = VoiceContentHelper.FindMatchWithHeader(ocrText, data.contentDict, out key);
                             }
                             else
@@ -398,24 +404,58 @@ namespace GI_Subtitles
         /// </summary>
         public static Bitmap CaptureRegion(string[] region)
         {
-            int x = Convert.ToInt16(region[0]);
-            int y = Convert.ToInt16(region[1]);
-            int width = Convert.ToInt16(region[2]);
-            int height = Convert.ToInt16(region[3]);
-            
-            Bitmap bitmap = new Bitmap(width, height);
+            if (region == null || region.Length < 4)
+            {
+                Logger.Log.Error($"Invalid region array: length={region?.Length ?? 0}");
+                throw new ArgumentException("Region array must have at least 4 elements", nameof(region));
+            }
+
+            if (!int.TryParse(region[0], out int x) ||
+                !int.TryParse(region[1], out int y) ||
+                !int.TryParse(region[2], out int width) ||
+                !int.TryParse(region[3], out int height))
+            {
+                Logger.Log.Error($"Invalid region values: x={region[0]}, y={region[1]}, width={region[2]}, height={region[3]}");
+                throw new ArgumentException("Region values must be valid integers", nameof(region));
+            }
+
+            // 验证 width 和 height 必须大于 0
+            if (width <= 0 || height <= 0)
+            {
+                Logger.Log.Error($"Invalid region dimensions: width={width}, height={height}");
+                throw new ArgumentException($"Region dimensions must be positive: width={width}, height={height}");
+            }
+
+            // 验证坐标是否在屏幕范围内（可选，但有助于调试）
             try
             {
+                var screenBounds = Screen.GetBounds(new System.Drawing.Point(x, y));
+                if (x < screenBounds.Left || y < screenBounds.Top ||
+                    x + width > screenBounds.Right || y + height > screenBounds.Bottom)
+                {
+                    Logger.Log.Warn($"Region may be outside screen bounds: x={x}, y={y}, width={width}, height={height}, screen={screenBounds}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Log.Warn($"Could not validate screen bounds: {ex.Message}");
+            }
+
+            Bitmap bitmap = null;
+            try
+            {
+                bitmap = new Bitmap(width, height);
                 using (Graphics g = Graphics.FromImage(bitmap))
                 {
                     g.CopyFromScreen(x, y, 0, 0, new System.Drawing.Size(width, height));
                 }
                 return bitmap; // 直接返回，由调用者负责释放
             }
-            catch
+            catch (Exception ex)
             {
                 // 如果出错，确保释放资源
                 bitmap?.Dispose();
+                Logger.Log.Error($"Failed to capture region: x={x}, y={y}, width={width}, height={height}, error={ex.Message}");
                 throw;
             }
         }
