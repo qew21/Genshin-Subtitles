@@ -3,8 +3,6 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.1.32210.238
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PaddleOCRSharp", "PaddleOCRSharp\PaddleOCRSharp.csproj", "{AB10D356-2D95-4460-96CA-9A7129AD0A76}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GI-Subtitles", "GI-Subtitles\GI-Subtitles.csproj", "{8352D7DA-8B24-49AB-A76A-E96CB707F6CE}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Screenshot", "Screenshot\Screenshot.csproj", "{38B15FC5-1EA1-45E6-A219-9D5DFE95AFF0}"
@@ -12,6 +10,8 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WixSharp Setup", "WixSharp Setup\WixSharp Setup.csproj", "{7F422BFA-0B6E-4F64-9032-B4FC67AA11F1}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnitTest", "UnitTest\UnitTest.csproj", "{2B1B3932-4371-41F0-BC3F-0734E69940D9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PaddleOCRSharp", "PaddleOCRSharp\PaddleOCRSharp.csproj", "{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -23,18 +23,6 @@ Global
 		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{AB10D356-2D95-4460-96CA-9A7129AD0A76}.Debug|Any CPU.ActiveCfg = Debug|x64
-		{AB10D356-2D95-4460-96CA-9A7129AD0A76}.Debug|Any CPU.Build.0 = Debug|x64
-		{AB10D356-2D95-4460-96CA-9A7129AD0A76}.Debug|x64.ActiveCfg = Debug|x64
-		{AB10D356-2D95-4460-96CA-9A7129AD0A76}.Debug|x64.Build.0 = Debug|x64
-		{AB10D356-2D95-4460-96CA-9A7129AD0A76}.Debug|x86.ActiveCfg = Debug|x64
-		{AB10D356-2D95-4460-96CA-9A7129AD0A76}.Debug|x86.Build.0 = Debug|x64
-		{AB10D356-2D95-4460-96CA-9A7129AD0A76}.Release|Any CPU.ActiveCfg = Release|x64
-		{AB10D356-2D95-4460-96CA-9A7129AD0A76}.Release|Any CPU.Build.0 = Release|x64
-		{AB10D356-2D95-4460-96CA-9A7129AD0A76}.Release|x64.ActiveCfg = Release|x64
-		{AB10D356-2D95-4460-96CA-9A7129AD0A76}.Release|x64.Build.0 = Release|x64
-		{AB10D356-2D95-4460-96CA-9A7129AD0A76}.Release|x86.ActiveCfg = Release|x64
-		{AB10D356-2D95-4460-96CA-9A7129AD0A76}.Release|x86.Build.0 = Release|x64
 		{8352D7DA-8B24-49AB-A76A-E96CB707F6CE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{8352D7DA-8B24-49AB-A76A-E96CB707F6CE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8352D7DA-8B24-49AB-A76A-E96CB707F6CE}.Debug|x64.ActiveCfg = Debug|Any CPU
@@ -83,6 +71,18 @@ Global
 		{2B1B3932-4371-41F0-BC3F-0734E69940D9}.Release|x64.Build.0 = Release|Any CPU
 		{2B1B3932-4371-41F0-BC3F-0734E69940D9}.Release|x86.ActiveCfg = Release|Any CPU
 		{2B1B3932-4371-41F0-BC3F-0734E69940D9}.Release|x86.Build.0 = Release|Any CPU
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Debug|x64.Build.0 = Debug|Any CPU
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Debug|x86.Build.0 = Debug|Any CPU
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Release|x64.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Release|x64.Build.0 = Release|Any CPU
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Release|x86.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

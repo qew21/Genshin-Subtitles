@@ -689,38 +689,29 @@ namespace GI_Subtitles
             {
                 cpu_math_library_num_threads = 3,//预测并发线程数
                 enable_mkldnn = true,//web部署该值建议设置为0,否则出错，内存如果使用很大，建议该值也设置为0.
-                cls = false, //是否执行文字方向分类；默认false
-                det = false,//是否开启方向检测，用于检测识别180旋转
                 use_angle_cls = false,//是否开启方向检测，用于检测识别180旋转
                 det_db_score_mode = false,//是否使用多段线，即文字区域是用多段线还是用矩形，
                 max_side_len = 960
             };
-            oCRParameter.cls = mtuliline | enableMultiLine;
-            oCRParameter.det = mtuliline | enableMultiLine;
 
             if (InputLanguage == "JP")
             {
                 config = new OCRModelConfig();
                 string root = System.IO.Path.GetDirectoryName(typeof(OCRModelConfig).Assembly.Location);
                 string modelPathroot = root + @"\inference";
-                config.det_infer = modelPathroot + @"\ch_PP-OCRv3_det_infer";
-                config.cls_infer = modelPathroot + @"\ch_ppocr_mobile_v2.0_cls_infer";
-                config.rec_infer = modelPathroot + @"\japan_PP-OCRv3_rec_infer";
-                config.keys = modelPathroot + @"\japan_dict.txt";
+                config.det_infer = modelPathroot + @"\Det\V4\PP-OCRv4_mobile_det_infer\slim.onnx";
+                config.rec_infer = modelPathroot + @"\Rec\V4\jp_PP-OCRv4_mobile_rec_infer\slim.onnx";
+                config.keys = modelPathroot + @"\Rec\V4\jp_PP-OCRv4_mobile_rec_infer\dict.txt";
             }
             else
             {
                 config = new OCRModelConfig();
                 string root = System.IO.Path.GetDirectoryName(typeof(OCRModelConfig).Assembly.Location);
                 string modelPathroot = root + @"\inference";
-                config.det_infer = modelPathroot + @"\ch_PP-OCRv3_det_infer";
-                config.cls_infer = modelPathroot + @"\ch_ppocr_mobile_v2.0_cls_infer";
-                config.rec_infer = modelPathroot + @"\ch_PP-OCRv3_rec_infer";
-                config.keys = modelPathroot + @"\ppocr_keys.txt";
+                config.det_infer = modelPathroot + @"\Det\V4\PP-OCRv4_mobile_det_infer\slim.onnx";
+                config.rec_infer = modelPathroot + @"\Rec\V4\PP-OCRv4_mobile_rec_infer\slim.onnx";
             }
 
-
-            //初始化OCR引擎
             engine = new PaddleOCREngine(config, oCRParameter);
         }
         private void TestButton_Click(object sender, RoutedEventArgs e)
@@ -811,15 +802,11 @@ namespace GI_Subtitles
                     {
                         continue;
                     }
-                    var res = engine.DetectStructure(bitmap);
-                    foreach (var i in res.Cells)
+                    var res = engine.DetectText(bitmap);
+                    foreach (var i in res.TextBlocks)
                     {
-                        if (i.TextBlocks.Count > 0)
-                        {
-                            Logger.Log.Debug(i.TextBlocks);
-                            List<OCRPoint> point = i.TextBlocks[0].BoxPoints;
-                            Logger.Log.Debug($"Region:\"{point[0].X - 400},{point[0].Y - 20},{point[1].X - point[0].X + 800},{point[2].Y - point[0].Y + 40}\"");
-                        }
+                        Logger.Log.Debug(i);
+                        Logger.Log.Debug($"Region:\"{i.BoxPoints[0].X - 400},{i.BoxPoints[0].Y - 20},{i.BoxPoints[1].X - i.BoxPoints[0].X + 800},{i.BoxPoints[2].Y - i.BoxPoints[0].Y + 40}\"");
                     }
                 }
                 idx++;

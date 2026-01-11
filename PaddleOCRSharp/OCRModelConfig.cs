@@ -1,53 +1,49 @@
-﻿// Copyright (c) 2021 raoyutian Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+using System.IO;
+
 namespace PaddleOCRSharp
-{ 
-   /// <summary>
-   /// 模型配置对象
-   /// </summary>
-    public  class OCRModelConfig
+{
+    /// <summary>
+    /// OCR模型配置
+    /// </summary>
+    public class OCRModelConfig
     {
         /// <summary>
-        /// det_infer模型路径
+        /// 检测模型路径
         /// </summary>
         public string det_infer { get; set; }
+
         /// <summary>
-        /// cls_infer模型路径
+        /// 分类模型路径
         /// </summary>
         public string cls_infer { get; set; }
+
         /// <summary>
-        /// rec_infer模型路径
+        /// 识别模型路径
         /// </summary>
         public string rec_infer { get; set; }
+
         /// <summary>
-        /// ppocr_keys.txt文件名全路径
+        /// 字符字典路径
         /// </summary>
         public string keys { get; set; }
-    }
 
-    /// <summary>
-    /// 表格模型配置对象
-    /// </summary>
-    public class StructureModelConfig : OCRModelConfig
-    {
+        public OCRModelConfig()
+        {
+            var root = GetRootDirectory();
+            var modelPathRoot = Path.Combine(root, "inference");
+            det_infer = Path.Combine(modelPathRoot, "Det", "V5", "PP-OCRv5_mobile_det_infer", "slim.onnx");
+            cls_infer = Path.Combine(modelPathRoot, "ch_ppocr_mobile_v2.0_cls_infer"); // 可选，不使用
+            rec_infer = Path.Combine(modelPathRoot, "Rec", "V5", "PP-OCRv5_mobile_rec_infer", "slim.onnx");
+            keys = Path.Combine(modelPathRoot, "ppocr_keys.txt"); // 可选，字符字典从inference.yml读取
+        }
+
         /// <summary>
-        /// table_model_dir模型路径
+        /// 获取根目录
         /// </summary>
-        public string table_model_dir { get; set; }
-        /// <summary>
-        /// 表格识别字典
-        /// </summary>
-        public string table_char_dict_path { get; set; }
+        private static string GetRootDirectory()
+        {
+            var exePath = System.Reflection.Assembly.GetExecutingAssembly().Location;
+            return Path.GetDirectoryName(exePath);
+        }
     }
 }
