@@ -54,11 +54,87 @@ public static class VoiceContentHelper
     }
 
 
+    public static string FindMatchWithHeader(string ocrText, Dictionary<string, string> voiceContentDict, out string key)
+    {
+        key = "";
+
+        if (string.IsNullOrEmpty(ocrText))
+            return "";
+
+        string[] lines = ocrText.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+        if (lines.Length == 1)
+        {
+            return FindClosestMatch(lines[0], voiceContentDict, out key);
+        }
+
+        // Find the longest line (body text starts from here)
+        int maxLength = 0;
+        int maxIndex = 0;
+        for (int i = 0; i < lines.Length; i++)
+        {
+            if (lines[i].Length > maxLength)
+            {
+                maxLength = lines[i].Length;
+                maxIndex = i;
+            }
+        }
+
+        // Headers are lines above the longest line (1-2 lines)
+        List<string> headers = new List<string>();
+        // If the longest line is title case and English, and there's content after it, use the next line
+        if (IsTitleCase(lines[maxIndex]) && IsEnglish(lines[maxIndex]) && maxIndex < lines.Length - 1)
+        {
+            maxIndex = maxIndex + 1;
+        }
+
+
+        for (int i = 0; i < maxIndex; i++)
+        {
+            headers.Add(lines[i]);
+        }
+
+        // Body text is the longest line and all lines after it
+        string bodyText = string.Join(" ", lines.Skip(maxIndex));
+
+        // Exact match for headers (no fuzzy matching)
+        string headerMatch = "";
+        foreach (string header in headers)
+        {
+            if (voiceContentDict.ContainsKey(header))
+            {
+                if (!string.IsNullOrEmpty(headerMatch))
+                    headerMatch += " ";
+                headerMatch += voiceContentDict[header];
+            }
+        }
+
+        string bodyMatch = FindClosestMatch(bodyText, voiceContentDict, out string bodyKey);
+        if (string.IsNullOrEmpty(bodyMatch))
+        {
+            return headerMatch;
+        }
+
+        key = bodyKey;
+        if (!string.IsNullOrEmpty(headerMatch))
+        {
+            return headerMatch + " " + bodyMatch;
+        }
+        else
+        {
+            return bodyMatch;
+        }
+    }
+
     public static string FindClosestMatch(string input, Dictionary<string, string> voiceContentDict, out string Key)
     {
         string closestKey = null;
         int closestDistance = int.MaxValue;
         int length = input.Length;
+        if(voiceContentDict.ContainsKey(input))
+        {
+            Key = input;
+            return voiceContentDict[input];
+        }
         var keys = voiceContentDict.Keys.AsParallel();
 
         keys = keys.Where(key => !(length <= 5 && key.Length >= length * 3));
@@ -74,7 +150,7 @@ public static class VoiceContentHelper
 
             // 如果input长度大于10且input在temp中，则直接返回完全匹配
             int distance;
-            if (length > 10 && key.Contains(input))
+            if (length > 10 && (key.Contains(input) || (input.Contains(key) && key.Length > 10)))
             {
                 distance = 0;
             }
@@ -91,7 +167,7 @@ public static class VoiceContentHelper
                 }
             }
         });
-        //Console.WriteLine($"closestKey {closestKey} length {length} closestDistance {closestDistance}");
+        Logger.Log.Debug($"closestKey {closestKey} length {length} closestDistance {closestDistance}");
         if (closestDistance < length / 1.5)
         {
             Key = closestKey;
@@ -189,6 +265,47 @@ public static class VoiceContentHelper
             }
         }
         return data;
+    }
+
+    private static bool IsTitleCase(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return false;
+
+        string[] words = text.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length == 0)
+            return false;
+
+        foreach (string word in words)
+        {
+            if (word.Length > 0 && char.IsLetter(word[0]))
+            {
+                if (!char.IsUpper(word[0]))
+                {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    private static bool IsEnglish(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return false;
+
+        foreach (char c in text)
+        {
+            if (char.IsLetter(c))
+            {
+                // Check if character is in English alphabet range (A-Z, a-z)
+                if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'))
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
 }

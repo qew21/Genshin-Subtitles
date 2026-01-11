@@ -12,24 +12,6 @@ namespace GI_Subtitles
 {
     public class ImageProcessor
     {
-        public static Bitmap EnhanceTextInImage(Bitmap inputImage)
-        {
-            Image<Bgr, byte> img = new Image<Bgr, byte>(inputImage);
-
-            // 转换为灰度图像
-            Image<Gray, byte> gray = img.Convert<Gray, byte>();
-
-            // 应用二值化
-            double thresholdValue = 240; // 阈值（0 - 255）
-            double maxValue = 245;       // 最大值
-            gray = gray.ThresholdBinary(new Gray(thresholdValue), new Gray(maxValue));
-
-            // 将处理后的Emgu CV Image转换回Bitmap
-            Bitmap processedImage = gray.Bitmap;
-
-            return processedImage;
-        }
-
         public static string ComputeDHash(Bitmap bmp)
         {
             var resized = new Bitmap(9, 8);
@@ -98,4 +80,5 @@ namespace GI_Subtitles
     }
 
 }
+
 

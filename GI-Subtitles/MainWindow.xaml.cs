@@ -95,6 +95,7 @@ namespace GI_Subtitles
         List<string> AudioList = new List<string>();
         string InputLanguage = Config.Get<string>("Input");
         string OutputLanguage = Config.Get<string>("Output");
+        bool Multi = Config.Get<bool>("Multiline", false);
         string Game = Config.Get<string>("Game");
         string Update = Config.Get<string>("Update");
         string version = Assembly.GetExecutingAssembly().GetName().Version.ToString();
@@ -265,22 +266,12 @@ namespace GI_Subtitles
                         {
                             OCRResult ocrResult = data.engine.DetectText(enhanced);
                             ocrText = ocrResult.Text;
+
                             if (debug)
                             {
                                 Logger.Log.Debug(DateTime.Now.ToString("yyyy-MM-dd_HH_mm_ss_ffffff") + ".png");
                                 target.Save(Path.Combine(dataDir, DateTime.Now.ToString("yyyy-MM-dd_HH_mm_ss_ffffff") + ".png"));
-                                Logger.Log.Debug(ocrText);
-                            }
-                            var maxY = 0;
-                            foreach (var i in ocrResult.TextBlocks)
-                            {
-                                foreach (var j in i.BoxPoints)
-                                {
-                                    if (j.Y > maxY)
-                                    {
-                                        maxY = j.Y;
-                                    }
-                                }
+                                Logger.Log.Debug($"OCR Text: {ocrText}");
                             }
 
                             double top = Convert.ToInt16(notify.Region[1]) / Scale + Config.Get<int>("Pad");
@@ -341,12 +332,17 @@ namespace GI_Subtitles
                         else
                         {
                             DateTime dateTime = DateTime.Now;
-                            Logger.Log.Debug($"Convert ocrResult for {ocrText}: {data.contentDict.Count}");
-                            res = VoiceContentHelper.FindClosestMatch(ocrText, data.contentDict, out key);
+                            if (Multi){
+                                res = VoiceContentHelper.FindMatchWithHeader(ocrText, data.contentDict, out key);
+                            }
+                            else
+                            {
+                                res = VoiceContentHelper.FindClosestMatch(ocrText, data.contentDict, out key);
+                            }
                             Logger.Log.Debug($"Convert ocrResult for {ocrText}: {res},{key}");
                             resDict[ocrText] = res;
                             resDict[res] = key;
-                            if (BitmapDict.Count > 20)
+                            if (BitmapDict.Count > 30)
                             {
                                 BitmapDict.Remove(BitmapDict.ElementAt(0).Key);
                             }

@@ -41,7 +41,7 @@ namespace PaddleOCRSharp
         public override string ToString()
         {
             if (TextBlocks == null) return "";
-            return string.Join("", TextBlocks.Select(x => x.Text).ToArray());
+            return string.Join("\n", TextBlocks.Select(x => x.Text).ToArray());
         }
     }
 
