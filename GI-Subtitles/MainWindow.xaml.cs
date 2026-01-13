@@ -159,7 +159,10 @@ namespace GI_Subtitles
                                 System.Windows.Application.Current.Dispatcher.Invoke(() =>
                                 {
                                     notifyIcon.ShowBalloonTip(3000, "语言包更新通知", $"仓库更新时间{repoDate}，本地修改时间{inputDate}", ToolTipIcon.Info);
+                                    string originalTitle = data.Title;
+                                    data.Title = $"【语言包更新】{originalTitle}";
                                     data.ShowDialog();
+                                    data.Title = originalTitle;
                                 });
                             }
                         }
@@ -200,6 +203,7 @@ namespace GI_Subtitles
                 notifyIcon = null;
                 data.UnregisterAllHotkeys();
                 data.RealClose();
+                System.Environment.Exit(0);
             }
         }
 

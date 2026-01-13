@@ -715,6 +715,7 @@ namespace GI_Subtitles
                 string modelPathroot = root + @"\inference";
                 config.det_infer = modelPathroot + @"\Det\V4\PP-OCRv4_mobile_det_infer\slim.onnx";
                 config.rec_infer = modelPathroot + @"\Rec\V4\PP-OCRv4_mobile_rec_infer\slim.onnx";
+                config.keys = modelPathroot + @"\Rec\V4\PP-OCRv4_mobile_rec_infer\dict.txt";
             }
 
             engine = new PaddleOCREngine(config, oCRParameter);
