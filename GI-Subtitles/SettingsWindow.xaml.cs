@@ -93,6 +93,7 @@ namespace GI_Subtitles
         private IntPtr _windowHandle;
         private ObservableCollection<HotkeyViewModel> _hotkeys;
         private bool REAL_CLOSE = false;
+        public OptimizedMatcher Matcher;
         public SettingsWindow(string version, INotifyIcon notify, double scale = 1)
         {
             InitializeComponent();
@@ -369,7 +370,11 @@ namespace GI_Subtitles
             {
                 Status.Content = $"Loaded {contentDict.Count} key-values，{InputLanguage} -> {OutputLanguage}";
                 Logger.Log.Debug(Status.Content);
-                Logger.Log.Debug(12333);
+                if (Matcher == null)
+                {
+                    Logger.Log.Debug("Loading OptimizedMatcher...");
+                    Matcher = new OptimizedMatcher(contentDict);
+                }
             });
             DisplayLocalFileDates();
         }
@@ -1086,6 +1091,14 @@ namespace GI_Subtitles
         public void RealClose()
         {
             REAL_CLOSE = true;
+            try
+            {
+                engine.Dispose();
+            }
+            catch
+            {
+
+            }
             this.Close();
         }
     }

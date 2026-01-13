@@ -116,7 +116,6 @@ namespace GI_Subtitles
         private bool usingRegion2 = false;
 
 
-
         public MainWindow()
         {
             Logger.Log.Debug("Start App");
@@ -351,11 +350,11 @@ namespace GI_Subtitles
                             DateTime dateTime = DateTime.Now;
                             if (Multi)
                             {
-                                res = VoiceContentHelper.FindMatchWithHeader(ocrText, data.contentDict, out key);
+                                res = data.Matcher.FindMatchWithHeader(ocrText, out key);
                             }
                             else
                             {
-                                res = VoiceContentHelper.FindClosestMatch(ocrText, data.contentDict, out key);
+                                res = data.Matcher.FindClosestMatch(ocrText, out key);
                             }
                             Logger.Log.Debug($"Convert ocrResult for {ocrText}: {res},{key}");
                             // LRU 缓存会自动管理大小，无需手动检查

@@ -118,6 +118,7 @@
     <Compile Include="HotkeySettings.cs" />
     <Compile Include="ImageProcessor.cs" />
     <Compile Include="INotifyIcon.cs" />
+    <Compile Include="OptimizedMatcher.cs" />
     <Compile Include="ScreenInfo.cs" />
     <Compile Include="SettingsWindow.xaml.cs">
       <DependentUpon>SettingsWindow.xaml</DependentUpon>

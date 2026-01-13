@@ -7,6 +7,8 @@ using System.Text.RegularExpressions;
 using GI_Subtitles;
 using NAudio.SoundFont;
 using Newtonsoft.Json;
+using System.Buffers;
+using System.Threading.Tasks;
 
 
 public static class VoiceContentHelper
@@ -125,92 +127,184 @@ public static class VoiceContentHelper
         }
     }
 
+
     public static string FindClosestMatch(string input, Dictionary<string, string> voiceContentDict, out string Key)
     {
-        string closestKey = null;
-        int closestDistance = int.MaxValue;
-        int length = input.Length;
-        if(voiceContentDict.ContainsKey(input))
+        // 1. 极速路径：完全匹配直接返回
+        if (voiceContentDict.TryGetValue(input, out var exactMatch))
         {
             Key = input;
-            return voiceContentDict[input];
+            return exactMatch;
         }
-        var keys = voiceContentDict.Keys.AsParallel();
 
-        keys = keys.Where(key => !(length <= 5 && key.Length >= length * 3));
+        int inputLen = input.Length;
 
-        keys.ForAll(key =>
-        {
+        // 全局最优解容器（线程安全更新）
+        // 使用 Object 用于最终合并时的极少量锁
+        object globalLock = new object();
+        string globalBestKey = null;
+        int globalBestDistance = int.MaxValue;
 
-            string temp = key;
-            if (length > 5 && temp.Length > length)
+        // 2. 并行处理：使用线程局部变量避免锁竞争
+        // 这里的逻辑对应 Map-Reduce：
+        // localInit: 每个线程初始化自己的最优解
+        // body: 执行计算，更新线程内的最优解（无锁）
+        // localFinally: 线程结束时，将自己的最优解合并到全局（有锁，但极少触发）
+        Parallel.ForEach(
+            voiceContentDict,
+            new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, // 用满所有核心
+            () => new { BestKey = (string)null, BestDist = int.MaxValue }, // 线程局部变量初始化
+            (kvp, loopState, localState) =>
             {
-                temp = temp.Substring(0, length);
-            }
+                string key = kvp.Key;
+                int keyLen = key.Length;
 
-            // 如果input长度大于10且input在temp中，则直接返回完全匹配
-            int distance;
-            if (length > 10 && (key.Contains(input) || (input.Contains(key) && key.Length > 10)))
-            {
-                distance = 0;
-            }
-            else
-            {
-                distance = CalculateLevenshteinDistance(input, temp);
-            }
-            lock (voiceContentDict)
-            {
-                if (distance < closestDistance)
+
+
+
+
+                int currentDistance;
+
+                // --- 包含逻辑 (保留业务需求) ---
+                bool isContains = false;
+                if (inputLen > 10)
                 {
-                    closestDistance = distance;
-                    closestKey = key;
+                    // 使用 Ordinal 比较，性能最高
+                    if (key.IndexOf(input, StringComparison.Ordinal) >= 0 ||
+                       (keyLen > 10 && input.IndexOf(key, StringComparison.Ordinal) >= 0))
+                    {
+                        isContains = true;
+                    }
+                }
+
+                // --- 原始过滤逻辑 ---
+                if (inputLen <= 5 && keyLen >= inputLen * 3)
+                    return localState;
+                // --- 剪枝优化 ---
+                // 如果长度差已经大于该线程目前找到的最小距离，直接跳过计算
+                // 注意：这里用 localState.BestDist，随着遍历进行，剪枝效率会越来越高
+                if (Math.Abs(keyLen - inputLen) >= localState.BestDist)
+                    return localState;
+                if (isContains)
+                {
+                    currentDistance = 0;
+                }
+                else
+                {
+                    // --- Levenshtein 计算 (零内存分配) ---
+                    // 只有当不包含时才计算距离
+                    // 为了兼容原始逻辑：如果 input > 5 且 key 更长，截取 key 的前 inputLen 个字符
+                    // 使用 Span 避免 Substring 的内存分配
+                    ReadOnlySpan<char> targetSpan = key.AsSpan();
+                    if (inputLen > 5 && keyLen > inputLen)
+                    {
+                        targetSpan = targetSpan.Slice(0, inputLen);
+                    }
+
+                    // 传入 localState.BestDist 作为阈值，如果计算过程中超过这个值立即停止
+                    currentDistance = CalculateLevenshteinDistance(input.AsSpan(), targetSpan, localState.BestDist);
+                }
+
+                // 更新线程局部最优解
+                if (currentDistance < localState.BestDist)
+                {
+                    return new { BestKey = key, BestDist = currentDistance };
+                }
+
+                return localState;
+            },
+            (finalLocalState) =>
+            {
+                // 3. 最终合并：只有这里需要锁，且次数等于线程数（例如只有 8 次或 16 次），几乎无开销
+                if (finalLocalState.BestKey != null)
+                {
+                    lock (globalLock)
+                    {
+                        if (finalLocalState.BestDist < globalBestDistance)
+                        {
+                            globalBestDistance = finalLocalState.BestDist;
+                            globalBestKey = finalLocalState.BestKey;
+                        }
+                    }
                 }
             }
-        });
-        Logger.Log.Debug($"closestKey {closestKey} length {length} closestDistance {closestDistance}");
-        if (closestDistance < length / 1.5)
+        );
+
+        // Logger.Log.Debug($"closestKey {globalBestKey} length {inputLen} closestDistance {globalBestDistance}");
+
+        // 原始阈值判定逻辑
+        if (globalBestDistance < inputLen / 1.5)
         {
-            Key = closestKey;
-            return voiceContentDict[closestKey];
+            Key = globalBestKey;
+            return voiceContentDict[globalBestKey];
         }
         else
         {
             Key = "";
             return "";
         }
-
     }
 
-    private static int CalculateLevenshteinDistance(string a, string b)
+    // 经过极致优化的 Levenshtein 算法
+    // 特性：使用 Span，使用 stackalloc，支持阈值截断
+    private static int CalculateLevenshteinDistance(ReadOnlySpan<char> source, ReadOnlySpan<char> target, int threshold)
     {
+        int sourceLen = source.Length;
+        int targetLen = target.Length;
 
-        if (string.IsNullOrEmpty(a)) return b.Length;
-        if (string.IsNullOrEmpty(b)) return a.Length;
+        // 如果长度差已经超过阈值，直接返回
+        if (Math.Abs(sourceLen - targetLen) >= threshold) return threshold + 1;
+        if (sourceLen == 0) return targetLen;
+        if (targetLen == 0) return sourceLen;
 
-        int[] prev = new int[b.Length + 1];
-        int[] curr = new int[b.Length + 1];
-
-        for (int j = 0; j <= b.Length; j++)
-            prev[j] = j;
-
-        for (int i = 1; i <= a.Length; i++)
+        // 确保 source 是较短的，减少栈内存占用
+        if (sourceLen > targetLen)
         {
-            curr[0] = i;
-            for (int j = 1; j <= b.Length; j++)
+            var temp = source; source = target; target = temp;
+            var tempLen = sourceLen; sourceLen = targetLen; targetLen = tempLen;
+        }
+
+        // Stackalloc 分配内存：极快，不触发 GC
+        // 一般语音指令长度有限，使用 stackalloc 很安全。如果担心溢出，可以加长度判断回退到 ArrayPool
+        Span<int> prev = stackalloc int[sourceLen + 1];
+        Span<int> curr = stackalloc int[sourceLen + 1];
+
+        for (int i = 0; i <= sourceLen; i++) prev[i] = i;
+
+        for (int j = 1; j <= targetLen; j++)
+        {
+            curr[0] = j;
+            int minDistanceInRow = j;
+
+            for (int i = 1; i <= sourceLen; i++)
             {
-                int cost = (a[i - 1] == b[j - 1]) ? 0 : 1;
-                curr[j] = Math.Min(
-                    Math.Min(curr[j - 1] + 1, prev[j] + 1),
-                    prev[j - 1] + cost);
+                int cost = (source[i - 1] == target[j - 1]) ? 0 : 1;
+
+                // 核心状态转移方程
+                int d1 = curr[i - 1] + 1;
+                int d2 = prev[i] + 1;
+                int d3 = prev[i - 1] + cost;
+
+                int dist = d1 < d2 ? d1 : d2;
+                dist = dist < d3 ? dist : d3;
+
+                curr[i] = dist;
+
+                if (dist < minDistanceInRow) minDistanceInRow = dist;
             }
 
-            var temp = prev;
-            prev = curr;
-            curr = temp;
-        }
-        return prev[b.Length];
-    }
+            // 行级剪枝：如果这一整行的最小值都已经超过了阈值，
+            // 说明后续无论怎么匹配，距离都不可能小于阈值了，直接提前退出
+            if (minDistanceInRow >= threshold) return threshold + 1;
 
+            // 交换缓冲区，避免重新初始化数组
+            var tempRow = prev;
+            prev = curr;
+            curr = tempRow;
+        }
+
+        return prev[sourceLen];
+    }
     static string ProcessGender(string input)
     {
         string pattern = @"\{([FM]#.*?)}";
