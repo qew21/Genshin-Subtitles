@@ -119,16 +119,17 @@ namespace GI_Subtitles
         }
 
         // 转换字幕内容的示例方法（可根据需要修改）
-        public string ConvertSubtitleText(string text)
+        public string ConvertSubtitleText(OptimizedMatcher Matcher, string text)
         {
             // 这里只是示例：将文本转为大写
             string key;
-            string res = VoiceContentHelper.FindClosestMatch(text, this.contentDict, out key);
+            string res = Matcher.FindClosestMatch(text, out key);
+            Logger.Log.Debug($"Convert {text} ocrResult: {res}");
             return res;
         }
 
         // 处理整个字幕列表的内容
-        public List<SubtitleItem> ProcessSubtitles(List<SubtitleItem> subtitles)
+        public List<SubtitleItem> ProcessSubtitles(OptimizedMatcher Matcher, List<SubtitleItem> subtitles)
         {
             var processedSubtitles = new List<SubtitleItem>();
 
@@ -143,7 +144,7 @@ namespace GI_Subtitles
                 // 转换每一行字幕内容
                 foreach (var line in subtitle.Lines)
                 {
-                    processedSubtitle.Lines.Add(ConvertSubtitleText(line));
+                    processedSubtitle.Lines.Add(ConvertSubtitleText(Matcher, line));
                 }
 
                 processedSubtitles.Add(processedSubtitle);

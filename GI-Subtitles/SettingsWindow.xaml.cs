@@ -749,7 +749,7 @@ namespace GI_Subtitles
                 OCRResult ocrResult = engine.DetectText(target);
                 string ocrText = ocrResult.Text;
                 dateTime = DateTime.Now;
-                string res = VoiceContentHelper.FindClosestMatch(ocrText, contentDict, out string key);
+                string res = Matcher.FindClosestMatch(ocrText, out string key);
                 report = $"OCR: {ocrText}\nMatch: {key}\nTranslate: {res}";
             }
             catch (Exception ex)
@@ -846,7 +846,7 @@ namespace GI_Subtitles
                         continue;
                     }
                     var subtitles = processor.ReadSrtFile(file);
-                    var processedSubtitles = processor.ProcessSubtitles(subtitles);
+                    var processedSubtitles = processor.ProcessSubtitles(Matcher, subtitles);
                     string outputPath = file.Replace(".srt", ".convert.srt");
                     processor.WriteSrtFile(outputPath, processedSubtitles);
                 }
