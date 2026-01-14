@@ -341,7 +341,7 @@ namespace GI_Subtitles
                     string key = "";
                     string header = "";
                     string content = "";
-                    
+
                     if (ocrText.Length > 1)
                     {
                         if (Multi)
@@ -351,9 +351,9 @@ namespace GI_Subtitles
                             header = matchResult.Header ?? "";
                             content = matchResult.Content ?? "";
                             res = string.IsNullOrEmpty(header) ? content : (header + " " + content);
-                            
+
                             Logger.Log.Debug($"Convert ocrResult for {ocrText}: header={header}, content={content}, key={key}");
-                            
+
                             // 缓存仍然使用拼接后的结果用于兼容性
                             if (!resDict.ContainsKey(ocrText))
                             {
@@ -385,11 +385,11 @@ namespace GI_Subtitles
                             header = "";
                         }
                     }
-                    
+
                     // 检查内容是否有变化（主要检查content，因为它是主要内容）
                     bool contentChanged = content != lastContent;
                     bool headerChanged = header != lastHeader;
-                    
+
                     if (contentChanged || headerChanged)
                     {
                         if (Multi)
@@ -413,7 +413,7 @@ namespace GI_Subtitles
                                     HeaderText.Visibility = Visibility.Collapsed;
                                 }
                             }
-                            
+
                             if (contentChanged)
                             {
                                 lastContent = content;
@@ -442,7 +442,7 @@ namespace GI_Subtitles
                                 HeaderText.Visibility = Visibility.Collapsed;
                             }
                         }
-                        
+
                         // 播放音频（只在content变化时播放，避免重复播放）
                         if (contentChanged && !AudioList.Contains(key))
                         {

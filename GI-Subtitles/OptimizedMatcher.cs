@@ -46,6 +46,7 @@ namespace GI_Subtitles
             foreach (var kvp in voiceContentDict)
             {
                 string key = kvp.Key;
+                key = NormalizeInput(key);
 
                 // 1. 存入原始数据数组
                 _entries[index] = new Entry
@@ -91,6 +92,7 @@ namespace GI_Subtitles
 
         public string FindClosestMatch(string input, out string Key)
         {
+            input = NormalizeInput(input);
             if (string.IsNullOrEmpty(input))
             {
                 Key = "";
@@ -235,7 +237,7 @@ namespace GI_Subtitles
             if (!isSpecialMatch)
             {
                 // 剪枝
-                if (Math.Abs(keyLen - inputLen) >= globalBestDistance) return;
+                if (Math.Abs(keyLen - inputLen) >= globalBestDistance * 1.5) return;
 
                 ReadOnlySpan<char> targetSpan = key.AsSpan();
                 if (inputLen > 5 && keyLen > inputLen)
@@ -481,6 +483,13 @@ namespace GI_Subtitles
                 }
             }
             return false;
+        }
+
+        private static string NormalizeInput(string input)
+        {
+            if (string.IsNullOrEmpty(input)) return input;
+            // 移除所有空白字符（空格、换行、制表符等）
+            return new string(input.Where(c => !char.IsWhiteSpace(c)).ToArray());
         }
     }
 }
