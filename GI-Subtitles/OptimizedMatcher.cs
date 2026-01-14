@@ -6,6 +6,13 @@ using System.Collections.Concurrent;
 
 namespace GI_Subtitles
 {
+    // 用于返回header和content分开的结果
+    public struct MatchResult
+    {
+        public string Header;
+        public string Content;
+    }
+
     public class OptimizedMatcher
     {
         // 存储原始数据，使用结构体数组以获得最佳内存布局
@@ -364,6 +371,75 @@ namespace GI_Subtitles
             {
                 return bodyMatch;
             }
+        }
+
+        // 新增方法：返回header和content分开的结果
+        public MatchResult FindMatchWithHeaderSeparated(string ocrText, out string key)
+        {
+            key = "";
+            var result = new MatchResult { Header = "", Content = "" };
+
+            if (string.IsNullOrEmpty(ocrText))
+                return result;
+
+            string[] lines = ocrText.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            if (lines.Length == 1)
+            {
+                result.Content = FindClosestMatch(lines[0], out key);
+                return result;
+            }
+
+            // Find the longest line (body text starts from here)
+            int maxLength = 0;
+            int maxIndex = 0;
+            for (int i = 0; i < lines.Length; i++)
+            {
+                if (lines[i].Length > maxLength)
+                {
+                    maxLength = lines[i].Length;
+                    maxIndex = i;
+                }
+            }
+
+            // Headers are lines above the longest line (1-2 lines)
+            List<string> headers = new List<string>();
+            // If the longest line is title case and English, and there's content after it, use the next line
+            if (IsTitleCase(lines[maxIndex]) && IsEnglish(lines[maxIndex]) && maxIndex < lines.Length - 1)
+            {
+                maxIndex = maxIndex + 1;
+            }
+
+            for (int i = 0; i < maxIndex; i++)
+            {
+                headers.Add(lines[i]);
+            }
+
+            // Body text is the longest line and all lines after it
+            string bodyText = string.Join(" ", lines.Skip(maxIndex));
+
+            // Exact match for headers (no fuzzy matching)
+            string headerMatch = "";
+            foreach (string header in headers)
+            {
+                if (ContentDict.ContainsKey(header))
+                {
+                    if (!string.IsNullOrEmpty(headerMatch))
+                        headerMatch += " ";
+                    headerMatch += ContentDict[header];
+                }
+            }
+
+            string bodyMatch = FindClosestMatch(bodyText, out string bodyKey);
+            if (string.IsNullOrEmpty(bodyMatch))
+            {
+                result.Header = headerMatch;
+                return result;
+            }
+
+            key = bodyKey;
+            result.Content = bodyMatch;
+            result.Header = headerMatch ?? "";
+            return result;
         }
 
         private static bool IsTitleCase(string text)

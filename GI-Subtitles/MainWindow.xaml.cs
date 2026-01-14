@@ -63,6 +63,8 @@ namespace GI_Subtitles
         string ocrText = null;
         private NotifyIcon notifyIcon;
         string lastRes = null;
+        string lastHeader = null;
+        string lastContent = null;
         // 使用 LRU 缓存限制内存占用，限制为100个条目
         readonly LRUCache<string, string> resDict = new LRUCache<string, string>(100);
         public System.Windows.Threading.DispatcherTimer OCRTimer = new System.Windows.Threading.DispatcherTimer();
@@ -337,41 +339,112 @@ namespace GI_Subtitles
                 {
                     string res = "";
                     string key = "";
+                    string header = "";
+                    string content = "";
+                    
                     if (ocrText.Length > 1)
                     {
-                        // 使用 LRU 缓存查找
-                        if (resDict.TryGetValue(ocrText, out string cachedRes))
+                        if (Multi)
                         {
-                            res = cachedRes;
-                            // 查找对应的 key
-                            if (resDict.TryGetValue(res, out string cachedKey))
+                            // 使用新的分离方法
+                            var matchResult = data.Matcher.FindMatchWithHeaderSeparated(ocrText, out key);
+                            header = matchResult.Header ?? "";
+                            content = matchResult.Content ?? "";
+                            res = string.IsNullOrEmpty(header) ? content : (header + " " + content);
+                            
+                            Logger.Log.Debug($"Convert ocrResult for {ocrText}: header={header}, content={content}, key={key}");
+                            
+                            // 缓存仍然使用拼接后的结果用于兼容性
+                            if (!resDict.ContainsKey(ocrText))
                             {
-                                key = cachedKey;
+                                resDict[ocrText] = res;
+                                resDict[res] = key;
                             }
                         }
                         else
                         {
-                            DateTime dateTime = DateTime.Now;
-                            if (Multi)
+                            // 使用 LRU 缓存查找
+                            if (resDict.TryGetValue(ocrText, out string cachedRes))
                             {
-                                res = data.Matcher.FindMatchWithHeader(ocrText, out key);
+                                res = cachedRes;
+                                // 查找对应的 key
+                                if (resDict.TryGetValue(res, out string cachedKey))
+                                {
+                                    key = cachedKey;
+                                }
                             }
                             else
                             {
                                 res = data.Matcher.FindClosestMatch(ocrText, out key);
+                                Logger.Log.Debug($"Convert ocrResult for {ocrText}: {res},{key}");
+                                // LRU 缓存会自动管理大小，无需手动检查
+                                resDict[ocrText] = res;
+                                resDict[res] = key;
                             }
-                            Logger.Log.Debug($"Convert ocrResult for {ocrText}: {res},{key}");
-                            // LRU 缓存会自动管理大小，无需手动检查
-                            resDict[ocrText] = res;
-                            resDict[res] = key;
+                            content = res;
+                            header = "";
                         }
                     }
-                    if (res != lastRes)
+                    
+                    // 检查内容是否有变化（主要检查content，因为它是主要内容）
+                    bool contentChanged = content != lastContent;
+                    bool headerChanged = header != lastHeader;
+                    
+                    if (contentChanged || headerChanged)
                     {
-                        lastRes = res;
-                        SubtitleText.Text = res;
-                        SubtitleText.FontSize = Config.Get<int>("Size");
-                        if (!AudioList.Contains(key))
+                        if (Multi)
+                        {
+                            // 分别设置header和content
+                            if (headerChanged)
+                            {
+                                lastHeader = header;
+                                if (!string.IsNullOrEmpty(header))
+                                {
+                                    HeaderText.Text = header;
+                                    HeaderText.Visibility = Visibility.Visible;
+                                    // 计算content的字体大小，动态调整header的上移距离
+                                    int fontSize = Config.Get<int>("Size");
+                                    // header上移距离 = content字体大小的一半 + header字体大小的一半 + 间距
+                                    var transform = (System.Windows.Media.TranslateTransform)HeaderText.RenderTransform;
+                                    transform.Y = -(fontSize / 2.0 + 7 + 4); // 7是header字体14的一半，4是间距
+                                }
+                                else
+                                {
+                                    HeaderText.Visibility = Visibility.Collapsed;
+                                }
+                            }
+                            
+                            if (contentChanged)
+                            {
+                                lastContent = content;
+                                SubtitleText.Text = content;
+                                int fontSize = Config.Get<int>("Size");
+                                SubtitleText.FontSize = fontSize;
+                                // 如果header可见，更新header的上移距离，使其显示在content上方
+                                if (HeaderText.Visibility == Visibility.Visible && !string.IsNullOrEmpty(lastHeader))
+                                {
+                                    var transform = (System.Windows.Media.TranslateTransform)HeaderText.RenderTransform;
+                                    // 上移距离 = content字体大小的一半 + header字体大小的一半 + 间距
+                                    transform.Y = -(fontSize / 2.0 + 7 + 4); // 7是header字体14的一半，4是间距
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // 非Multi模式，保持原有逻辑
+                            if (res != lastRes)
+                            {
+                                lastRes = res;
+                                lastContent = content;
+                                SubtitleText.Text = res;
+                                SubtitleText.FontSize = Config.Get<int>("Size");
+                                // 确保header在非Multi模式下始终隐藏
+                                HeaderText.Visibility = Visibility.Collapsed;
+                            }
+                        }
+                        
+                        // 播放音频（只在content变化时播放，避免重复播放）
+                        if (contentChanged && !AudioList.Contains(key))
                         {
                             string text = key;
                             if (VoiceMap.ContainsKey(text))
@@ -389,7 +462,6 @@ namespace GI_Subtitles
                             Logger.Log.Debug($"key: {key}, contains: {VoiceMap.ContainsKey(text)}");
                             AudioList.Add(key);
                         }
-
                     }
                 }
                 catch (Exception ex)
