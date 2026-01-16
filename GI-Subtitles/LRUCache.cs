@@ -140,13 +140,3 @@ namespace GI_Subtitles
         }
     }
 }
-
-
-
-
-
-
-
-
-
-

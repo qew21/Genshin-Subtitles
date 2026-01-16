@@ -6,27 +6,15 @@
     To suppress generation of this file remove `set ide=true` from the PostBuildEvent of the VS project
 </auto-generated>
 -->
-  <Package Compressed="yes" ProductCode="f3023517-78fe-4184-881b-f5460c7cce59" Name="GI-Subtitles" Language="1033" Version="1.5.0.0" UpgradeCode="6ee5aa0c-5e19-4e14-b585-7334de8c81a2" Manufacturer="jwhu" InstallerVersion="200">
+  <Package Compressed="yes" ProductCode="e69b4d71-d7ab-4dc0-b527-9285b25c17be" Name="GI-Subtitles" Language="1033" Version="1.5.0.0" UpgradeCode="6ee5aa0c-5e19-4e14-b585-7334de8c81a2" Manufacturer="jwhu" InstallerVersion="200">
     <SummaryInformation Codepage="Windows-1252" />
     <Media Id="1" Cabinet="GI2dSubtitles.cab" EmbedCab="yes" />
 
     <StandardDirectory Id="ProgramFilesFolder">
       <Directory Id="INSTALLDIR" Name="GI-Subtitles">
 
-        <Component Id="Component.CHS.jpg_4096715714" Guid="6ee5aa0c-5e19-4e14-b585-7334a0a80dfe">
-          <File Id="CHS.jpg_4096715714" Source="bin\Files\CHS.jpg" />
-        </Component>
-
-        <Component Id="Component.concrt140.dll_620865074" Guid="6ee5aa0c-5e19-4e14-b585-73349d00c61b">
-          <File Id="concrt140.dll_620865074" Source="bin\Files\concrt140.dll" />
-        </Component>
-
         <Component Id="Component.Config.json_3619172430" Guid="6ee5aa0c-5e19-4e14-b585-73340392f86f">
           <File Id="Config.json_3619172430" Source="bin\Files\Config.json" />
-        </Component>
-
-        <Component Id="Component.CPU63074ee496c668c06d4b5de55177.exe_1567844790" Guid="6ee5aa0c-5e19-4e14-b585-733465fe29de">
-          <File Id="CPU63074ee496c668c06d4b5de55177.exe_1567844790" Source="bin\Files\CPU指令集检测工具.exe" />
         </Component>
 
         <Component Id="Component.Emgu.CV.UI.dll_1876637069" Guid="6ee5aa0c-5e19-4e14-b585-7334347713c7">
@@ -37,24 +25,24 @@
           <File Id="Emgu.CV.World.dll_2101702545" Source="bin\Files\Emgu.CV.World.dll" />
         </Component>
 
-        <Component Id="Component.EN.jpg_1930160960" Guid="6ee5aa0c-5e19-4e14-b585-7334c0249010">
-          <File Id="EN.jpg_1930160960" Source="bin\Files\EN.jpg" />
-        </Component>
-
         <Component Id="Component.GI2dSubtitles.exe_4027473678" Guid="6ee5aa0c-5e19-4e14-b585-73344b09bae4">
           <File Id="GI2dSubtitles.exe_4027473678" Source="bin\Files\GI-Subtitles.exe" />
         </Component>
 
-        <Component Id="Component.GI2dSubtitles.exe.Config_1049100796" Guid="6ee5aa0c-5e19-4e14-b585-7334d7b39c1c">
-          <File Id="GI2dSubtitles.exe.Config_1049100796" Source="bin\Files\GI-Subtitles.exe.Config" />
-        </Component>
-
-        <Component Id="Component.JP.jpg_1960438623" Guid="6ee5aa0c-5e19-4e14-b585-73340ee57771">
-          <File Id="JP.jpg_1960438623" Source="bin\Files\JP.jpg" />
+        <Component Id="Component.GI2dSubtitles.exe.config_967311868" Guid="6ee5aa0c-5e19-4e14-b585-7334f737c169">
+          <File Id="GI2dSubtitles.exe.config_967311868" Source="bin\Files\GI-Subtitles.exe.config" />
         </Component>
 
         <Component Id="Component.libiomp5md.dll_2790259937" Guid="6ee5aa0c-5e19-4e14-b585-7334f657afe1">
           <File Id="libiomp5md.dll_2790259937" Source="bin\Files\libiomp5md.dll" />
+        </Component>
+
+        <Component Id="Component.libSkiaSharp.dll_51022786" Guid="6ee5aa0c-5e19-4e14-b585-7334fc316e8e">
+          <File Id="libSkiaSharp.dll_51022786" Source="bin\Files\libSkiaSharp.dll" />
+        </Component>
+
+        <Component Id="Component.LibTorchSharp.dll_415570885" Guid="6ee5aa0c-5e19-4e14-b585-7334ca91dc68">
+          <File Id="LibTorchSharp.dll_415570885" Source="bin\Files\LibTorchSharp.dll" />
         </Component>
 
         <Component Id="Component.log4net.dll_2601190211" Guid="6ee5aa0c-5e19-4e14-b585-7334fe8344a6">
@@ -69,20 +57,16 @@
           <File Id="mfcm140.dll_2494480016" Source="bin\Files\mfcm140.dll" />
         </Component>
 
+        <Component Id="Component.Microsoft.ML.OnnxRuntime.dll_3766176570" Guid="6ee5aa0c-5e19-4e14-b585-733482f4de8d">
+          <File Id="Microsoft.ML.OnnxRuntime.dll_3766176570" Source="bin\Files\Microsoft.ML.OnnxRuntime.dll" />
+        </Component>
+
         <Component Id="Component.mkldnn.dll_2186497908" Guid="6ee5aa0c-5e19-4e14-b585-7334f5dc919a">
           <File Id="mkldnn.dll_2186497908" Source="bin\Files\mkldnn.dll" />
         </Component>
 
         <Component Id="Component.mklml.dll_3400806940" Guid="6ee5aa0c-5e19-4e14-b585-73343829c3a9">
           <File Id="mklml.dll_3400806940" Source="bin\Files\mklml.dll" />
-        </Component>
-
-        <Component Id="Component.msvcp140.dll_3910063177" Guid="6ee5aa0c-5e19-4e14-b585-73346dc34e77">
-          <File Id="msvcp140.dll_3910063177" Source="bin\Files\msvcp140.dll" />
-        </Component>
-
-        <Component Id="Component.msvcp140_1.dll_617972308" Guid="6ee5aa0c-5e19-4e14-b585-7334b869ab7b">
-          <File Id="msvcp140_1.dll_617972308" Source="bin\Files\msvcp140_1.dll" />
         </Component>
 
         <Component Id="Component.msvcp140_2.dll_611877460" Guid="6ee5aa0c-5e19-4e14-b585-7334a333367d">
@@ -109,6 +93,26 @@
           <File Id="onnxruntime.dll_3518152996" Source="bin\Files\onnxruntime.dll" />
         </Component>
 
+        <Component Id="Component.onnxruntime_providers_shared.dll_2951030924" Guid="6ee5aa0c-5e19-4e14-b585-733422fa575d">
+          <File Id="onnxruntime_providers_shared.dll_2951030924" Source="bin\Files\onnxruntime_providers_shared.dll" />
+        </Component>
+
+        <Component Id="Component.OpenCvSharp.dll_164754387" Guid="6ee5aa0c-5e19-4e14-b585-7334b794fa4b">
+          <File Id="OpenCvSharp.dll_164754387" Source="bin\Files\OpenCvSharp.dll" />
+        </Component>
+
+        <Component Id="Component.OpenCvSharp.Extensions.dll_758656555" Guid="6ee5aa0c-5e19-4e14-b585-73340d089889">
+          <File Id="OpenCvSharp.Extensions.dll_758656555" Source="bin\Files\OpenCvSharp.Extensions.dll" />
+        </Component>
+
+        <Component Id="Component.OpenCvSharp.WpfExtensions.dll_3053310830" Guid="6ee5aa0c-5e19-4e14-b585-733403e7c6e5">
+          <File Id="OpenCvSharp.WpfExtensions.dll_3053310830" Source="bin\Files\OpenCvSharp.WpfExtensions.dll" />
+        </Component>
+
+        <Component Id="Component.OpenCvSharpExtern.dll_3307303388" Guid="6ee5aa0c-5e19-4e14-b585-73340bef75d8">
+          <File Id="OpenCvSharpExtern.dll_3307303388" Source="bin\Files\OpenCvSharpExtern.dll" />
+        </Component>
+
         <Component Id="Component.opencv_world411.dll_1795504568" Guid="6ee5aa0c-5e19-4e14-b585-7334aaef9523">
           <File Id="opencv_world411.dll_1795504568" Source="bin\Files\opencv_world411.dll" />
         </Component>
@@ -117,36 +121,40 @@
           <File Id="paddle2onnx.dll_2771211521" Source="bin\Files\paddle2onnx.dll" />
         </Component>
 
-        <Component Id="Component.PaddleOCR.dll_1884075332" Guid="6ee5aa0c-5e19-4e14-b585-7334ad2eb041">
-          <File Id="PaddleOCR.dll_1884075332" Source="bin\Files\PaddleOCR.dll" />
-        </Component>
-
         <Component Id="Component.PaddleOCRSharp.dll_982724404" Guid="6ee5aa0c-5e19-4e14-b585-733479098593">
           <File Id="PaddleOCRSharp.dll_982724404" Source="bin\Files\PaddleOCRSharp.dll" />
+        </Component>
+
+        <Component Id="Component.PaddleOCRSharp.dll.config_130676655" Guid="6ee5aa0c-5e19-4e14-b585-7334f01cc6b5">
+          <File Id="PaddleOCRSharp.dll.config_130676655" Source="bin\Files\PaddleOCRSharp.dll.config" />
         </Component>
 
         <Component Id="Component.paddle_inference.dll_1005680536" Guid="6ee5aa0c-5e19-4e14-b585-73344194e733">
           <File Id="paddle_inference.dll_1005680536" Source="bin\Files\paddle_inference.dll" />
         </Component>
 
-        <Component Id="Component.ScreenCapturer.dll_3285266826" Guid="6ee5aa0c-5e19-4e14-b585-7334c6617170">
-          <File Id="ScreenCapturer.dll_3285266826" Source="bin\Files\ScreenCapturer.dll" />
-        </Component>
-
         <Component Id="Component.Screenshot.dll_597597156" Guid="6ee5aa0c-5e19-4e14-b585-7334fa661134">
           <File Id="Screenshot.dll_597597156" Source="bin\Files\Screenshot.dll" />
         </Component>
 
-        <Component Id="Component.vcamp140.dll_2092013834" Guid="6ee5aa0c-5e19-4e14-b585-73347cf0fe6c">
-          <File Id="vcamp140.dll_2092013834" Source="bin\Files\vcamp140.dll" />
+        <Component Id="Component.System.Buffers.dll_2515440289" Guid="6ee5aa0c-5e19-4e14-b585-7334d3ea9c93">
+          <File Id="System.Buffers.dll_2515440289" Source="bin\Files\System.Buffers.dll" />
         </Component>
 
-        <Component Id="Component.vccorlib140.dll_3264988168" Guid="6ee5aa0c-5e19-4e14-b585-7334508aca35">
-          <File Id="vccorlib140.dll_3264988168" Source="bin\Files\vccorlib140.dll" />
+        <Component Id="Component.System.Memory.dll_3519735338" Guid="6ee5aa0c-5e19-4e14-b585-73348d96265d">
+          <File Id="System.Memory.dll_3519735338" Source="bin\Files\System.Memory.dll" />
         </Component>
 
-        <Component Id="Component.vcomp140.dll_1397172780" Guid="6ee5aa0c-5e19-4e14-b585-7334a6275cf0">
-          <File Id="vcomp140.dll_1397172780" Source="bin\Files\vcomp140.dll" />
+        <Component Id="Component.System.Numerics.Vectors.dll_1973854541" Guid="6ee5aa0c-5e19-4e14-b585-7334c917d7ff">
+          <File Id="System.Numerics.Vectors.dll_1973854541" Source="bin\Files\System.Numerics.Vectors.dll" />
+        </Component>
+
+        <Component Id="Component.System.Runtime.CompilerServices.Unsafe.dll_4091411092" Guid="6ee5aa0c-5e19-4e14-b585-73349a78a707">
+          <File Id="System.Runtime.CompilerServices.Unsafe.dll_4091411092" Source="bin\Files\System.Runtime.CompilerServices.Unsafe.dll" />
+        </Component>
+
+        <Component Id="Component.testOCR.png_3868221492" Guid="6ee5aa0c-5e19-4e14-b585-73344fe82a5b">
+          <File Id="testOCR.png_3868221492" Source="bin\Files\testOCR.png" />
         </Component>
 
         <Component Id="Component.vcruntime140.dll_2249548691" Guid="6ee5aa0c-5e19-4e14-b585-733464ef5339">
@@ -159,14 +167,6 @@
 
         <Component Id="Component.Wuthering.png_3996392861" Guid="6ee5aa0c-5e19-4e14-b585-73343553e455">
           <File Id="Wuthering.png_3996392861" Source="bin\Files\Wuthering.png" />
-        </Component>
-
-        <Component Id="Component.Yt.ImageView.dll_689913902" Guid="6ee5aa0c-5e19-4e14-b585-7334deb05e2c">
-          <File Id="Yt.ImageView.dll_689913902" Source="bin\Files\Yt.ImageView.dll" />
-        </Component>
-
-        <Component Id="Component.yt_CPUCheck.dll_325492037" Guid="6ee5aa0c-5e19-4e14-b585-7334b55fb3d1">
-          <File Id="yt_CPUCheck.dll_325492037" Source="bin\Files\yt_CPUCheck.dll" />
         </Component>
 
         <Component Id="Component.ZedGraph.dll_2921095464" Guid="6ee5aa0c-5e19-4e14-b585-7334bb793dc3">
@@ -202,141 +202,48 @@
         </Directory>
 
         <Directory Id="inference" Name="inference">
+          <Directory Id="Det" Name="Det">
+            <Directory Id="V4_" Name="V4">
+              <Directory Id="PP2dOCRv4_mobile_det_infer" Name="PP-OCRv4_mobile_det_infer">
 
-          <Component Id="Component.en_dict.txt_3365033" Guid="6ee5aa0c-5e19-4e14-b585-7334fd350d63">
-            <File Id="en_dict.txt_3365033" Source="bin\Files\inference\en_dict.txt" />
-          </Component>
+                <Component Id="Component.inference.yml_1862526687" Guid="6ee5aa0c-5e19-4e14-b585-73347f710dbb">
+                  <File Id="inference.yml_1862526687" Source="bin\Files\inference\Det\V4\PP-OCRv4_mobile_det_infer\inference.yml" />
+                </Component>
 
-          <Component Id="Component.japan_dict.txt_1247434406" Guid="6ee5aa0c-5e19-4e14-b585-733446eb6fa9">
-            <File Id="japan_dict.txt_1247434406" Source="bin\Files\inference\japan_dict.txt" />
-          </Component>
+                <Component Id="Component.slim.onnx_756639289" Guid="6ee5aa0c-5e19-4e14-b585-7334623f06c1">
+                  <File Id="slim.onnx_756639289" Source="bin\Files\inference\Det\V4\PP-OCRv4_mobile_det_infer\slim.onnx" />
+                </Component>
 
-          <Component Id="Component.layout_publaynet_dict.txt_2106823682" Guid="6ee5aa0c-5e19-4e14-b585-7334f1c0c236">
-            <File Id="layout_publaynet_dict.txt_2106823682" Source="bin\Files\inference\layout_publaynet_dict.txt" />
-          </Component>
-
-          <Component Id="Component.PaddleOCR.config.json_1730752573" Guid="6ee5aa0c-5e19-4e14-b585-733466e33d0c">
-            <File Id="PaddleOCR.config.json_1730752573" Source="bin\Files\inference\PaddleOCR.config.json" />
-          </Component>
-
-          <Component Id="Component.PaddleOCRStructure.config.json_4272077268" Guid="6ee5aa0c-5e19-4e14-b585-733450a0a7df">
-            <File Id="PaddleOCRStructure.config.json_4272077268" Source="bin\Files\inference\PaddleOCRStructure.config.json" />
-          </Component>
-
-          <Component Id="Component.ppocr_keys.txt_3457364264" Guid="6ee5aa0c-5e19-4e14-b585-73343ffb9636">
-            <File Id="ppocr_keys.txt_3457364264" Source="bin\Files\inference\ppocr_keys.txt" />
-          </Component>
-
-          <Component Id="Component.table_structure_dict_ch.txt_1167062189" Guid="6ee5aa0c-5e19-4e14-b585-7334d9d70846">
-            <File Id="table_structure_dict_ch.txt_1167062189" Source="bin\Files\inference\table_structure_dict_ch.txt" />
-          </Component>
-
-          <Directory Id="ch_PP2dOCRv3_det_infer" Name="ch_PP-OCRv3_det_infer">
-
-            <Component Id="Component._._inference.pdiparams_3584389071" Guid="6ee5aa0c-5e19-4e14-b585-73341de5828b">
-              <File Id="_._inference.pdiparams_3584389071" Source="bin\Files\inference\ch_PP-OCRv3_det_infer\._inference.pdiparams" />
-            </Component>
-
-            <Component Id="Component._._inference.pdiparams.info_1630909379" Guid="6ee5aa0c-5e19-4e14-b585-73341160e65d">
-              <File Id="_._inference.pdiparams.info_1630909379" Source="bin\Files\inference\ch_PP-OCRv3_det_infer\._inference.pdiparams.info" />
-            </Component>
-
-            <Component Id="Component._._inference.pdmodel_3614700478" Guid="6ee5aa0c-5e19-4e14-b585-7334f715525c">
-              <File Id="_._inference.pdmodel_3614700478" Source="bin\Files\inference\ch_PP-OCRv3_det_infer\._inference.pdmodel" />
-            </Component>
-
-            <Component Id="Component.inference.pdiparams_720274147" Guid="6ee5aa0c-5e19-4e14-b585-73340ef36775">
-              <File Id="inference.pdiparams_720274147" Source="bin\Files\inference\ch_PP-OCRv3_det_infer\inference.pdiparams" />
-            </Component>
-
-            <Component Id="Component.inference.pdiparams.info_1448220425" Guid="6ee5aa0c-5e19-4e14-b585-7334a23d3e25">
-              <File Id="inference.pdiparams.info_1448220425" Source="bin\Files\inference\ch_PP-OCRv3_det_infer\inference.pdiparams.info" />
-            </Component>
-
-            <Component Id="Component.inference.pdmodel_3583074755" Guid="6ee5aa0c-5e19-4e14-b585-73348db9fb52">
-              <File Id="inference.pdmodel_3583074755" Source="bin\Files\inference\ch_PP-OCRv3_det_infer\inference.pdmodel" />
-            </Component>
-
+              </Directory>
+            </Directory>
           </Directory>
 
-          <Directory Id="ch_PP2dOCRv3_rec_infer" Name="ch_PP-OCRv3_rec_infer">
+          <Directory Id="Rec" Name="Rec">
+            <Directory Id="V4.1" Name="V4">
+              <Directory Id="jp_PP2dOCRv4_mobile_rec_infer" Name="jp_PP-OCRv4_mobile_rec_infer">
 
-            <Component Id="Component.inference.pdiparams_4061511069" Guid="6ee5aa0c-5e19-4e14-b585-7334d3ec1163">
-              <File Id="inference.pdiparams_4061511069" Source="bin\Files\inference\ch_PP-OCRv3_rec_infer\inference.pdiparams" />
-            </Component>
+                <Component Id="Component.dict.txt_1794772896" Guid="6ee5aa0c-5e19-4e14-b585-7334d7172290">
+                  <File Id="dict.txt_1794772896" Source="bin\Files\inference\Rec\V4\jp_PP-OCRv4_mobile_rec_infer\dict.txt" />
+                </Component>
 
-            <Component Id="Component.inference.pdiparams.info_1857483157" Guid="6ee5aa0c-5e19-4e14-b585-73344c63d32b">
-              <File Id="inference.pdiparams.info_1857483157" Source="bin\Files\inference\ch_PP-OCRv3_rec_infer\inference.pdiparams.info" />
-            </Component>
+                <Component Id="Component.slim.onnx_1545428049" Guid="6ee5aa0c-5e19-4e14-b585-73341b6f528b">
+                  <File Id="slim.onnx_1545428049" Source="bin\Files\inference\Rec\V4\jp_PP-OCRv4_mobile_rec_infer\slim.onnx" />
+                </Component>
 
-            <Component Id="Component.inference.pdmodel_119866978" Guid="6ee5aa0c-5e19-4e14-b585-7334d07b43a9">
-              <File Id="inference.pdmodel_119866978" Source="bin\Files\inference\ch_PP-OCRv3_rec_infer\inference.pdmodel" />
-            </Component>
+              </Directory>
 
-          </Directory>
+              <Directory Id="PP2dOCRv4_mobile_rec_infer" Name="PP-OCRv4_mobile_rec_infer">
 
-          <Directory Id="ch_ppocr_mobile_v2.0_cls_infer" Name="ch_ppocr_mobile_v2.0_cls_infer">
+                <Component Id="Component.dict.txt_2895341402" Guid="6ee5aa0c-5e19-4e14-b585-7334f219fd31">
+                  <File Id="dict.txt_2895341402" Source="bin\Files\inference\Rec\V4\PP-OCRv4_mobile_rec_infer\dict.txt" />
+                </Component>
 
-            <Component Id="Component.inference.pdiparams_178378327" Guid="6ee5aa0c-5e19-4e14-b585-7334e3963619">
-              <File Id="inference.pdiparams_178378327" Source="bin\Files\inference\ch_ppocr_mobile_v2.0_cls_infer\inference.pdiparams" />
-            </Component>
+                <Component Id="Component.slim.onnx_3121838820" Guid="6ee5aa0c-5e19-4e14-b585-73347f4d796d">
+                  <File Id="slim.onnx_3121838820" Source="bin\Files\inference\Rec\V4\PP-OCRv4_mobile_rec_infer\slim.onnx" />
+                </Component>
 
-            <Component Id="Component.inference.pdiparams.info_3104365421" Guid="6ee5aa0c-5e19-4e14-b585-7334c4bace3e">
-              <File Id="inference.pdiparams.info_3104365421" Source="bin\Files\inference\ch_ppocr_mobile_v2.0_cls_infer\inference.pdiparams.info" />
-            </Component>
-
-            <Component Id="Component.inference.pdmodel_1043384948" Guid="6ee5aa0c-5e19-4e14-b585-73344135d31a">
-              <File Id="inference.pdmodel_1043384948" Source="bin\Files\inference\ch_ppocr_mobile_v2.0_cls_infer\inference.pdmodel" />
-            </Component>
-
-          </Directory>
-
-          <Directory Id="_...cture_mobile_v2.0_SLANet_infer" Name="ch_ppstructure_mobile_v2.0_SLANet_infer">
-
-            <Component Id="Component.inference.pdiparams_603717081" Guid="6ee5aa0c-5e19-4e14-b585-7334695510ea">
-              <File Id="inference.pdiparams_603717081" Source="bin\Files\inference\ch_ppstructure_mobile_v2.0_SLANet_infer\inference.pdiparams" />
-            </Component>
-
-            <Component Id="Component.inference.pdiparams.info_738727356" Guid="6ee5aa0c-5e19-4e14-b585-7334d59ca51c">
-              <File Id="inference.pdiparams.info_738727356" Source="bin\Files\inference\ch_ppstructure_mobile_v2.0_SLANet_infer\inference.pdiparams.info" />
-            </Component>
-
-            <Component Id="Component.inference.pdmodel_3773224671" Guid="6ee5aa0c-5e19-4e14-b585-73346f78cc57">
-              <File Id="inference.pdmodel_3773224671" Source="bin\Files\inference\ch_ppstructure_mobile_v2.0_SLANet_infer\inference.pdmodel" />
-            </Component>
-
-          </Directory>
-
-          <Directory Id="japan_PP2dOCRv3_rec_infer" Name="japan_PP-OCRv3_rec_infer">
-
-            <Component Id="Component.inference.pdiparams_1610075697" Guid="6ee5aa0c-5e19-4e14-b585-733484752607">
-              <File Id="inference.pdiparams_1610075697" Source="bin\Files\inference\japan_PP-OCRv3_rec_infer\inference.pdiparams" />
-            </Component>
-
-            <Component Id="Component.inference.pdiparams.info_3362774962" Guid="6ee5aa0c-5e19-4e14-b585-7334168c656d">
-              <File Id="inference.pdiparams.info_3362774962" Source="bin\Files\inference\japan_PP-OCRv3_rec_infer\inference.pdiparams.info" />
-            </Component>
-
-            <Component Id="Component.inference.pdmodel_3435608216" Guid="6ee5aa0c-5e19-4e14-b585-73340743c90d">
-              <File Id="inference.pdmodel_3435608216" Source="bin\Files\inference\japan_PP-OCRv3_rec_infer\inference.pdmodel" />
-            </Component>
-
-          </Directory>
-
-          <Directory Id="win7_dll" Name="win7_dll">
-
-            <Component Id="Component.api2dms2dwin2dcore2dlibraryloader2dl12d22d0.dll_1416525509" Guid="6ee5aa0c-5e19-4e14-b585-7334474d9497">
-              <File Id="api2dms2dwin2dcore2dlibraryloader2dl12d22d0.dll_1416525509" Source="bin\Files\inference\win7_dll\api-ms-win-core-libraryloader-l1-2-0.dll" />
-            </Component>
-
-            <Component Id="Component.api2dms2dwin2dcore2dprocesstopology2dobsolete2dl12d12d0.dll_2397046568" Guid="6ee5aa0c-5e19-4e14-b585-73340e4e4f5c">
-              <File Id="api2dms2dwin2dcore2dprocesstopology2dobsolete2dl12d12d0.dll_2397046568" Source="bin\Files\inference\win7_dll\api-ms-win-core-processtopology-obsolete-l1-1-0.dll" />
-            </Component>
-
-            <Component Id="Component.API2dMS2dWin2dEventing2dProvider2dL12d12d0.dll_134705719" Guid="6ee5aa0c-5e19-4e14-b585-73343ecbc71b">
-              <File Id="API2dMS2dWin2dEventing2dProvider2dL12d12d0.dll_134705719" Source="bin\Files\inference\win7_dll\API-MS-Win-Eventing-Provider-L1-1-0.dll" />
-            </Component>
-
+              </Directory>
+            </Directory>
           </Directory>
         </Directory>
 
@@ -360,14 +267,6 @@
 
           <Component Id="Component.vcruntime140.dll_3287830096" Guid="6ee5aa0c-5e19-4e14-b585-73347cac6cab">
             <File Id="vcruntime140.dll_3287830096" Source="bin\Files\x64\vcruntime140.dll" />
-          </Component>
-
-        </Directory>
-
-        <Directory Id="zh2dcn" Name="zh-cn">
-
-          <Component Id="Component.ZedGraph.resources.dll_3731648874" Guid="6ee5aa0c-5e19-4e14-b585-7334ade88572">
-            <File Id="ZedGraph.resources.dll_3731648874" Source="bin\Files\zh-cn\ZedGraph.resources.dll" />
           </Component>
 
         </Directory>
@@ -410,82 +309,59 @@
     <Property Id="REINSTALLMODE" Value="omus" />
 
     <Feature Id="Complete" Title="Complete" Level="1" AllowAbsent="yes">
-      <ComponentRef Id="Component.CHS.jpg_4096715714" />
-      <ComponentRef Id="Component.concrt140.dll_620865074" />
       <ComponentRef Id="Component.Config.json_3619172430" />
-      <ComponentRef Id="Component.CPU63074ee496c668c06d4b5de55177.exe_1567844790" />
       <ComponentRef Id="Component.Emgu.CV.UI.dll_1876637069" />
       <ComponentRef Id="Component.Emgu.CV.World.dll_2101702545" />
-      <ComponentRef Id="Component.EN.jpg_1930160960" />
       <ComponentRef Id="Component.GI2dSubtitles.exe_4027473678" />
-      <ComponentRef Id="Component.GI2dSubtitles.exe.Config_1049100796" />
-      <ComponentRef Id="Component.JP.jpg_1960438623" />
+      <ComponentRef Id="Component.GI2dSubtitles.exe.config_967311868" />
       <ComponentRef Id="Component.libiomp5md.dll_2790259937" />
+      <ComponentRef Id="Component.libSkiaSharp.dll_51022786" />
+      <ComponentRef Id="Component.LibTorchSharp.dll_415570885" />
       <ComponentRef Id="Component.log4net.dll_2601190211" />
       <ComponentRef Id="Component.mfc140.dll_1614166445" />
       <ComponentRef Id="Component.mfcm140.dll_2494480016" />
+      <ComponentRef Id="Component.Microsoft.ML.OnnxRuntime.dll_3766176570" />
       <ComponentRef Id="Component.mkldnn.dll_2186497908" />
       <ComponentRef Id="Component.mklml.dll_3400806940" />
-      <ComponentRef Id="Component.msvcp140.dll_3910063177" />
-      <ComponentRef Id="Component.msvcp140_1.dll_617972308" />
       <ComponentRef Id="Component.msvcp140_2.dll_611877460" />
       <ComponentRef Id="Component.msvcp140_atomic_wait.dll_3561885785" />
       <ComponentRef Id="Component.msvcp140_codecvt_ids.dll_3087237361" />
       <ComponentRef Id="Component.NAudio.dll_3297479870" />
       <ComponentRef Id="Component.Newtonsoft.Json.dll_1591701191" />
       <ComponentRef Id="Component.onnxruntime.dll_3518152996" />
+      <ComponentRef Id="Component.onnxruntime_providers_shared.dll_2951030924" />
+      <ComponentRef Id="Component.OpenCvSharp.dll_164754387" />
+      <ComponentRef Id="Component.OpenCvSharp.Extensions.dll_758656555" />
+      <ComponentRef Id="Component.OpenCvSharp.WpfExtensions.dll_3053310830" />
+      <ComponentRef Id="Component.OpenCvSharpExtern.dll_3307303388" />
       <ComponentRef Id="Component.opencv_world411.dll_1795504568" />
       <ComponentRef Id="Component.paddle2onnx.dll_2771211521" />
-      <ComponentRef Id="Component.PaddleOCR.dll_1884075332" />
       <ComponentRef Id="Component.PaddleOCRSharp.dll_982724404" />
+      <ComponentRef Id="Component.PaddleOCRSharp.dll.config_130676655" />
       <ComponentRef Id="Component.paddle_inference.dll_1005680536" />
-      <ComponentRef Id="Component.ScreenCapturer.dll_3285266826" />
       <ComponentRef Id="Component.Screenshot.dll_597597156" />
-      <ComponentRef Id="Component.vcamp140.dll_2092013834" />
-      <ComponentRef Id="Component.vccorlib140.dll_3264988168" />
-      <ComponentRef Id="Component.vcomp140.dll_1397172780" />
+      <ComponentRef Id="Component.System.Buffers.dll_2515440289" />
+      <ComponentRef Id="Component.System.Memory.dll_3519735338" />
+      <ComponentRef Id="Component.System.Numerics.Vectors.dll_1973854541" />
+      <ComponentRef Id="Component.System.Runtime.CompilerServices.Unsafe.dll_4091411092" />
+      <ComponentRef Id="Component.testOCR.png_3868221492" />
       <ComponentRef Id="Component.vcruntime140.dll_2249548691" />
       <ComponentRef Id="Component.vcruntime140_1.dll_2319247740" />
       <ComponentRef Id="Component.Wuthering.png_3996392861" />
-      <ComponentRef Id="Component.Yt.ImageView.dll_689913902" />
-      <ComponentRef Id="Component.yt_CPUCheck.dll_325492037" />
       <ComponentRef Id="Component.ZedGraph.dll_2921095464" />
       <ComponentRef Id="Component.GI2dSubtitles__" />
       <ComponentRef Id="Component.GI2dSubtitles.1" />
-      <ComponentRef Id="Component.en_dict.txt_3365033" />
-      <ComponentRef Id="Component.japan_dict.txt_1247434406" />
-      <ComponentRef Id="Component.layout_publaynet_dict.txt_2106823682" />
-      <ComponentRef Id="Component.PaddleOCR.config.json_1730752573" />
-      <ComponentRef Id="Component.PaddleOCRStructure.config.json_4272077268" />
-      <ComponentRef Id="Component.ppocr_keys.txt_3457364264" />
-      <ComponentRef Id="Component.table_structure_dict_ch.txt_1167062189" />
-      <ComponentRef Id="Component._._inference.pdiparams_3584389071" />
-      <ComponentRef Id="Component._._inference.pdiparams.info_1630909379" />
-      <ComponentRef Id="Component._._inference.pdmodel_3614700478" />
-      <ComponentRef Id="Component.inference.pdiparams_720274147" />
-      <ComponentRef Id="Component.inference.pdiparams.info_1448220425" />
-      <ComponentRef Id="Component.inference.pdmodel_3583074755" />
-      <ComponentRef Id="Component.inference.pdiparams_4061511069" />
-      <ComponentRef Id="Component.inference.pdiparams.info_1857483157" />
-      <ComponentRef Id="Component.inference.pdmodel_119866978" />
-      <ComponentRef Id="Component.inference.pdiparams_178378327" />
-      <ComponentRef Id="Component.inference.pdiparams.info_3104365421" />
-      <ComponentRef Id="Component.inference.pdmodel_1043384948" />
-      <ComponentRef Id="Component.inference.pdiparams_603717081" />
-      <ComponentRef Id="Component.inference.pdiparams.info_738727356" />
-      <ComponentRef Id="Component.inference.pdmodel_3773224671" />
-      <ComponentRef Id="Component.inference.pdiparams_1610075697" />
-      <ComponentRef Id="Component.inference.pdiparams.info_3362774962" />
-      <ComponentRef Id="Component.inference.pdmodel_3435608216" />
-      <ComponentRef Id="Component.api2dms2dwin2dcore2dlibraryloader2dl12d22d0.dll_1416525509" />
-      <ComponentRef Id="Component.api2dms2dwin2dcore2dprocesstopology2dobsolete2dl12d12d0.dll_2397046568" />
-      <ComponentRef Id="Component.API2dMS2dWin2dEventing2dProvider2dL12d12d0.dll_134705719" />
+      <ComponentRef Id="Component.inference.yml_1862526687" />
+      <ComponentRef Id="Component.slim.onnx_756639289" />
+      <ComponentRef Id="Component.dict.txt_1794772896" />
+      <ComponentRef Id="Component.slim.onnx_1545428049" />
+      <ComponentRef Id="Component.dict.txt_2895341402" />
+      <ComponentRef Id="Component.slim.onnx_3121838820" />
       <ComponentRef Id="Component.concrt140.dll_112865082" />
       <ComponentRef Id="Component.cvextern.dll_1479022450" />
       <ComponentRef Id="Component.msvcp140.dll_1066700652" />
       <ComponentRef Id="Component.opencv_ffmpeg410_64.dll_2158008890" />
       <ComponentRef Id="Component.vcruntime140.dll_3287830096" />
-      <ComponentRef Id="Component.ZedGraph.resources.dll_3731648874" />
     </Feature>
 
     <InstallExecuteSequence>

@@ -72,6 +72,7 @@ namespace GI_Subtitles
         readonly bool debug = Config.Get<bool>("Debug", false);
         readonly string server = Config.Get<string>("Server");
         readonly string token = Config.Get<string>("Token");
+        readonly int distant = Config.Get<int>("Distant", 3);
         int Pad = Config.Get<int>("Pad");
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         public static extern int SetWindowPos(IntPtr hWnd, int hWndInsertAfter, int x, int y, int Width, int Height, int flags);
@@ -265,7 +266,7 @@ namespace GI_Subtitles
                     }
                     else
                     {
-                        string matchedImageHash = ImageProcessor.FindSimilarImageHash(bitStr, BitmapDict, maxDistance: 5);
+                        string matchedImageHash = ImageProcessor.FindSimilarImageHash(bitStr, BitmapDict, maxDistance: distant);
                         if (matchedImageHash != null)
                         {
                             int distance = ImageProcessor.CalculateHammingDistance(bitStr, matchedImageHash);
