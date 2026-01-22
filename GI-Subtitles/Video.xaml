@@ -1,0 +1,65 @@
+﻿<Window x:Class="GI_Subtitles.Video"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:GI_Subtitles"
+        mc:Ignorable="d"
+        Title="Video" Height="450" Width="800">
+    <Grid>
+        <Image x:Name="PreviewImage" Stretch="Uniform" />
+
+        <!-- 可视化选择框 -->
+        <Canvas x:Name="SelectionCanvas" Background="Transparent" HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch" MouseLeftButtonDown="SelectionCanvas_MouseLeftButtonDown"
+            MouseMove="SelectionCanvas_MouseMove" MouseLeftButtonUp="SelectionCanvas_MouseLeftButtonUp">
+            
+            <!-- 选择矩形 -->
+            <Rectangle x:Name="SelectionRect"
+                       Stroke="Red" StrokeThickness="2"
+                       Fill="#20FF0000"
+                       Visibility="Collapsed"
+                       Cursor="SizeAll" />
+            
+            <!-- 调整手柄（8个角点） -->
+            <Rectangle x:Name="HandleTopLeft" Width="8" Height="8" Fill="Red" Stroke="White" StrokeThickness="1"
+                       Visibility="Collapsed" Cursor="SizeNWSE" />
+            <Rectangle x:Name="HandleTopRight" Width="8" Height="8" Fill="Red" Stroke="White" StrokeThickness="1"
+                       Visibility="Collapsed" Cursor="SizeNESW" />
+            <Rectangle x:Name="HandleBottomLeft" Width="8" Height="8" Fill="Red" Stroke="White" StrokeThickness="1"
+                       Visibility="Collapsed" Cursor="SizeNESW" />
+            <Rectangle x:Name="HandleBottomRight" Width="8" Height="8" Fill="Red" Stroke="White" StrokeThickness="1"
+                       Visibility="Collapsed" Cursor="SizeNWSE" />
+            <Rectangle x:Name="HandleTop" Width="8" Height="8" Fill="Red" Stroke="White" StrokeThickness="1"
+                       Visibility="Collapsed" Cursor="SizeNS" />
+            <Rectangle x:Name="HandleBottom" Width="8" Height="8" Fill="Red" Stroke="White" StrokeThickness="1"
+                       Visibility="Collapsed" Cursor="SizeNS" />
+            <Rectangle x:Name="HandleLeft" Width="8" Height="8" Fill="Red" Stroke="White" StrokeThickness="1"
+                       Visibility="Collapsed" Cursor="SizeWE" />
+            <Rectangle x:Name="HandleRight" Width="8" Height="8" Fill="Red" Stroke="White" StrokeThickness="1"
+                       Visibility="Collapsed" Cursor="SizeWE" />
+            
+            <!-- 坐标信息显示 -->
+            <Border x:Name="InfoBorder" Background="#CC000000" Padding="5" CornerRadius="3"
+                    Visibility="Collapsed">
+                <TextBlock x:Name="InfoText" Foreground="White" FontSize="12" />
+            </Border>
+        </Canvas>
+
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,20">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,10">
+                <TextBlock Text="跳转到时间:" VerticalAlignment="Center" Margin="5"/>
+                <TextBox x:Name="TimeInput" Width="80" Text="00:00" VerticalAlignment="Center" Margin="5"
+                         ToolTip="格式: MM:SS 或 HH:MM:SS"/>
+                <Button Content="跳转" x:Name="JumpToTime" Click="JumpToTime_Click" Margin="5" IsEnabled="False"/>
+                <TextBlock x:Name="CurrentTimeText" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="Gray"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <Button Content="打开视频" x:Name="Open" Click="OpenVideo_Click" Margin="15"/>
+                <Button Content="确认区域" x:Name="Confirm" Click="ConfirmRegion_Click" Margin="15" IsEnabled="False"/>
+                <Button Content="清除选区" x:Name="Clear" Click="ClearSelection_Click" Margin="15" IsEnabled="False"/>
+                <Button Content="加载选区" x:Name="LoadRegion" Click="LoadRegion_Click" Margin="15" IsEnabled="False"/>
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</Window>

@@ -208,6 +208,11 @@ namespace GI_Subtitles
                 data.RealClose();
                 System.Environment.Exit(0);
             }
+            else if (Directory.Exists("Videos"))
+            {
+                var video = new Video(data.engine);
+                video.ShowDialog();
+            }
         }
 
         public void GetOCR(object sender, EventArgs e)

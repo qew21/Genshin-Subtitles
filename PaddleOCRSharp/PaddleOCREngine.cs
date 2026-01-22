@@ -287,7 +287,7 @@ namespace PaddleOCRSharp
         /// <summary>
         /// 从Mat进行OCR识别
         /// </summary>
-        private OCRResult DetectTextFromMat(Mat src)
+        public OCRResult DetectTextFromMat(Mat src)
         {
             if (src == null || src.IsDisposed || src.Empty())
                 throw new ArgumentException("输入的Mat对象无效", nameof(src));
