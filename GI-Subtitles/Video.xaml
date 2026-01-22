@@ -60,6 +60,13 @@
                 <Button Content="清除选区" x:Name="Clear" Click="ClearSelection_Click" Margin="15" IsEnabled="False"/>
                 <Button Content="加载选区" x:Name="LoadRegion" Click="LoadRegion_Click" Margin="15" IsEnabled="False"/>
             </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10,0,0">
+                <TextBlock Text="处理范围:" VerticalAlignment="Center" Margin="5"/>
+                <RadioButton x:Name="ProcessFirstMinute" Content="第一分钟" IsChecked="True" VerticalAlignment="Center" Margin="5"/>
+                <RadioButton x:Name="ProcessAll" Content="全部视频" VerticalAlignment="Center" Margin="5"/>
+                <Button Content="处理视频" x:Name="ProcessVideo" Click="ProcessVideo_Click" Margin="15" 
+                        IsEnabled="False" Background="#FF4CAF50" Foreground="White" FontWeight="Bold"/>
+            </StackPanel>
         </StackPanel>
     </Grid>
 </Window>

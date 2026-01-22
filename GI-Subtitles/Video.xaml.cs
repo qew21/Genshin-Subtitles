@@ -610,6 +610,7 @@ namespace GI_Subtitles
             InfoBorder.Visibility = Visibility.Collapsed;
             Confirm.IsEnabled = false;
             Clear.IsEnabled = false;
+            ProcessVideo.IsEnabled = false;
         }
 
         private void ConfirmRegion_Click(object sender, RoutedEventArgs e)
@@ -634,8 +635,8 @@ namespace GI_Subtitles
                             $"选区信息已保存到JSON文件",
                             "区域已确认", MessageBoxButton.OK, MessageBoxImage.Information);
 
-            // 👇 此时你可以启动后台 OCR 处理
-            StartOcrProcessing();
+            // 启用处理视频按钮
+            ProcessVideo.IsEnabled = true;
         }
 
         private string GetJsonFilePath()
@@ -817,6 +818,7 @@ namespace GI_Subtitles
             UpdateHandles();
             Confirm.IsEnabled = true;
             Clear.IsEnabled = true;
+            ProcessVideo.IsEnabled = true;
 
             // 更新显示
             SelectedRegion = new System.Drawing.Rectangle(regionInfo.X, regionInfo.Y, regionInfo.Width, regionInfo.Height);
@@ -911,7 +913,7 @@ namespace GI_Subtitles
             return bitmapSource;
         }
 
-        private void StartOcrProcessing()
+        private void ProcessVideo_Click(object sender, RoutedEventArgs e)
         {
             if (string.IsNullOrEmpty(_videoPath))
             {
@@ -925,30 +927,51 @@ namespace GI_Subtitles
                 return;
             }
 
-            var generator = new VideoProcessor(
-                _videoPath,
-                SelectedRegion,
-                intervalSeconds: 0.5,
-                limitToFirstMinute: true
-            );
+            // 获取处理范围
+            bool limitToFirstMinute = ProcessFirstMinute.IsChecked == true;
 
-            // 生成 SRT
+            // 生成字幕文件名（与视频文件名一致）
+            string videoDir = System.IO.Path.GetDirectoryName(_videoPath);
+            string videoName = System.IO.Path.GetFileNameWithoutExtension(_videoPath);
+            string srtPath = System.IO.Path.Combine(videoDir, $"{videoName}.srt");
 
-
+            // 隐藏窗口
+            this.Hide();
 
             // 在后台线程运行（避免阻塞 UI）
             Task.Run(() =>
             {
                 try
                 {
-                    generator.GenerateSrt(engine, "subtitles.srt");
+                    var generator = new VideoProcessor(
+                        _videoPath,
+                        SelectedRegion,
+                        intervalSeconds: 0.5,
+                        limitToFirstMinute: limitToFirstMinute
+                    );
+
+                    generator.GenerateSrt(engine, srtPath);
+
+                    // 处理完成，恢复界面
                     Dispatcher.Invoke(() =>
-                        MessageBox.Show("字幕生成完成！", "成功", MessageBoxButton.OK, MessageBoxImage.Information));
+                    {
+                        this.Show();
+                        this.WindowState = WindowState.Normal;
+                        this.Activate();
+                        MessageBox.Show($"字幕生成完成！\n保存位置：{srtPath}",
+                            "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                    });
                 }
                 catch (Exception ex)
                 {
+                    // 处理失败，恢复界面
                     Dispatcher.Invoke(() =>
-                        MessageBox.Show($"处理失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error));
+                    {
+                        this.Show();
+                        this.WindowState = WindowState.Normal;
+                        this.Activate();
+                        MessageBox.Show($"处理失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                    });
                 }
             });
         }

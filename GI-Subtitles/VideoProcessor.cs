@@ -45,12 +45,13 @@ namespace GI_Subtitles
             var totalFrames = (long)capture.Get(VideoCaptureProperties.FrameCount);
             var totalTimeSeconds = totalFrames / fps;
 
-            var maxDuration = _limitToFirstMinute ? Math.Min(totalTimeSeconds, 10.0) : totalTimeSeconds;
+            var maxDuration = _limitToFirstMinute ? Math.Min(totalTimeSeconds, 60.0) : totalTimeSeconds;
             Logger.Log.Debug($"Total frames: {totalFrames}, FPS: {fps}, Max duration: {maxDuration} seconds");
             var frameInterval = (int)(fps * _intervalSeconds); // 每隔多少帧取一帧
 
             var srtEntries = new List<SrtEntry>();
             int entryIndex = 1;
+            int processedCount = 0;
 
             for (long frameNumber = 0; frameNumber < totalFrames; frameNumber += frameInterval)
             {
@@ -69,11 +70,11 @@ namespace GI_Subtitles
                     throw new InvalidOperationException("OCR region exceeds video frame size.");
                 }
                 var regionCv = new OpenCvSharp.Rect(
-    _ocrRegion.X,
-    _ocrRegion.Y,
-    _ocrRegion.Width,
-    _ocrRegion.Height
-);
+                    _ocrRegion.X,
+                    _ocrRegion.Y,
+                    _ocrRegion.Width,
+                    _ocrRegion.Height
+                );
                 var roi = new Mat(mat, regionCv);
                 var sw = Stopwatch.StartNew();
                 OCRResult result = engine.DetectTextFromMat(roi);
@@ -94,7 +95,14 @@ namespace GI_Subtitles
                         Text = text
                     });
                 }
+
+                processedCount++;
+                
+                // 每处理一张图暂停0.3秒避免CPU过热
+                System.Threading.Thread.Sleep(300);
             }
+
+            Logger.Log.Debug($"Processed {processedCount} frames, generated {srtEntries.Count} subtitle entries.");
 
             // 写入 SRT 文件
             WriteSrtFile(outputSrtPath, srtEntries);
