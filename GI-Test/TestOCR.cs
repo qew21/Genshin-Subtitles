@@ -3,13 +3,15 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using GI_Subtitles;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Newtonsoft.Json;
 // VoiceContentHelper 在全局命名空间中，直接使用即可
 
 
-namespace UnitTest
+namespace GI_Test
 {
     /// <summary>
     /// 文本匹配单元测试
@@ -342,7 +344,7 @@ namespace UnitTest
                 // 如果无法确定项目根目录，使用当前目录
                 projectRoot = Directory.GetCurrentDirectory();
             }
-            string resultFilePath = Path.Combine(projectRoot, "PerformanceTestResult.json");
+            string resultFilePath = "PerformanceTestResult.json";
             try
             {
                 File.WriteAllText(resultFilePath, jsonResult, System.Text.Encoding.UTF8);
@@ -390,6 +392,105 @@ namespace UnitTest
 
             [JsonProperty("testResults")]
             public List<TestResult> TestResults { get; set; }
+        }
+
+        /// <summary>
+        /// 测试 Images 文件夹处理逻辑
+        /// </summary>
+        [TestMethod]
+        public void TestProcessImagesFolder()
+        {
+            string appDir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
+            Directory.SetCurrentDirectory(appDir);
+            if (!Directory.Exists("Images"))
+            {
+                Assert.Inconclusive("Images 文件夹不存在，跳过测试");
+                return;
+            }
+
+            try
+            {
+                var engine = SettingsWindow.LoadEngine("CHS");
+
+                // 处理 Images 文件夹
+                OCRSummary.ProcessFolder("Images", engine);
+
+                // 验证结果文件是否存在
+                Assert.IsTrue(File.Exists("result.json"), "应该生成 result.json 文件");
+            }
+            catch (Exception ex)
+            {
+                Assert.Fail($"处理 Images 文件夹失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 测试 Videos 文件夹处理逻辑（demo视频自动处理）
+        /// </summary>
+        [TestMethod]
+        public void TestProcessVideosFolder()
+        {
+            if (!Directory.Exists("Videos"))
+            {
+                Assert.Inconclusive("Videos 文件夹不存在，跳过测试");
+                return;
+            }
+
+            string demoVideoPath = Path.Combine("Videos", "demo.mp4");
+            string demoRegionPath = Path.Combine("Videos", "demo_region.json");
+
+            if (!File.Exists(demoVideoPath) || !File.Exists(demoRegionPath))
+            {
+                Assert.Inconclusive("demo.mp4 或 demo_region.json 文件不存在，跳过测试");
+                return;
+            }
+
+            try
+            {
+                var engine = SettingsWindow.LoadEngine("CHS");
+
+                bool completed = false;
+                Exception processException = null;
+
+                // 处理 demo 视频
+                Task.Run(() =>
+                {
+                    try
+                    {
+                        VideoProcessorHelper.ProcessDemoVideo(demoVideoPath, demoRegionPath, engine, () =>
+                        {
+                            completed = true;
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        processException = ex;
+                        completed = true;
+                    }
+                });
+
+                // 等待处理完成（最多等待5分钟）
+                int waitCount = 0;
+                while (!completed && waitCount < 300)
+                {
+                    Thread.Sleep(1000);
+                    waitCount++;
+                }
+
+                if (processException != null)
+                {
+                    Assert.Fail($"处理 demo 视频失败: {processException.Message}");
+                }
+
+                if (!completed)
+                {
+                    Assert.Inconclusive("处理超时（超过5分钟）");
+                }
+            }
+            catch (Exception ex)
+            {
+                Assert.Fail($"处理 Videos 文件夹失败: {ex.Message}");
+            }
         }
     }
 }

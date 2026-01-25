@@ -9,6 +9,18 @@ using Newtonsoft.Json;
 
 namespace GI_Subtitles
 {
+    /// <summary>
+    /// 进度信息类
+    /// </summary>
+    public class ProgressInfo
+    {
+        public double CurrentTime { get; set; }
+        public double TotalTime { get; set; }
+        public double SpeedRatio { get; set; }
+        public SrtEntry LatestSubtitle { get; set; }
+        public bool IsFinished { get; set; }
+    }
+
     internal class VideoProcessor : IDisposable
     {
         private readonly string _videoPath;
@@ -17,16 +29,16 @@ namespace GI_Subtitles
         private readonly int _minDurationMs;
         private readonly bool _limitToFirstMinute;
 
-        private const double SimilarityThreshold = 0.992;
+        private const double SimilarityThreshold = 0.995;
 
         // 字幕通常是高亮的。如果你的字幕是黄色的或白色的，180-200的阈值通常能过滤掉大部分深色背景
-        private const double SubtitleBrightnessThreshold = 200;
+        private const double SubtitleBrightnessThreshold = 220;
 
         public VideoProcessor(
             string videoPath,
             System.Drawing.Rectangle ocrRegion,
-            int detectionFps = 10, // 建议保持 10 FPS 以上
-            int minDurationMs = 100,
+            int detectionFps = 5, // 建议保持 10 FPS 以上
+            int minDurationMs = 200,
             bool limitToFirstMinute = false,
             bool debugMode = false)
         {
@@ -44,7 +56,7 @@ namespace GI_Subtitles
         public VideoProcessor(string videoPath, System.Drawing.Rectangle ocrRegion, double intervalSeconds, bool limitToFirstMinute = false)
             : this(videoPath, ocrRegion, (int)(1.0 / intervalSeconds), 100, limitToFirstMinute, false) { }
 
-        public void GenerateSrt(PaddleOCREngine engine, string outputSrtPath)
+        public void GenerateSrt(PaddleOCREngine engine, string outputSrtPath, IProgress<ProgressInfo> progress = null)
         {
             if (!File.Exists(_videoPath)) throw new FileNotFoundException("Video file not found.", _videoPath);
 
@@ -85,6 +97,7 @@ namespace GI_Subtitles
             int ocrCount = 0;
 
             var stopWatch = Stopwatch.StartNew();
+            var startTime = stopWatch.Elapsed.TotalSeconds;
 
             try
             {
@@ -177,9 +190,24 @@ namespace GI_Subtitles
 
                                 if (!string.IsNullOrWhiteSpace(text))
                                 {
-                                    AddOrMergeSubtitle(srtEntries, text, stableStartTime, lastTime);
+                                    var newEntry = AddOrMergeSubtitle(srtEntries, text, stableStartTime, lastTime);
                                     ocrCount++;
                                     Console.Write("+"); // 成功识别
+
+                                    // 报告进度（包含最新字幕）
+                                    if (progress != null)
+                                    {
+                                        var elapsed = stopWatch.Elapsed.TotalSeconds;
+                                        var speedRatio = elapsed > 0 ? currentTime / elapsed : 1.0;
+                                        progress.Report(new ProgressInfo
+                                        {
+                                            CurrentTime = currentTime,
+                                            TotalTime = maxDuration,
+                                            SpeedRatio = speedRatio,
+                                            LatestSubtitle = newEntry,
+                                            IsFinished = false
+                                        });
+                                    }
                                 }
                                 else
                                 {
@@ -200,6 +228,21 @@ namespace GI_Subtitles
                     currentProcessed.CopyTo(lastProcessed);
                     lastTime = currentTime;
                     processedCount++;
+
+                    // 定期报告进度（每处理一定帧数或时间间隔）
+                    if (progress != null && processedCount % 10 == 0)
+                    {
+                        var elapsed = stopWatch.Elapsed.TotalSeconds;
+                        var speedRatio = elapsed > 0 ? currentTime / elapsed : 1.0;
+                        progress.Report(new ProgressInfo
+                        {
+                            CurrentTime = currentTime,
+                            TotalTime = maxDuration,
+                            SpeedRatio = speedRatio,
+                            LatestSubtitle = null,
+                            IsFinished = false
+                        });
+                    }
                 }
 
                 // 收尾：处理最后一段
@@ -211,8 +254,23 @@ namespace GI_Subtitles
                         string text = PerformOcr(engine, pendingStableFrame);
                         if (!string.IsNullOrWhiteSpace(text))
                         {
-                            AddOrMergeSubtitle(srtEntries, text, stableStartTime, lastTime);
+                            var newEntry = AddOrMergeSubtitle(srtEntries, text, stableStartTime, lastTime);
                             ocrCount++;
+
+                            // 报告进度
+                            if (progress != null)
+                            {
+                                var elapsed = stopWatch.Elapsed.TotalSeconds;
+                                var speedRatio = elapsed > 0 ? lastTime / elapsed : 1.0;
+                                progress.Report(new ProgressInfo
+                                {
+                                    CurrentTime = lastTime,
+                                    TotalTime = maxDuration,
+                                    SpeedRatio = speedRatio,
+                                    LatestSubtitle = newEntry,
+                                    IsFinished = false
+                                });
+                            }
                         }
                     }
                 }
@@ -232,6 +290,21 @@ namespace GI_Subtitles
             Console.WriteLine($"扫描帧数: {processedCount}, OCR次数: {ocrCount}, 字幕条数: {srtEntries.Count}");
 
             WriteSrtFile(outputSrtPath, srtEntries);
+
+            // 报告完成
+            if (progress != null)
+            {
+                var elapsed = stopWatch.Elapsed.TotalSeconds;
+                var speedRatio = elapsed > 0 ? maxDuration / elapsed : 1.0;
+                progress.Report(new ProgressInfo
+                {
+                    CurrentTime = maxDuration,
+                    TotalTime = maxDuration,
+                    SpeedRatio = speedRatio,
+                    LatestSubtitle = null,
+                    IsFinished = true
+                });
+            }
         }
 
         /// <summary>
@@ -267,7 +340,7 @@ namespace GI_Subtitles
             }
         }
 
-        private void AddOrMergeSubtitle(List<SrtEntry> entries, string text, double start, double end)
+        private SrtEntry AddOrMergeSubtitle(List<SrtEntry> entries, string text, double start, double end)
         {
             if (entries.Count > 0)
             {
@@ -277,29 +350,32 @@ namespace GI_Subtitles
                 if (last.Text == text)
                 {
                     last.EndTime = TimeSpan.FromSeconds(end);
-                    return;
+                    return last;
                 }
 
                 // 2. 文本相似度高，且时间重叠或紧邻，合并
                 // 计算时间间隔
                 double gap = start - last.EndTime.TotalSeconds;
-
-                if (gap < 0.5 && CalculateLevenshteinSimilarity(last.Text, text) > 0.8)
+                int lastLength = last.Text.Length;
+                int currentLength = text.Length;
+                if (gap < 0.5 && CalculateLevenshteinSimilarity(last.Text, text.Substring(0, Math.Min(lastLength, currentLength))) > 0.8)
                 {
                     // 相似合并，取较长的一个
-                    if (text.Length > last.Text.Length) last.Text = text;
+                    if (currentLength > lastLength) last.Text = text;
                     last.EndTime = TimeSpan.FromSeconds(end);
-                    return;
+                    return last;
                 }
             }
 
-            entries.Add(new SrtEntry
+            var newEntry = new SrtEntry
             {
                 Index = entries.Count + 1,
                 StartTime = TimeSpan.FromSeconds(start),
                 EndTime = TimeSpan.FromSeconds(end),
                 Text = text
-            });
+            };
+            entries.Add(newEntry);
+            return newEntry;
         }
 
         private double CalculateLevenshteinSimilarity(string s1, string s2)

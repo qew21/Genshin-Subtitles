@@ -679,16 +679,17 @@ namespace GI_Subtitles
             Environment.Exit(0);
         }
 
-        public void LoadEngine(bool enableMultiLine = false)
+        public void LoadEngine(bool enableMultiLine = true)
         {
             if (engine != null)
             {
                 engine.Dispose();
             }
+            engine = LoadEngine(InputLanguage, enableMultiLine);
+        }
 
-            if (!Directory.Exists(outpath))
-            { Directory.CreateDirectory(outpath); }
-
+        public static PaddleOCREngine LoadEngine(string input, bool enableMultiLine = true)
+        {
             OCRModelConfig config = null;
             OCRParameter oCRParameter = new OCRParameter
             {
@@ -699,7 +700,7 @@ namespace GI_Subtitles
                 max_side_len = 960
             };
 
-            if (InputLanguage == "JP")
+            if (input == "JP")
             {
                 config = new OCRModelConfig();
                 string root = System.IO.Path.GetDirectoryName(typeof(OCRModelConfig).Assembly.Location);
@@ -717,8 +718,15 @@ namespace GI_Subtitles
                 config.rec_infer = modelPathroot + @"\Rec\V4\PP-OCRv4_mobile_rec_infer\slim.onnx";
                 config.keys = modelPathroot + @"\Rec\V4\PP-OCRv4_mobile_rec_infer\dict.txt";
             }
-
-            engine = new PaddleOCREngine(config, oCRParameter);
+            try
+            {
+                return new PaddleOCREngine(config, oCRParameter);
+            }
+            catch (Exception ex)
+            {
+                Logger.Log.Error($"Error loading engine: {ex.Message}");
+                throw new Exception("Failed to load engine.");
+            }
         }
         private void TestButton_Click(object sender, RoutedEventArgs e)
         {
@@ -856,6 +864,16 @@ namespace GI_Subtitles
             {
                 System.Windows.MessageBox.Show($"{srtFolder} folder is empty.");
             }
+        }
+
+        private void VideoButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (engine == null)
+            {
+                LoadEngine();
+            }
+            var video = new Video(engine);
+            video.ShowDialog();
         }
 
         // 修改InitializeHotkeys方法

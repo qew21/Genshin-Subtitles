@@ -32,6 +32,7 @@
     <sys:String x:Key="Btn_Restart" xmlns:sys="clr-namespace:System;assembly=mscorlib">再起動</sys:String>
     <sys:String x:Key="Btn_Language" xmlns:sys="clr-namespace:System;assembly=mscorlib">OCR</sys:String>
     <sys:String x:Key="Btn_Convert" xmlns:sys="clr-namespace:System;assembly=mscorlib">SRT</sys:String>
+    <sys:String x:Key="Btn_Video" xmlns:sys="clr-namespace:System;assembly=mscorlib">Video</sys:String>
     <sys:String x:Key="Btn_Region" xmlns:sys="clr-namespace:System;assembly=mscorlib">領域</sys:String>
     <sys:String x:Key="Btn_Save" xmlns:sys="clr-namespace:System;assembly=mscorlib">保存</sys:String>
     <sys:String x:Key="Btn_ResetDefault" xmlns:sys="clr-namespace:System;assembly=mscorlib">黙諾</sys:String>
@@ -42,6 +43,7 @@
     <sys:String x:Key="Help_Restart" xmlns:sys="clr-namespace:System;assembly=mscorlib">最新の設定または言語リソースを適用するためにアプリケーションを再起動します。</sys:String>
     <sys:String x:Key="Help_Language" xmlns:sys="clr-namespace:System;assembly=mscorlib">OCR 認識機能をテストし、既存のスクリーンショットを使用します。</sys:String>
     <sys:String x:Key="Help_Convert" xmlns:sys="clr-namespace:System;assembly=mscorlib">SRT 字幕ファイルの変換に使用します。「srt」フォルダ内に配置してください。</sys:String>
+    <sys:String x:Key="Help_Video" xmlns:sys="clr-namespace:System;assembly=mscorlib">動画から SRT 字幕ファイルを生成するためのもの。</sys:String>
     <sys:String x:Key="Help_Region" xmlns:sys="clr-namespace:System;assembly=mscorlib">現在のすべてのスクリーンの認識結果をテストし、ログに保存します。</sys:String>
     <sys:String x:Key="Help_Folder" xmlns:sys="clr-namespace:System;assembly=mscorlib">プログラムフォルダを開く</sys:String>
     <sys:String x:Key="Github_Url_Label" xmlns:sys="clr-namespace:System;assembly=mscorlib">Github</sys:String>

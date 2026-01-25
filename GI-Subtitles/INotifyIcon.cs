@@ -95,9 +95,9 @@ namespace GI_Subtitles
             try
             {
                 var rect = Screenshot.Screenshot.GetRegion();
-                if (Convert.ToInt16(rect.Width) > 0 && Convert.ToInt16(rect.Height) > 0)
+                if (Convert.ToInt32(rect.Width) > 0 && Convert.ToInt32(rect.Height) > 0)
                 {
-                    Config.Set("Region", $"{Convert.ToInt16(rect.TopLeft.X)},{Convert.ToInt16(rect.TopLeft.Y)},{Convert.ToInt16(rect.Width)},{Convert.ToInt16(rect.Height)}");
+                    Config.Set("Region", $"{Convert.ToInt32(rect.TopLeft.X)},{Convert.ToInt32(rect.TopLeft.Y)},{Convert.ToInt32(rect.Width)},{Convert.ToInt32(rect.Height)}");
                     Region = Config.Get<string>("Region").ToString().Split(',');
                 }
             }
@@ -112,9 +112,9 @@ namespace GI_Subtitles
             try
             {
                 var rect = Screenshot.Screenshot.GetRegion();
-                if (Convert.ToInt16(rect.Width) > 0 && Convert.ToInt16(rect.Height) > 0)
+                if (Convert.ToInt32(rect.Width) > 0 && Convert.ToInt32(rect.Height) > 0)
                 {
-                    Config.Set("Region2", $"{Convert.ToInt16(rect.TopLeft.X)},{Convert.ToInt16(rect.TopLeft.Y)},{Convert.ToInt16(rect.Width)},{Convert.ToInt16(rect.Height)}");
+                    Config.Set("Region2", $"{Convert.ToInt32(rect.TopLeft.X)},{Convert.ToInt32(rect.TopLeft.Y)},{Convert.ToInt32(rect.Width)},{Convert.ToInt32(rect.Height)}");
                     Region2 = Config.Get<string>("Region2").ToString().Split(',');
                 }
             }
@@ -133,7 +133,7 @@ namespace GI_Subtitles
                 CheckOnClick = true
             };
             item.CheckedChanged += SizeItem_CheckedChanged;
-            if (Size == Convert.ToInt16(code))
+            if (Size == Convert.ToInt32(code))
             {
                 item.Checked = true;
             }
@@ -144,7 +144,7 @@ namespace GI_Subtitles
         {
             if (sender is ToolStripMenuItem selectedSize && selectedSize.Checked)
             {
-                int newSize = Convert.ToInt16(selectedSize.Tag.ToString());
+                int newSize = Convert.ToInt32(selectedSize.Tag.ToString());
                 if (Size != newSize)
                 {
                     Size = newSize;
@@ -202,10 +202,10 @@ namespace GI_Subtitles
         public void ShowRegionOverlay()
         {
             if (Region[1] == "0") return;
-            int x = Convert.ToInt16(int.Parse(Region[0]) / Scale);
-            int y = Convert.ToInt16(int.Parse(Region[1]) / Scale);
-            int w = Convert.ToInt16(int.Parse(Region[2]) / Scale);
-            int h = Convert.ToInt16(int.Parse(Region[3]) / Scale);
+            int x = Convert.ToInt32(int.Parse(Region[0]) / Scale);
+            int y = Convert.ToInt32(int.Parse(Region[1]) / Scale);
+            int w = Convert.ToInt32(int.Parse(Region[2]) / Scale);
+            int h = Convert.ToInt32(int.Parse(Region[3]) / Scale);
             Logger.Log.Debug($"x {x} y {y} w {w} h {h}");
 
             var overlay = new Window

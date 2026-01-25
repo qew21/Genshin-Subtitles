@@ -10,7 +10,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using GI_Subtitles;
 
-namespace UnitTest
+namespace GI_Test
 {
     public static class Config
     {

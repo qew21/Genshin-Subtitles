@@ -16,6 +16,8 @@ namespace GI_Subtitles
         public int Index { get; set; }
         public string TimeRange { get; set; }
         public List<string> Lines { get; set; } = new List<string>();
+        public double StartTimeSeconds { get; set; }
+        public double EndTimeSeconds { get; set; }
 
         public override string ToString()
         {

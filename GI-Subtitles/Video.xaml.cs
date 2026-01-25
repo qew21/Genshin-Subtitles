@@ -2,6 +2,8 @@ using OpenCvSharp;
 using PaddleOCRSharp;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -36,11 +38,21 @@ namespace GI_Subtitles
         private System.Windows.Point _lastMousePos;
         private System.Windows.Rect _imageBounds; // 图像在Canvas中的实际显示区域
         private double _currentTimeSeconds = 0; // 当前显示的时间点（秒）
+        private double _totalDurationSeconds = 0; // 视频总时长（秒）
         private double _videoFps = 0; // 视频帧率
+        private bool _isSliderDragging = false; // 滑块是否正在拖动
+        private bool _keepSelectionVisible = false; // 是否保持选区可见
+        private bool _isEditingSubtitle = false; // 标记是否正在编辑字幕
         PaddleOCREngine engine;
 
         // 存储用户选择的区域（GDI Rectangle）
         public System.Drawing.Rectangle SelectedRegion { get; private set; }
+
+        // 字幕列表
+        public ObservableCollection<SubtitleItem> Subtitles { get; set; } = new ObservableCollection<SubtitleItem>();
+
+        // 当前处理的字幕列表（用于导出）
+        private List<SrtEntry> _currentSrtEntries = new List<SrtEntry>();
 
         private enum ResizeHandle
         {
@@ -63,6 +75,33 @@ namespace GI_Subtitles
             // 计算图像边界
             PreviewImage.Loaded += (s, e) => UpdateImageBounds();
             PreviewImage.SizeChanged += (s, e) => UpdateImageBounds();
+
+            // 监听容器大小变化（在InitializeComponent之后）
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                var container = this.FindName("PreviewContainer") as FrameworkElement;
+                if (container != null)
+                {
+                    container.SizeChanged += (s, e) => UpdateImageBounds();
+                }
+            }), System.Windows.Threading.DispatcherPriority.Loaded);
+
+            // 监听窗口大小变化
+            this.SizeChanged += (s, e) =>
+            {
+                // 延迟更新，等待布局完成
+                Dispatcher.BeginInvoke(new Action(() => UpdateImageBounds()),
+                    System.Windows.Threading.DispatcherPriority.Loaded);
+            };
+
+            // 绑定字幕列表
+            SubtitleListBox.ItemsSource = Subtitles;
+
+            // 初始化进度面板
+            ProgressPanel.Visibility = Visibility.Collapsed;
+            // 初始化状态文本（始终可见）
+            ProgressStatusText.Text = "";
+            ProgressSpeedText.Text = "";
         }
 
         private void UpdateImageBounds()
@@ -72,21 +111,48 @@ namespace GI_Subtitles
             var source = PreviewImage.Source as BitmapSource;
             if (source == null) return;
 
-            // 计算图像在Image控件中的实际显示区域（考虑Stretch="Uniform"）
+            // 使用PreviewContainer的实际大小来计算图像显示区域
+            // Canvas覆盖整个Grid，所以坐标是相对于Grid的
+            FrameworkElement container = null;
+            try
+            {
+                container = this.FindName("PreviewContainer") as FrameworkElement;
+            }
+            catch { }
+
+            if (container == null || container.ActualWidth <= 0 || container.ActualHeight <= 0)
+            {
+                // 如果容器还没渲染，使用Image控件的大小
+                if (PreviewImage.ActualWidth <= 0 || PreviewImage.ActualHeight <= 0)
+                    return;
+                container = PreviewImage;
+            }
+
+            // 计算图像在容器中的实际显示区域（考虑Stretch="Uniform"）
             double scale = Math.Min(
-                PreviewImage.ActualWidth / source.PixelWidth,
-                PreviewImage.ActualHeight / source.PixelHeight);
+                container.ActualWidth / source.PixelWidth,
+                container.ActualHeight / source.PixelHeight);
 
             double renderedWidth = source.PixelWidth * scale;
             double renderedHeight = source.PixelHeight * scale;
-            double offsetX = (PreviewImage.ActualWidth - renderedWidth) / 2;
-            double offsetY = (PreviewImage.ActualHeight - renderedHeight) / 2;
+
+            // Canvas覆盖整个Grid，所以偏移是相对于Grid的
+            // 图像在Grid中居中显示
+            double offsetX = (container.ActualWidth - renderedWidth) / 2;
+            double offsetY = (container.ActualHeight - renderedHeight) / 2;
 
             _imageBounds = new System.Windows.Rect(
                 offsetX,
                 offsetY,
                 renderedWidth,
                 renderedHeight);
+
+            // 如果选区存在，更新选区位置以适应新的边界
+            if (SelectionRect.Visibility == Visibility.Visible)
+            {
+                ConstrainSelectionToImage();
+                UpdateHandles();
+            }
         }
 
         private void OpenVideo_Click(object sender, RoutedEventArgs e)
@@ -128,8 +194,16 @@ namespace GI_Subtitles
 
                 // 跳转到指定时间
                 double totalDuration = capture.Get(VideoCaptureProperties.FrameCount) / _videoFps;
+                _totalDurationSeconds = totalDuration;
                 timeSeconds = Math.Max(0, Math.Min(timeSeconds, totalDuration));
                 _currentTimeSeconds = timeSeconds;
+
+                // 更新滑块范围
+                TimeSlider.Maximum = 1000;
+                TimeSlider.IsEnabled = true;
+                _isSliderDragging = false; // 重置拖动状态
+                UpdateTimeSliderPosition();
+                UpdateTimeDisplay();
 
                 // 使用毫秒跳转（更准确）
                 capture.Set(VideoCaptureProperties.PosMsec, timeSeconds * 1000);
@@ -148,8 +222,11 @@ namespace GI_Subtitles
                 // 更新当前时间显示
                 UpdateCurrentTimeDisplay();
 
-                // 清除之前的选区
-                ClearSelection();
+                // 清除之前的选区（如果未设置保持可见）
+                if (!_keepSelectionVisible)
+                {
+                    ClearSelection();
+                }
 
                 // 更新图像边界（等待布局完成）
                 Dispatcher.BeginInvoke(new Action(() =>
@@ -168,11 +245,39 @@ namespace GI_Subtitles
             var timeSpan = TimeSpan.FromSeconds(_currentTimeSeconds);
             if (timeSpan.TotalHours >= 1)
             {
-                CurrentTimeText.Text = $"当前时间: {timeSpan.Hours:D2}:{timeSpan.Minutes:D2}:{timeSpan.Seconds:D2}";
+                CurrentTimeText.Text = $"{timeSpan.Hours:D2}:{timeSpan.Minutes:D2}:{timeSpan.Seconds:D2}";
             }
             else
             {
-                CurrentTimeText.Text = $"当前时间: {timeSpan.Minutes:D2}:{timeSpan.Seconds:D2}";
+                CurrentTimeText.Text = $"{timeSpan.Minutes:D2}:{timeSpan.Seconds:D2}";
+            }
+        }
+
+        private void UpdateTimeDisplay()
+        {
+            UpdateCurrentTimeDisplay();
+
+            // 更新总时长显示
+            if (_totalDurationSeconds > 0)
+            {
+                var totalSpan = TimeSpan.FromSeconds(_totalDurationSeconds);
+                if (totalSpan.TotalHours >= 1)
+                {
+                    TotalTimeText.Text = $"{totalSpan.Hours:D2}:{totalSpan.Minutes:D2}:{totalSpan.Seconds:D2}";
+                }
+                else
+                {
+                    TotalTimeText.Text = $"{totalSpan.Minutes:D2}:{totalSpan.Seconds:D2}";
+                }
+            }
+        }
+
+        private void UpdateTimeSliderPosition()
+        {
+            if (_totalDurationSeconds > 0 && !_isSliderDragging)
+            {
+                double ratio = _currentTimeSeconds / _totalDurationSeconds;
+                TimeSlider.Value = ratio * 1000;
             }
         }
 
@@ -234,6 +339,72 @@ namespace GI_Subtitles
             catch (Exception ex)
             {
                 MessageBox.Show($"跳转失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void TimeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (_isSliderDragging && _totalDurationSeconds > 0 && !string.IsNullOrEmpty(_videoPath))
+            {
+                double ratio = TimeSlider.Value / 1000.0;
+                double targetTime = ratio * _totalDurationSeconds;
+                LoadFrameAtTime(_videoPath, targetTime);
+            }
+        }
+
+        private void TimeSlider_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            _isSliderDragging = true;
+        }
+
+        private void TimeSlider_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (_isSliderDragging && _totalDurationSeconds > 0 && !string.IsNullOrEmpty(_videoPath))
+            {
+                double ratio = TimeSlider.Value / 1000.0;
+                double targetTime = ratio * _totalDurationSeconds;
+                LoadFrameAtTime(_videoPath, targetTime);
+            }
+            _isSliderDragging = false;
+        }
+
+        // 拖拽支持
+        private void Window_DragOver(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                e.Effects = DragDropEffects.Copy;
+            }
+            else
+            {
+                e.Effects = DragDropEffects.None;
+            }
+        }
+
+        private void Window_Drop(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
+                if (files != null && files.Length > 0)
+                {
+                    string filePath = files[0];
+                    // 检查是否是视频文件
+                    string ext = System.IO.Path.GetExtension(filePath).ToLower();
+                    if (ext == ".mp4" || ext == ".avi" || ext == ".mov" || ext == ".mkv")
+                    {
+                        _videoPath = filePath;
+                        LoadFrameAtTime(_videoPath, 0);
+                        JumpToTime.IsEnabled = true;
+                        LoadRegion.IsEnabled = true;
+
+                        // 自动尝试加载已保存的选区信息
+                        Dispatcher.BeginInvoke(new Action(() =>
+                        {
+                            TryAutoLoadRegion();
+                        }), System.Windows.Threading.DispatcherPriority.Loaded);
+                    }
+                }
             }
         }
 
@@ -338,7 +509,7 @@ namespace GI_Subtitles
 
         private void CreateSelection(System.Windows.Point current)
         {
-            // 限制在图像区域内
+            // 限制在图像区域内 - 允许到达边界（使用<=而不是<）
             current.X = Math.Max(_imageBounds.Left, Math.Min(_imageBounds.Right, current.X));
             current.Y = Math.Max(_imageBounds.Top, Math.Min(_imageBounds.Bottom, current.Y));
 
@@ -346,6 +517,35 @@ namespace GI_Subtitles
             double y = Math.Min(_startPoint.Y, current.Y);
             double width = Math.Abs(current.X - _startPoint.X);
             double height = Math.Abs(current.Y - _startPoint.Y);
+
+            // 确保选区不超出图像边界 - 允许到达边界
+            // 使用<=确保可以到达右边界
+            if (x + width > _imageBounds.Right)
+            {
+                width = _imageBounds.Right - x;
+            }
+            if (y + height > _imageBounds.Bottom)
+            {
+                height = _imageBounds.Bottom - y;
+            }
+
+            // 确保最小尺寸
+            if (width < 10) width = 10;
+            if (height < 10) height = 10;
+
+            // 确保不超出左边界
+            if (x < _imageBounds.Left)
+            {
+                width = width - (_imageBounds.Left - x);
+                x = _imageBounds.Left;
+                if (width < 10) width = 10;
+            }
+            if (y < _imageBounds.Top)
+            {
+                height = height - (_imageBounds.Top - y);
+                y = _imageBounds.Top;
+                if (height < 10) height = 10;
+            }
 
             Canvas.SetLeft(SelectionRect, x);
             Canvas.SetTop(SelectionRect, y);
@@ -363,7 +563,7 @@ namespace GI_Subtitles
             double newLeft = Canvas.GetLeft(SelectionRect) + deltaX;
             double newTop = Canvas.GetTop(SelectionRect) + deltaY;
 
-            // 限制在图像区域内
+            // 限制在图像区域内 - 修复右侧边界问题
             newLeft = Math.Max(_imageBounds.Left, Math.Min(newLeft, _imageBounds.Right - SelectionRect.Width));
             newTop = Math.Max(_imageBounds.Top, Math.Min(newTop, _imageBounds.Bottom - SelectionRect.Height));
 
@@ -423,7 +623,32 @@ namespace GI_Subtitles
             if (right - left < 10) right = left + 10;
             if (bottom - top < 10) bottom = top + 10;
 
-            // 限制在图像区域内
+            // 限制在图像区域内 - 允许到达边界
+            // 先限制right和bottom，允许它们等于边界
+            right = Math.Min(right, _imageBounds.Right);
+            bottom = Math.Min(bottom, _imageBounds.Bottom);
+
+            // 然后限制left和top，确保选区不超出左边界和上边界
+            left = Math.Max(_imageBounds.Left, left);
+            top = Math.Max(_imageBounds.Top, top);
+
+            // 如果调整后导致尺寸太小，调整另一边
+            if (right - left < 10)
+            {
+                if (_resizeHandle == ResizeHandle.Left || _resizeHandle == ResizeHandle.TopLeft || _resizeHandle == ResizeHandle.BottomLeft)
+                    left = right - 10;
+                else
+                    right = left + 10;
+            }
+            if (bottom - top < 10)
+            {
+                if (_resizeHandle == ResizeHandle.Top || _resizeHandle == ResizeHandle.TopLeft || _resizeHandle == ResizeHandle.TopRight)
+                    top = bottom - 10;
+                else
+                    bottom = top + 10;
+            }
+
+            // 最终确保不超出边界
             left = Math.Max(_imageBounds.Left, Math.Min(left, _imageBounds.Right - 10));
             top = Math.Max(_imageBounds.Top, Math.Min(top, _imageBounds.Bottom - 10));
             right = Math.Max(left + 10, Math.Min(right, _imageBounds.Right));
@@ -552,11 +777,16 @@ namespace GI_Subtitles
             double width = SelectionRect.Width;
             double height = SelectionRect.Height;
 
-            // 确保选区在图像范围内
+            // 确保选区在图像范围内 - 允许到达边界
             left = Math.Max(_imageBounds.Left, Math.Min(left, _imageBounds.Right - width));
             top = Math.Max(_imageBounds.Top, Math.Min(top, _imageBounds.Bottom - height));
+            // 允许width到达右边界
             width = Math.Min(width, _imageBounds.Right - left);
             height = Math.Min(height, _imageBounds.Bottom - top);
+
+            // 确保最小尺寸
+            if (width < 10) width = 10;
+            if (height < 10) height = 10;
 
             Canvas.SetLeft(SelectionRect, left);
             Canvas.SetTop(SelectionRect, top);
@@ -592,6 +822,11 @@ namespace GI_Subtitles
 
         private void ClearSelection()
         {
+            // 如果设置了保持可见，则不隐藏
+            if (_keepSelectionVisible && SelectionRect.Visibility == Visibility.Visible)
+            {
+                return;
+            }
             SelectionRect.Visibility = Visibility.Collapsed;
             UpdateHandles();
             InfoBorder.Visibility = Visibility.Collapsed;
@@ -914,6 +1149,18 @@ namespace GI_Subtitles
                 return;
             }
 
+            // 获取设置参数
+            int detectionFps = 5;
+            int minDurationMs = 200;
+            if (int.TryParse(DetectionFpsInput.Text, out int fps))
+            {
+                detectionFps = Math.Max(1, Math.Min(999, fps));
+            }
+            if (int.TryParse(MinDurationMsInput.Text, out int minMs))
+            {
+                minDurationMs = Math.Max(1, Math.Min(5000, minMs));
+            }
+
             // 获取处理范围
             bool limitToFirstMinute = ProcessFirstMinute.IsChecked == true;
 
@@ -922,8 +1169,16 @@ namespace GI_Subtitles
             string videoName = System.IO.Path.GetFileNameWithoutExtension(_videoPath);
             string srtPath = System.IO.Path.Combine(videoDir, $"{videoName}.srt");
 
-            // 隐藏窗口
-            this.Hide();
+            // 清空之前的字幕列表
+            Subtitles.Clear();
+            _currentSrtEntries.Clear();
+
+            // 禁用处理按钮，显示进度面板
+            ProcessVideo.IsEnabled = false;
+            ProgressPanel.Visibility = Visibility.Visible;
+            ProgressBar.Value = 0;
+            ProgressStatusText.Text = "处理中...";
+            ExportSrtButton.Visibility = Visibility.Collapsed;
 
             // 在后台线程运行（避免阻塞 UI）
             Task.Run(() =>
@@ -933,40 +1188,365 @@ namespace GI_Subtitles
                     var generator = new VideoProcessor(
                         _videoPath,
                         SelectedRegion,
-                        intervalSeconds: 0.5,
+                        detectionFps: detectionFps,
+                        minDurationMs: minDurationMs,
                         limitToFirstMinute: limitToFirstMinute
                     );
 
-                    generator.GenerateSrt(engine, srtPath);
+                    var progress = new Progress<ProgressInfo>(info =>
+                    {
+                        Dispatcher.Invoke(() =>
+                        {
+                            // 更新进度
+                            if (info.TotalTime > 0)
+                            {
+                                double progressPercent = (info.CurrentTime / info.TotalTime) * 100;
+                                ProgressBar.Value = Math.Min(100, Math.Max(0, progressPercent));
+                            }
 
-                    // 处理完成，恢复界面
+                            // 更新速度显示
+                            ProgressSpeedText.Text = $"[x{info.SpeedRatio:F1}]";
+                            if (info.SpeedRatio > 1)
+                                ProgressSpeedText.Foreground = new SolidColorBrush(Colors.Green);
+                            else
+                                ProgressSpeedText.Foreground = new SolidColorBrush(Colors.Red);
+
+                            // 更新时间显示
+                            var currentSpan = TimeSpan.FromSeconds(info.CurrentTime);
+                            var totalSpan = TimeSpan.FromSeconds(info.TotalTime);
+                            ProgressCurrentTimeText.Text = FormatTimeSpan(currentSpan);
+                            ProgressTotalTimeText.Text = FormatTimeSpan(totalSpan);
+
+                            // 添加新字幕到列表（使用AddOrMergeSubtitle进行过滤和合并）
+                            if (info.LatestSubtitle != null)
+                            {
+                                // 使用AddOrMergeSubtitle方法进行过滤和合并
+                                int entriesCountBefore = _currentSrtEntries.Count;
+                                var mergedEntry = AddOrMergeSubtitle(_currentSrtEntries, 
+                                    info.LatestSubtitle.Text, 
+                                    info.LatestSubtitle.StartTime.TotalSeconds, 
+                                    info.LatestSubtitle.EndTime.TotalSeconds);
+
+                                // 检查是否是合并到已有条目还是新条目
+                                // 如果entries数量没有增加，说明是合并到已有条目
+                                bool isNewEntry = (_currentSrtEntries.Count > entriesCountBefore);
+                                
+                                if (!isNewEntry)
+                                {
+                                    // 合并到已有条目，更新UI
+                                    int entryIndex = _currentSrtEntries.IndexOf(mergedEntry);
+                                    if (entryIndex >= 0 && entryIndex < Subtitles.Count)
+                                    {
+                                        var existingItem = Subtitles[entryIndex];
+                                        existingItem.TimeRange = $"{FormatTimeSpan(mergedEntry.StartTime)} --> {FormatTimeSpan(mergedEntry.EndTime)}";
+                                        existingItem.EndTimeSeconds = mergedEntry.EndTime.TotalSeconds;
+                                        
+                                        // 更新文本（如果文本有变化）
+                                        var newLines = mergedEntry.Text.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries).ToList();
+                                        if (newLines.Count == 0) newLines.Add(mergedEntry.Text); // 如果没有换行，保持原样
+                                        
+                                        if (newLines.Count != existingItem.Lines.Count || 
+                                            !newLines.SequenceEqual(existingItem.Lines))
+                                        {
+                                            existingItem.Lines.Clear();
+                                            existingItem.Lines.AddRange(newLines);
+                                        }
+                                        
+                                        // 刷新显示
+                                        var collectionView = System.Windows.Data.CollectionViewSource.GetDefaultView(Subtitles);
+                                        collectionView.Refresh();
+                                    }
+                                }
+                                else
+                                {
+                                    // 新条目，添加到UI
+                                    var newLines = mergedEntry.Text.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries).ToList();
+                                    if (newLines.Count == 0) newLines.Add(mergedEntry.Text); // 如果没有换行，保持原样
+                                    
+                                    var subtitleItem = new SubtitleItem
+                                    {
+                                        TimeRange = $"{FormatTimeSpan(mergedEntry.StartTime)} --> {FormatTimeSpan(mergedEntry.EndTime)}",
+                                        Lines = newLines,
+                                        StartTimeSeconds = mergedEntry.StartTime.TotalSeconds,
+                                        EndTimeSeconds = mergedEntry.EndTime.TotalSeconds
+                                    };
+                                    Subtitles.Add(subtitleItem);
+                                }
+
+                                // 自动滚动到底部
+                                if (SubtitleListBox.Items.Count > 0)
+                                {
+                                    SubtitleListBox.ScrollIntoView(SubtitleListBox.Items[SubtitleListBox.Items.Count - 1]);
+                                }
+                            }
+
+                            // 处理完成
+                            if (info.IsFinished)
+                            {
+                                ProgressStatusText.Text = "处理完成";
+                                ProgressBar.Value = 100;
+                                ProgressSpeedText.Foreground = new SolidColorBrush(Colors.Green);
+                                ExportSrtButton.Visibility = Visibility.Visible;
+                                ProcessVideo.IsEnabled = true;
+                            }
+                        });
+                    });
+
+                    generator.GenerateSrt(engine, srtPath, progress);
+
+                    // 处理完成提示
                     Dispatcher.Invoke(() =>
                     {
-                        this.Show();
-                        this.WindowState = WindowState.Normal;
-                        this.Activate();
-                        MessageBox.Show($"字幕生成完成！\n保存位置：{srtPath}", 
+                        MessageBox.Show($"字幕生成完成！\n保存位置：{srtPath}\n字幕条数：{Subtitles.Count}",
                             "成功", MessageBoxButton.OK, MessageBoxImage.Information);
                     });
                 }
                 catch (Exception ex)
                 {
-                    // 处理失败，恢复界面
+                    // 处理失败
                     Dispatcher.Invoke(() =>
                     {
-                        this.Show();
-                        this.WindowState = WindowState.Normal;
-                        this.Activate();
+                        ProgressStatusText.Text = "处理失败";
+                        ProgressSpeedText.Text = "";
+                        ProcessVideo.IsEnabled = true;
                         MessageBox.Show($"处理失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
                     });
                 }
             });
         }
 
+        private string FormatTimeSpan(TimeSpan span)
+        {
+            if (span.TotalHours >= 1)
+            {
+                return $"{span.Hours:D2}:{span.Minutes:D2}:{span.Seconds:D2}";
+            }
+            else
+            {
+                return $"{span.Minutes:D2}:{span.Seconds:D2}";
+            }
+        }
+
+        private void SubtitleListBox_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            // 检查点击的是否是TextBox
+            var source = e.OriginalSource as System.Windows.DependencyObject;
+            while (source != null)
+            {
+                if (source is TextBox)
+                {
+                    // 点击的是TextBox，不处理选择事件，让TextBox获得焦点
+                    _isEditingSubtitle = true;
+                    return;
+                }
+                source = System.Windows.Media.VisualTreeHelper.GetParent(source);
+            }
+            _isEditingSubtitle = false;
+        }
+
+        private void SubtitleListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            // 避免在编辑时触发跳转
+            if (e.AddedItems.Count == 0 || _isEditingSubtitle) return;
+            
+            if (SubtitleListBox.SelectedItem is SubtitleItem item && !string.IsNullOrEmpty(_videoPath))
+            {
+                // 跳转到字幕结束时间（因为开始时间可能字幕还没完全展示）
+                LoadFrameAtTime(_videoPath, item.EndTimeSeconds);
+            }
+        }
+
+        private void SubtitleTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            var textBox = sender as TextBox;
+            if (textBox == null) return;
+
+            // 获取原始文本（DataContext）
+            var originalText = textBox.DataContext as string;
+            if (originalText == null) return;
+
+            // 向上查找ListBoxItem以获取SubtitleItem
+            var parent = System.Windows.Media.VisualTreeHelper.GetParent(textBox);
+            while (parent != null && !(parent is ListBoxItem))
+            {
+                parent = System.Windows.Media.VisualTreeHelper.GetParent(parent);
+            }
+
+            if (parent is ListBoxItem listBoxItem)
+            {
+                var subtitleItem = listBoxItem.DataContext as SubtitleItem;
+                if (subtitleItem != null)
+                {
+                    // 更新字幕文本
+                    var newText = textBox.Text;
+                    var lineIndex = subtitleItem.Lines.IndexOf(originalText);
+
+                    if (lineIndex >= 0)
+                    {
+                        subtitleItem.Lines[lineIndex] = newText;
+
+                        // 同步更新_currentSrtEntries
+                        var subtitleIndex = Subtitles.IndexOf(subtitleItem);
+                        if (subtitleIndex >= 0 && subtitleIndex < _currentSrtEntries.Count)
+                        {
+                            _currentSrtEntries[subtitleIndex].Text = string.Join("\n", subtitleItem.Lines);
+                        }
+                    }
+                }
+            }
+            
+            // 编辑完成，重置标志
+            _isEditingSubtitle = false;
+        }
+
+        private void ToggleSelectionButton_Click(object sender, RoutedEventArgs e)
+        {
+            _keepSelectionVisible = !_keepSelectionVisible;
+
+            if (_keepSelectionVisible)
+            {
+                // 显示选区
+                if (SelectedRegion.Width > 0 && SelectedRegion.Height > 0)
+                {
+                    // 如果已有选区，显示它
+                    UpdateImageBounds();
+                    var scaleX = _imageBounds.Width / _videoResolution.Width;
+                    var scaleY = _imageBounds.Height / _videoResolution.Height;
+                    var canvasX = _imageBounds.Left + SelectedRegion.X * scaleX;
+                    var canvasY = _imageBounds.Top + SelectedRegion.Y * scaleY;
+                    var canvasW = SelectedRegion.Width * scaleX;
+                    var canvasH = SelectedRegion.Height * scaleY;
+
+                    Canvas.SetLeft(SelectionRect, canvasX);
+                    Canvas.SetTop(SelectionRect, canvasY);
+                    SelectionRect.Width = canvasW;
+                    SelectionRect.Height = canvasH;
+                    SelectionRect.Visibility = Visibility.Visible;
+                    UpdateHandles();
+                }
+                else if (SelectionRect.Visibility == Visibility.Collapsed)
+                {
+                    // 如果没有选区，提示用户
+                    MessageBox.Show("请先选择区域", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                    _keepSelectionVisible = false;
+                    ToggleSelectionButton.Content = "显示选区";
+                    return;
+                }
+                ToggleSelectionButton.Content = "隐藏选区";
+            }
+            else
+            {
+                // 隐藏选区
+                SelectionRect.Visibility = Visibility.Collapsed;
+                UpdateHandles();
+                InfoBorder.Visibility = Visibility.Collapsed;
+                ToggleSelectionButton.Content = "显示选区";
+            }
+        }
+
+        private void ExportSrtButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentSrtEntries.Count == 0)
+            {
+                MessageBox.Show("没有可导出的字幕", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var dialog = new Microsoft.Win32.SaveFileDialog
+            {
+                Filter = "字幕文件|*.srt|所有文件|*.*",
+                FileName = System.IO.Path.GetFileNameWithoutExtension(_videoPath) + ".srt"
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                try
+                {
+                    WriteSrtFile(dialog.FileName, _currentSrtEntries);
+                    MessageBox.Show($"字幕已导出到：{dialog.FileName}", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"导出失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+
+        private void WriteSrtFile(string path, List<SrtEntry> entries)
+        {
+            using var writer = new StreamWriter(path, false, Encoding.UTF8);
+            for (int i = 0; i < entries.Count; i++)
+            {
+                var entry = entries[i];
+                writer.WriteLine(i + 1);
+                writer.WriteLine($"{entry.StartTime:hh\\:mm\\:ss\\,fff} --> {entry.EndTime:hh\\:mm\\:ss\\,fff}");
+                writer.WriteLine(entry.Text);
+                writer.WriteLine();
+            }
+        }
+
         private void StartOcrProcessing()
         {
             // 保留此方法以兼容旧代码，但实际使用ProcessVideo_Click
             ProcessVideo_Click(null, null);
+        }
+
+        // 从VideoProcessor复制的字幕合并逻辑
+        private SrtEntry AddOrMergeSubtitle(List<SrtEntry> entries, string text, double start, double end)
+        {
+            if (entries.Count > 0)
+            {
+                var last = entries[entries.Count - 1];
+
+                // 1. 文本完全相同，合并
+                if (last.Text == text)
+                {
+                    last.EndTime = TimeSpan.FromSeconds(end);
+                    return last;
+                }
+
+                // 2. 文本相似度高，且时间重叠或紧邻，合并
+                // 计算时间间隔
+                double gap = start - last.EndTime.TotalSeconds;
+                int lastLength = last.Text.Length;
+                int currentLength = text.Length;
+                if (gap < 0.5 && CalculateLevenshteinSimilarity(last.Text, text.Substring(0, Math.Min(lastLength, currentLength))) > 0.8)
+                {
+                    // 相似合并，取较长的一个
+                    if (currentLength > lastLength) last.Text = text;
+                    last.EndTime = TimeSpan.FromSeconds(end);
+                    return last;
+                }
+            }
+
+            var newEntry = new SrtEntry
+            {
+                Index = entries.Count + 1,
+                StartTime = TimeSpan.FromSeconds(start),
+                EndTime = TimeSpan.FromSeconds(end),
+                Text = text
+            };
+            entries.Add(newEntry);
+            return newEntry;
+        }
+
+        private double CalculateLevenshteinSimilarity(string s1, string s2)
+        {
+            if (string.IsNullOrEmpty(s1) || string.IsNullOrEmpty(s2)) return 0;
+            int len1 = s1.Length;
+            int len2 = s2.Length;
+            var d = new int[len1 + 1, len2 + 1];
+            for (int i = 0; i <= len1; i++) d[i, 0] = i;
+            for (int j = 0; j <= len2; j++) d[0, j] = j;
+            for (int i = 1; i <= len1; i++)
+            {
+                for (int j = 1; j <= len2; j++)
+                {
+                    int cost = (s1[i - 1] == s2[j - 1]) ? 0 : 1;
+                    d[i, j] = Math.Min(Math.Min(d[i - 1, j] + 1, d[i, j - 1] + 1), d[i - 1, j - 1] + cost);
+                }
+            }
+            return 1.0 - (double)d[len1, len2] / Math.Max(len1, len2);
         }
     }
 }

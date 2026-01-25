@@ -200,55 +200,6 @@ namespace GI_Subtitles
             this.Top = screenBounds.Bottom / Scale - this.Height;
             this.Left = screenBounds.Left / Scale;
             this.LocationChanged += MainWindow_LocationChanged;
-
-            if (Directory.Exists("Images"))
-            {
-                OCRSummary.ProcessFolder("Images", data.engine);
-                notifyIcon.Dispose();
-                notifyIcon = null;
-                data.UnregisterAllHotkeys();
-                data.RealClose();
-                System.Environment.Exit(0);
-            }
-            else if (Directory.Exists("Videos"))
-            {
-                string demoVideoPath = Path.Combine("Videos", "demo.mp4");
-                string demoRegionPath = Path.Combine("Videos", "demo_region.json");
-
-                if (File.Exists(demoVideoPath) && File.Exists(demoRegionPath))
-                {
-                    Task.Run(() =>
-                    {
-                        try
-                        {
-                            VideoProcessorHelper.ProcessDemoVideo(demoVideoPath, demoRegionPath, data.engine, () =>
-                            {
-                                // 清理并退出（需要在UI线程上执行）
-                                System.Windows.Application.Current.Dispatcher.Invoke(() =>
-                                {
-                                    notifyIcon?.Dispose();
-                                    notifyIcon = null;
-                                    data?.UnregisterAllHotkeys();
-                                    data?.RealClose();
-                                    System.Environment.Exit(0);
-                                });
-                            });
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"处理失败: {ex.Message}");
-                            Logger.Log.Error(ex);
-                            System.Windows.Application.Current.Dispatcher.Invoke(() => System.Environment.Exit(1));
-                        }
-                    });
-                    return;
-                }
-                else
-                {
-                    var video = new Video(data.engine);
-                    video.ShowDialog();
-                }
-            }
         }
 
         public void GetOCR(object sender, EventArgs e)
@@ -310,7 +261,6 @@ namespace GI_Subtitles
                         string matchedImageHash = ImageProcessor.FindSimilarImageHash(bitStr, BitmapDict, maxDistance: distant);
                         if (matchedImageHash != null)
                         {
-                            int distance = ImageProcessor.CalculateHammingDistance(bitStr, matchedImageHash);
                             ocrText = BitmapDict[matchedImageHash];
                             BitmapDict[bitStr] = ocrText; // LRU 缓存会自动管理大小
                         }

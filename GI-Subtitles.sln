@@ -9,7 +9,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Screenshot", "Screenshot\Sc
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WixSharp Setup", "WixSharp Setup\WixSharp Setup.csproj", "{7F422BFA-0B6E-4F64-9032-B4FC67AA11F1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnitTest", "UnitTest\UnitTest.csproj", "{2B1B3932-4371-41F0-BC3F-0734E69940D9}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GI-Test", "GI-Test\GI-Test.csproj", "{2B1B3932-4371-41F0-BC3F-0734E69940D9}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PaddleOCRSharp", "PaddleOCRSharp\PaddleOCRSharp.csproj", "{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}"
 EndProject

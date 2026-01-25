@@ -36,7 +36,7 @@ namespace GI_Subtitles
             var pngFiles = Directory.GetFiles(testOcrFolderPath, "*.JPG", SearchOption.TopDirectoryOnly)
                                     .OrderBy(f => f)
                                     .ToList();
-            Console.WriteLine($"Total files: {pngFiles.Count}");
+            Logger.Log.Debug($"Total files: {pngFiles.Count}");
 
             var results = new List<OCRTestResult>();
             var totalDuration = 0.0;
@@ -44,7 +44,7 @@ namespace GI_Subtitles
             foreach (var file in pngFiles)
             {
                 string fileName = Path.GetFileName(file);
-                Console.WriteLine($"Processing: {fileName}");
+                Logger.Log.Debug($"Processing: {fileName}");
                 Bitmap bitmap;
 
                 try

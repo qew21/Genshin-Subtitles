@@ -5,68 +5,224 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:GI_Subtitles"
         mc:Ignorable="d"
-        Title="Video" Height="450" Width="800">
+        Title="视频字幕提取" Height="800" Width="1300" MinWidth="1300"
+        AllowDrop="True"
+        DragOver="Window_DragOver"
+        Drop="Window_Drop">
     <Grid>
-        <Image x:Name="PreviewImage" Stretch="Uniform" />
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="1000" MinWidth="800"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="300" MinWidth="200"/>
+        </Grid.ColumnDefinitions>
 
-        <!-- 可视化选择框 -->
-        <Canvas x:Name="SelectionCanvas" Background="Transparent" HorizontalAlignment="Stretch"
-            VerticalAlignment="Stretch" MouseLeftButtonDown="SelectionCanvas_MouseLeftButtonDown"
-            MouseMove="SelectionCanvas_MouseMove" MouseLeftButtonUp="SelectionCanvas_MouseLeftButtonUp">
-            
-            <!-- 选择矩形 -->
-            <Rectangle x:Name="SelectionRect"
-                       Stroke="Red" StrokeThickness="2"
-                       Fill="#20FF0000"
-                       Visibility="Collapsed"
-                       Cursor="SizeAll" />
-            
-            <!-- 调整手柄（8个角点） -->
-            <Rectangle x:Name="HandleTopLeft" Width="8" Height="8" Fill="Red" Stroke="White" StrokeThickness="1"
-                       Visibility="Collapsed" Cursor="SizeNWSE" />
-            <Rectangle x:Name="HandleTopRight" Width="8" Height="8" Fill="Red" Stroke="White" StrokeThickness="1"
-                       Visibility="Collapsed" Cursor="SizeNESW" />
-            <Rectangle x:Name="HandleBottomLeft" Width="8" Height="8" Fill="Red" Stroke="White" StrokeThickness="1"
-                       Visibility="Collapsed" Cursor="SizeNESW" />
-            <Rectangle x:Name="HandleBottomRight" Width="8" Height="8" Fill="Red" Stroke="White" StrokeThickness="1"
-                       Visibility="Collapsed" Cursor="SizeNWSE" />
-            <Rectangle x:Name="HandleTop" Width="8" Height="8" Fill="Red" Stroke="White" StrokeThickness="1"
-                       Visibility="Collapsed" Cursor="SizeNS" />
-            <Rectangle x:Name="HandleBottom" Width="8" Height="8" Fill="Red" Stroke="White" StrokeThickness="1"
-                       Visibility="Collapsed" Cursor="SizeNS" />
-            <Rectangle x:Name="HandleLeft" Width="8" Height="8" Fill="Red" Stroke="White" StrokeThickness="1"
-                       Visibility="Collapsed" Cursor="SizeWE" />
-            <Rectangle x:Name="HandleRight" Width="8" Height="8" Fill="Red" Stroke="White" StrokeThickness="1"
-                       Visibility="Collapsed" Cursor="SizeWE" />
-            
-            <!-- 坐标信息显示 -->
-            <Border x:Name="InfoBorder" Background="#CC000000" Padding="5" CornerRadius="3"
-                    Visibility="Collapsed">
-                <TextBlock x:Name="InfoText" Foreground="White" FontSize="12" />
+        <!-- 左侧面板 -->
+        <Grid Grid.Column="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="500" MinHeight="400"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- 视频预览区域 - 使用固定大小的容器 -->
+            <Border Grid.Row="0" Margin="10" BorderBrush="#CCCCCC" BorderThickness="1" x:Name="PreviewBorder">
+                <Grid x:Name="PreviewContainer" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Image x:Name="PreviewImage" Stretch="Uniform" />
+
+                    <!-- 可视化选择框 -->
+                    <Canvas x:Name="SelectionCanvas" Background="Transparent" HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch" MouseLeftButtonDown="SelectionCanvas_MouseLeftButtonDown"
+                        MouseMove="SelectionCanvas_MouseMove" MouseLeftButtonUp="SelectionCanvas_MouseLeftButtonUp">
+                    
+                    <!-- 选择矩形 -->
+                    <Rectangle x:Name="SelectionRect"
+                               Stroke="Red" StrokeThickness="2"
+                               Fill="#20FF0000"
+                               Visibility="Collapsed"
+                               Cursor="SizeAll" />
+                    
+                    <!-- 调整手柄（8个角点） -->
+                    <Rectangle x:Name="HandleTopLeft" Width="8" Height="8" Fill="Red" Stroke="White" StrokeThickness="1"
+                               Visibility="Collapsed" Cursor="SizeNWSE" />
+                    <Rectangle x:Name="HandleTopRight" Width="8" Height="8" Fill="Red" Stroke="White" StrokeThickness="1"
+                               Visibility="Collapsed" Cursor="SizeNESW" />
+                    <Rectangle x:Name="HandleBottomLeft" Width="8" Height="8" Fill="Red" Stroke="White" StrokeThickness="1"
+                               Visibility="Collapsed" Cursor="SizeNESW" />
+                    <Rectangle x:Name="HandleBottomRight" Width="8" Height="8" Fill="Red" Stroke="White" StrokeThickness="1"
+                               Visibility="Collapsed" Cursor="SizeNWSE" />
+                    <Rectangle x:Name="HandleTop" Width="8" Height="8" Fill="Red" Stroke="White" StrokeThickness="1"
+                               Visibility="Collapsed" Cursor="SizeNS" />
+                    <Rectangle x:Name="HandleBottom" Width="8" Height="8" Fill="Red" Stroke="White" StrokeThickness="1"
+                               Visibility="Collapsed" Cursor="SizeNS" />
+                    <Rectangle x:Name="HandleLeft" Width="8" Height="8" Fill="Red" Stroke="White" StrokeThickness="1"
+                               Visibility="Collapsed" Cursor="SizeWE" />
+                    <Rectangle x:Name="HandleRight" Width="8" Height="8" Fill="Red" Stroke="White" StrokeThickness="1"
+                               Visibility="Collapsed" Cursor="SizeWE" />
+                    
+                    <!-- 坐标信息显示 -->
+                    <Border x:Name="InfoBorder" Background="#CC000000" Padding="5" CornerRadius="3"
+                            Visibility="Collapsed">
+                        <TextBlock x:Name="InfoText" Foreground="White" FontSize="12" />
+                    </Border>
+                </Canvas>
+            </Grid>
             </Border>
-        </Canvas>
 
-        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,20">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,10">
-                <TextBlock Text="跳转到时间:" VerticalAlignment="Center" Margin="5"/>
-                <TextBox x:Name="TimeInput" Width="80" Text="00:00" VerticalAlignment="Center" Margin="5"
-                         ToolTip="格式: MM:SS 或 HH:MM:SS"/>
-                <Button Content="跳转" x:Name="JumpToTime" Click="JumpToTime_Click" Margin="5" IsEnabled="False"/>
-                <TextBlock x:Name="CurrentTimeText" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="Gray"/>
+            <!-- 控制区域 -->
+            <StackPanel Grid.Row="1" Margin="10">
+                <!-- 时间轴滑块 -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,10">
+                    <TextBlock x:Name="CurrentTimeText" VerticalAlignment="Center" Margin="5,0" 
+                               FontSize="14" FontWeight="SemiBold" MinWidth="80" TextAlignment="Right"/>
+                    <Slider x:Name="TimeSlider" Width="400" Margin="10,0" 
+                            Minimum="0" Maximum="1000" Value="0"
+                            ValueChanged="TimeSlider_ValueChanged"
+                            PreviewMouseLeftButtonDown="TimeSlider_PreviewMouseLeftButtonDown"
+                            PreviewMouseLeftButtonUp="TimeSlider_PreviewMouseLeftButtonUp"
+                            IsEnabled="False"
+                            ToolTip="拖动滑块跳转到指定时间"/>
+                    <TextBlock x:Name="TotalTimeText" VerticalAlignment="Center" Margin="5,0" 
+                               FontSize="14" FontWeight="SemiBold" MinWidth="80" TextAlignment="Left"/>
+                </StackPanel>
+
+                <!-- 时间输入（辅助） -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,10">
+                    <TextBlock Text="跳转到时间:" VerticalAlignment="Center" Margin="5"/>
+                    <TextBox x:Name="TimeInput" Width="80" Text="00:00" VerticalAlignment="Center" Margin="5"
+                             ToolTip="格式: MM:SS 或 HH:MM:SS"/>
+                    <Button Content="跳转" x:Name="JumpToTime" Click="JumpToTime_Click" Margin="5" IsEnabled="False"/>
+                </StackPanel>
+
+                <!-- 控制按钮 -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,10">
+                    <Button Content="打开视频" x:Name="Open" Click="OpenVideo_Click" Margin="5" Padding="10,5"/>
+                    <Button Content="确认区域" x:Name="Confirm" Click="ConfirmRegion_Click" Margin="5" 
+                            IsEnabled="False" Padding="10,5"/>
+                    <Button Content="清除选区" x:Name="Clear" Click="ClearSelection_Click" Margin="5" 
+                            IsEnabled="False" Padding="10,5"/>
+                    <Button Content="加载选区" x:Name="LoadRegion" Click="LoadRegion_Click" Margin="5" 
+                            IsEnabled="False" Padding="10,5"/>
+                    <Button x:Name="ToggleSelectionButton" Content="显示选区" Click="ToggleSelectionButton_Click" 
+                            Margin="5" Padding="10,5" ToolTip="切换选区框的显示/隐藏"/>
+                </StackPanel>
+
+                <!-- 可折叠设置面板 -->
+                <Expander x:Name="SettingsExpander" Header="设置" IsExpanded="False" Margin="0,0,0,10">
+                    <StackPanel Margin="10">
+                        <StackPanel Orientation="Horizontal" Margin="0,5">
+                            <TextBlock Text="字幕检测频率(FPS):" VerticalAlignment="Center" Width="150"/>
+                            <TextBox x:Name="DetectionFpsInput" Width="80" Text="5" VerticalAlignment="Center"
+                                     ToolTip="建议值: 5-15"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,5">
+                            <TextBlock Text="字幕最短时间(毫秒):" VerticalAlignment="Center" Width="150"/>
+                            <TextBox x:Name="MinDurationMsInput" Width="80" Text="200" VerticalAlignment="Center"
+                                     ToolTip="建议值: 100-500"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,5">
+                            <TextBlock Text="处理范围:" VerticalAlignment="Center" Width="150"/>
+                            <RadioButton x:Name="ProcessFirstMinute" Content="第一分钟" IsChecked="False" 
+                                        VerticalAlignment="Center" Margin="5,0"/>
+                            <RadioButton x:Name="ProcessAll" Content="全部视频" 
+                                        VerticalAlignment="Center" Margin="5,0"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Expander>
+
+                <!-- 进度显示区域 -->
+                <StackPanel x:Name="ProgressPanel" Visibility="Collapsed" Margin="0,0,0,10">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
+                        <TextBlock x:Name="ProgressCurrentTimeText" Text="00:00" 
+                                   VerticalAlignment="Center" Margin="5,0" MinWidth="60"/>
+                        <ProgressBar x:Name="ProgressBar" Height="20" Margin="5,0" 
+                                     Minimum="0" Maximum="100" Value="0"/>
+                        <TextBlock x:Name="ProgressTotalTimeText" Text="00:00" 
+                                   VerticalAlignment="Center" Margin="5,0" MinWidth="60"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- 按钮区域：处理完成状态、导出字幕、处理视频 -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,10">
+                    <TextBlock x:Name="ProgressStatusText" Text="处理中..." 
+                               FontWeight="SemiBold" 
+                               VerticalAlignment="Center"
+                               Margin="5,0" 
+                               MinWidth="80"
+                               TextAlignment="Center"/>
+                    <TextBlock x:Name="ProgressSpeedText" Text="[x1.0]" 
+                               Foreground="Red" 
+                               FontWeight="Bold" 
+                               VerticalAlignment="Center"
+                               Margin="5,0" 
+                               MinWidth="50"
+                               TextAlignment="Center"/>
+                    
+                    <Button Content="处理视频" x:Name="ProcessVideo" 
+                            Click="ProcessVideo_Click" 
+                            Margin="10,0" 
+                            IsEnabled="False" 
+                            Background="#FF4CAF50" 
+                            Foreground="White" 
+                            FontWeight="Bold"
+                            Padding="20,8"
+                            FontSize="14"
+                            VerticalAlignment="Center"/>
+
+                    <Button Content="导出字幕" x:Name="ExportSrtButton" 
+                            Click="ExportSrtButton_Click" 
+                            Margin="10,0" 
+                            Padding="10,5"
+                            Visibility="Collapsed"
+                            VerticalAlignment="Center"/>    
+                </StackPanel>
             </StackPanel>
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                <Button Content="打开视频" x:Name="Open" Click="OpenVideo_Click" Margin="15"/>
-                <Button Content="确认区域" x:Name="Confirm" Click="ConfirmRegion_Click" Margin="15" IsEnabled="False"/>
-                <Button Content="清除选区" x:Name="Clear" Click="ClearSelection_Click" Margin="15" IsEnabled="False"/>
-                <Button Content="加载选区" x:Name="LoadRegion" Click="LoadRegion_Click" Margin="15" IsEnabled="False"/>
-            </StackPanel>
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10,0,0">
-                <TextBlock Text="处理范围:" VerticalAlignment="Center" Margin="5"/>
-                <RadioButton x:Name="ProcessFirstMinute" Content="第一分钟" IsChecked="True" VerticalAlignment="Center" Margin="5"/>
-                <RadioButton x:Name="ProcessAll" Content="全部视频" VerticalAlignment="Center" Margin="5"/>
-                <Button Content="处理视频" x:Name="ProcessVideo" Click="ProcessVideo_Click" Margin="15" 
-                        IsEnabled="False" Background="#FF4CAF50" Foreground="White" FontWeight="Bold"/>
-            </StackPanel>
-        </StackPanel>
+        </Grid>
+
+        <!-- 分割条 -->
+        <GridSplitter Grid.Column="1" Width="3" HorizontalAlignment="Stretch" 
+                      Background="#CCCCCC" Cursor="SizeWE"/>
+
+        <!-- 右侧字幕列表 -->
+        <Grid Grid.Column="2" Background="#F5F5F5">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            
+            <Border Grid.Row="0" Background="#E0E0E0" Padding="10">
+                <TextBlock Text="字幕列表" FontWeight="Bold" FontSize="14"/>
+            </Border>
+            
+            <ListBox x:Name="SubtitleListBox" Grid.Row="1" 
+                     SelectionChanged="SubtitleListBox_SelectionChanged"
+                     PreviewMouseLeftButtonDown="SubtitleListBox_PreviewMouseLeftButtonDown"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Border BorderBrush="#CCCCCC" BorderThickness="0,0,0,1" Padding="8">
+                            <StackPanel>
+                                <TextBlock Text="{Binding TimeRange}" 
+                                          FontSize="11" 
+                                          Foreground="Gray" 
+                                          Margin="0,0,0,4"/>
+                                <ItemsControl ItemsSource="{Binding Lines}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBox Text="{Binding Path=., Mode=TwoWay}" 
+                                                    FontSize="13" 
+                                                    TextWrapping="Wrap"
+                                                    AcceptsReturn="True"
+                                                    Margin="0,2,0,0"
+                                                    BorderThickness="0"
+                                                    Background="Transparent"
+                                                    LostFocus="SubtitleTextBox_LostFocus"/>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Grid>
     </Grid>
 </Window>
