@@ -1,4 +1,4 @@
-﻿using OpenCvSharp;
+using OpenCvSharp;
 using PaddleOCRSharp;
 using System;
 using System.Collections.Generic;
@@ -41,19 +41,6 @@ namespace GI_Subtitles
 
         // 存储用户选择的区域（GDI Rectangle）
         public System.Drawing.Rectangle SelectedRegion { get; private set; }
-
-        // 选区信息类，用于JSON序列化
-        private class RegionInfo
-        {
-            public string VideoPath { get; set; }
-            public string TimeCode { get; set; } // 格式: HH:MM:SS 或 MM:SS
-            public int X { get; set; }
-            public int Y { get; set; }
-            public int Width { get; set; }
-            public int Height { get; set; }
-            public int VideoWidth { get; set; }
-            public int VideoHeight { get; set; }
-        }
 
         private enum ResizeHandle
         {
@@ -958,7 +945,7 @@ namespace GI_Subtitles
                         this.Show();
                         this.WindowState = WindowState.Normal;
                         this.Activate();
-                        MessageBox.Show($"字幕生成完成！\n保存位置：{srtPath}",
+                        MessageBox.Show($"字幕生成完成！\n保存位置：{srtPath}", 
                             "成功", MessageBoxButton.OK, MessageBoxImage.Information);
                     });
                 }
@@ -974,6 +961,12 @@ namespace GI_Subtitles
                     });
                 }
             });
+        }
+
+        private void StartOcrProcessing()
+        {
+            // 保留此方法以兼容旧代码，但实际使用ProcessVideo_Click
+            ProcessVideo_Click(null, null);
         }
     }
 }

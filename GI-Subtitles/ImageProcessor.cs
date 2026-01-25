@@ -10,6 +10,9 @@ using System.Drawing.Imaging;
 using System.Linq;
 using System.Runtime.InteropServices;
 using PaddleOCRSharp;
+using OpenCvSharp;
+using System.Windows.Input;
+using System.Diagnostics;
 
 namespace GI_Subtitles
 {
@@ -76,6 +79,68 @@ namespace GI_Subtitles
             }
         }
 
+        public static string ComputeRobustHash(OpenCvSharp.Mat srcMat)
+        {
+            if (srcMat == null) return string.Empty;
+
+            // 1. 转灰度
+            using var gray = new OpenCvSharp.Mat();
+            if (srcMat.Channels() == 3 || srcMat.Channels() == 4)
+                Cv2.CvtColor(srcMat, gray, ColorConversionCodes.BGR2GRAY);
+            else
+                srcMat.CopyTo(gray);
+
+            // 2. 关键步骤：二值化 (Threshold)
+            using var bin = new OpenCvSharp.Mat();
+            Cv2.Threshold(gray, bin, 200, 255, ThresholdTypes.Binary);
+
+            using var points = new OpenCvSharp.Mat();
+            Cv2.FindNonZero(bin, points);
+
+            Rect roi;
+            if (points.Total() > 0)
+            {
+                roi = Cv2.BoundingRect(points);
+
+                int padding = 2;
+                roi.X = Math.Max(0, roi.X - padding);
+                roi.Y = Math.Max(0, roi.Y - padding);
+                roi.Width = Math.Min(bin.Width - roi.X, roi.Width + padding * 2);
+                roi.Height = Math.Min(bin.Height - roi.Y, roi.Height + padding * 2);
+            }
+            else
+            {
+                // 全黑图像，直接返回全0哈希，或者处理为空
+                return new string('0', 64);
+            }
+
+            // 裁剪出只有字的区域
+            using var cropped = new OpenCvSharp.Mat(bin, roi);
+            using var resized = new OpenCvSharp.Mat();
+            Cv2.Resize(cropped, resized, new OpenCvSharp.Size(9, 8), 0, 0, InterpolationFlags.Area);
+
+            // 4. 计算哈希 (此时 resized 虽然源自二值图，但因 Area 插值变成了灰度图)
+            var hash = new StringBuilder(64);
+
+            unsafe
+            {
+                byte* ptr = (byte*)resized.DataPointer;
+                int step = (int)resized.Step();
+
+                for (int y = 0; y < 8; y++)
+                {
+                    byte* row = ptr + (y * step);
+                    for (int x = 0; x < 8; x++)
+                    {
+                        // 比较相邻块的“文字密度”
+                        hash.Append(row[x] > row[x + 1] ? '1' : '0');
+                    }
+                }
+            }
+
+            return hash.ToString();
+        }
+
         /// <summary>
         /// 计算两个哈希字符串的汉明距离（不同位的数量）
         /// </summary>
@@ -118,24 +183,19 @@ namespace GI_Subtitles
             }
             else if (hashDict is LRUCache<string, string> lruCache)
             {
-                // LRUCache 需要转换为可枚举的键值对
-                items = lruCache.Keys.Select(key => new KeyValuePair<string, string>(key, lruCache[key]));
-            }
-            else
-            {
-                return null;
-            }
+                IEnumerable<string> keysCollection = lruCache.Keys;
 
-            if (items == null)
-                return null;
-
-            foreach (var kvp in items)
-            {
-                int distance = CalculateHammingDistance(targetHash, kvp.Key);
-                if (distance < minDistance && distance <= maxDistance)
+                foreach (var key in keysCollection)
                 {
-                    minDistance = distance;
-                    bestMatch = kvp.Key;
+                    int distance = CalculateHammingDistance(targetHash, key);
+
+                    if (distance == 0) return key;
+
+                    if (distance < minDistance && distance <= maxDistance)
+                    {
+                        minDistance = distance;
+                        bestMatch = key;
+                    }
                 }
             }
 

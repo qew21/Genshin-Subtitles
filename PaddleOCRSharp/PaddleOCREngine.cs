@@ -10,6 +10,7 @@ using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using OpenCvSharp;
 using OpenCvSharp.Dnn;
+using OpenCvSharp.Extensions;
 using CvPoint = OpenCvSharp.Point;
 using CvSize = OpenCvSharp.Size;
 using log4net;
@@ -251,8 +252,7 @@ namespace PaddleOCRSharp
             if (bitmap == null)
                 throw new ArgumentException("Image must be a Bitmap", nameof(image));
 
-            using var mat = BitmapToMat(bitmap);
-            return DetectTextFromMat(mat);
+            return DetectTextFromMat(bitmap.ToMat());
         }
 
         /// <summary>

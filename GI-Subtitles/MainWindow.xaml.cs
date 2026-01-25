@@ -1,4 +1,6 @@
 ﻿using Emgu.CV.Dnn;
+using OpenCvSharp;
+using OpenCvSharp.Extensions;
 using PaddleOCRSharp;
 using System;
 using System.Collections.Generic;
@@ -56,7 +58,7 @@ namespace GI_Subtitles
     /// <summary>
     /// MainWindow.xaml 的交互逻辑
     /// </summary>
-    public partial class MainWindow : Window
+    public partial class MainWindow : System.Windows.Window
     {
         private static int OCR_TIMER = 0;
         private static int UI_TIMER = 0;
@@ -210,8 +212,42 @@ namespace GI_Subtitles
             }
             else if (Directory.Exists("Videos"))
             {
-                var video = new Video(data.engine);
-                video.ShowDialog();
+                string demoVideoPath = Path.Combine("Videos", "demo.mp4");
+                string demoRegionPath = Path.Combine("Videos", "demo_region.json");
+
+                if (File.Exists(demoVideoPath) && File.Exists(demoRegionPath))
+                {
+                    Task.Run(() =>
+                    {
+                        try
+                        {
+                            VideoProcessorHelper.ProcessDemoVideo(demoVideoPath, demoRegionPath, data.engine, () =>
+                            {
+                                // 清理并退出（需要在UI线程上执行）
+                                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                                {
+                                    notifyIcon?.Dispose();
+                                    notifyIcon = null;
+                                    data?.UnregisterAllHotkeys();
+                                    data?.RealClose();
+                                    System.Environment.Exit(0);
+                                });
+                            });
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"处理失败: {ex.Message}");
+                            Logger.Log.Error(ex);
+                            System.Windows.Application.Current.Dispatcher.Invoke(() => System.Environment.Exit(1));
+                        }
+                    });
+                    return;
+                }
+                else
+                {
+                    var video = new Video(data.engine);
+                    video.ShowDialog();
+                }
             }
         }
 
@@ -261,8 +297,8 @@ namespace GI_Subtitles
                             target = CaptureRegion(notify.Region);
                         }
                     }
-                    Bitmap enhanced = target;
-                    string bitStr = ImageProcessor.ComputeDHash(enhanced);
+                    Mat enhanced = target.ToMat();
+                    string bitStr = ImageProcessor.ComputeRobustHash(enhanced);
 
                     // 使用 LRU 缓存查找
                     if (BitmapDict.TryGetValue(bitStr, out string cachedOcrText))
@@ -280,7 +316,7 @@ namespace GI_Subtitles
                         }
                         else
                         {
-                            OCRResult ocrResult = data.engine.DetectText(enhanced);
+                            OCRResult ocrResult = data.engine.DetectTextFromMat(enhanced);
                             ocrText = ocrResult.Text;
 
                             if (debug)
