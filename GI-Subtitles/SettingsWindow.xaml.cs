@@ -35,6 +35,7 @@ using System.Web.UI.WebControls;
 using System.Xml;
 using System.ServiceModel.Syndication;
 using System.Runtime.InteropServices;
+using Microsoft.Win32;
 
 namespace GI_Subtitles
 {
@@ -843,26 +844,65 @@ namespace GI_Subtitles
 
         private void ConvertButton_Click(object sender, RoutedEventArgs e)
         {
-            string srtFolder = Path.Combine(dataDir, "srt");
-            if (Directory.Exists(srtFolder))
+            var dialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Filter = "字幕文件|*.srt|所有文件|*.*",
+                Multiselect = true,
+                Title = "选择要转换的SRT文件"
+            };
+
+            if (dialog.ShowDialog() == true)
             {
                 var processor = new SrtProcessor(this.contentDict);
-                foreach (var file in Directory.GetFiles(srtFolder))
+                int successCount = 0;
+                int failCount = 0;
+                var errors = new List<string>();
+
+                foreach (var file in dialog.FileNames)
                 {
-                    if (file.EndsWith(".convert.srt"))
+                    try
                     {
-                        continue;
+                        // 跳过已经是转换后的文件
+                        if (file.EndsWith(".convert.srt", StringComparison.OrdinalIgnoreCase))
+                        {
+                            continue;
+                        }
+
+                        var subtitles = processor.ReadSrtFile(file);
+                        var processedSubtitles = processor.ProcessSubtitles(Matcher, subtitles);
+
+                        // 输出文件保存到同一目录，文件名添加 .convert 后缀
+                        string outputPath = Path.Combine(
+                            Path.GetDirectoryName(file),
+                            Path.GetFileNameWithoutExtension(file) + ".convert.srt"
+                        );
+
+                        processor.WriteSrtFile(outputPath, processedSubtitles);
+                        successCount++;
                     }
-                    var subtitles = processor.ReadSrtFile(file);
-                    var processedSubtitles = processor.ProcessSubtitles(Matcher, subtitles);
-                    string outputPath = file.Replace(".srt", ".convert.srt");
-                    processor.WriteSrtFile(outputPath, processedSubtitles);
+                    catch (Exception ex)
+                    {
+                        failCount++;
+                        errors.Add($"{Path.GetFileName(file)}: {ex.Message}");
+                    }
                 }
-                System.Windows.MessageBox.Show($"Convert finished.");
-            }
-            else
-            {
-                System.Windows.MessageBox.Show($"{srtFolder} folder is empty.");
+
+                // 显示转换结果
+                string message = $"转换完成！\n成功: {successCount} 个文件";
+                if (failCount > 0)
+                {
+                    message += $"\n失败: {failCount} 个文件";
+                    if (errors.Count > 0)
+                    {
+                        message += "\n\n错误详情:\n" + string.Join("\n", errors.Take(5));
+                        if (errors.Count > 5)
+                        {
+                            message += $"\n... 还有 {errors.Count - 5} 个错误";
+                        }
+                    }
+                }
+                System.Windows.MessageBox.Show(message, "转换结果", MessageBoxButton.OK,
+                    failCount > 0 ? MessageBoxImage.Warning : MessageBoxImage.Information);
             }
         }
 

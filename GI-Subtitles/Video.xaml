@@ -5,8 +5,10 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:GI_Subtitles"
         mc:Ignorable="d"
-        Title="视频字幕提取" Height="800" Width="1300" MinWidth="1300"
+        Title="视频字幕提取" Height="800" Width="1310" MinWidth="1310"
         AllowDrop="True"
+        Topmost="True"
+        Icon="Resources/mask.ico" 
         DragOver="Window_DragOver"
         Drop="Window_Drop">
     <Grid>
@@ -195,7 +197,14 @@
             <ListBox x:Name="SubtitleListBox" Grid.Row="1" 
                      SelectionChanged="SubtitleListBox_SelectionChanged"
                      PreviewMouseLeftButtonDown="SubtitleListBox_PreviewMouseLeftButtonDown"
+                     SelectionMode="Extended"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <ListBox.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="删除" Click="DeleteSubtitleMenuItem_Click" 
+                                  ToolTip="删除选中的字幕项（支持多选）"/>
+                    </ContextMenu>
+                </ListBox.ContextMenu>
                 <ListBox.ItemTemplate>
                     <DataTemplate>
                         <Border BorderBrush="#CCCCCC" BorderThickness="0,0,0,1" Padding="8">

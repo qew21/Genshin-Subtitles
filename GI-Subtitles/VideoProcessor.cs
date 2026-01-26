@@ -358,7 +358,8 @@ namespace GI_Subtitles
                 double gap = start - last.EndTime.TotalSeconds;
                 int lastLength = last.Text.Length;
                 int currentLength = text.Length;
-                if (gap < 0.5 && CalculateLevenshteinSimilarity(last.Text, text.Substring(0, Math.Min(lastLength, currentLength))) > 0.8)
+                // 放宽gap阈值到2.0秒，允许合并间隔稍长的相似文本
+                if (gap < 2.0 && CalculateLevenshteinSimilarity(last.Text, text.Substring(0, Math.Min(lastLength, currentLength))) > 0.8)
                 {
                     // 相似合并，取较长的一个
                     if (currentLength > lastLength) last.Text = text;

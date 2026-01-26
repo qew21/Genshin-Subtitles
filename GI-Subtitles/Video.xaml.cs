@@ -1399,6 +1399,67 @@ namespace GI_Subtitles
             _isEditingSubtitle = false;
         }
 
+        private void DeleteSubtitleMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (SubtitleListBox.SelectedItems.Count == 0)
+            {
+                return;
+            }
+
+            // 获取所有选中的项，转换为 SubtitleItem 列表
+            var selectedItems = SubtitleListBox.SelectedItems.Cast<SubtitleItem>().ToList();
+            
+            if (selectedItems.Count == 0)
+            {
+                return;
+            }
+
+            // 获取要删除的索引（从大到小排序，避免删除时索引变化的问题）
+            var indicesToDelete = selectedItems
+                .Select(item => Subtitles.IndexOf(item))
+                .Where(index => index >= 0 && index < _currentSrtEntries.Count)
+                .OrderByDescending(index => index)
+                .ToList();
+
+            if (indicesToDelete.Count == 0)
+            {
+                return;
+            }
+
+            // 确认删除
+            string message = indicesToDelete.Count == 1 
+                ? "确定要删除选中的字幕吗？" 
+                : $"确定要删除选中的 {indicesToDelete.Count} 个字幕吗？";
+            
+            if (MessageBox.Show(message, "确认删除", MessageBoxButton.YesNo, MessageBoxImage.Question) 
+                != MessageBoxResult.Yes)
+            {
+                return;
+            }
+
+            // 从后往前删除，避免索引变化
+            foreach (var index in indicesToDelete)
+            {
+                if (index >= 0 && index < Subtitles.Count)
+                {
+                    Subtitles.RemoveAt(index);
+                }
+                if (index >= 0 && index < _currentSrtEntries.Count)
+                {
+                    _currentSrtEntries.RemoveAt(index);
+                }
+            }
+
+            // 如果删除后列表为空，隐藏导出按钮
+            if (_currentSrtEntries.Count == 0)
+            {
+                ExportSrtButton.Visibility = Visibility.Collapsed;
+            }
+
+            // 更新后续项的索引（如果需要）
+            // 注意：SubtitleItem 的 Index 属性在导出时会重新计算，所以这里不需要更新
+        }
+
         private void ToggleSelectionButton_Click(object sender, RoutedEventArgs e)
         {
             _keepSelectionVisible = !_keepSelectionVisible;
@@ -1510,7 +1571,8 @@ namespace GI_Subtitles
                 double gap = start - last.EndTime.TotalSeconds;
                 int lastLength = last.Text.Length;
                 int currentLength = text.Length;
-                if (gap < 0.5 && CalculateLevenshteinSimilarity(last.Text, text.Substring(0, Math.Min(lastLength, currentLength))) > 0.8)
+                // 放宽gap阈值到2.0秒，允许合并间隔稍长的相似文本
+                if (gap < 2.0 && CalculateLevenshteinSimilarity(last.Text, text.Substring(0, Math.Min(lastLength, currentLength))) > 0.8)
                 {
                     // 相似合并，取较长的一个
                     if (currentLength > lastLength) last.Text = text;

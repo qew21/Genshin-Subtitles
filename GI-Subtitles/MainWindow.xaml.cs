@@ -394,11 +394,8 @@ namespace GI_Subtitles
                                 {
                                     HeaderText.Text = header;
                                     HeaderText.Visibility = Visibility.Visible;
-                                    // 计算content的字体大小，动态调整header的上移距离
-                                    int fontSize = Config.Get<int>("Size");
-                                    // header上移距离 = content字体大小的一半 + header字体大小的一半 + 间距
-                                    var transform = (System.Windows.Media.TranslateTransform)HeaderText.RenderTransform;
-                                    transform.Y = -(fontSize / 2.0 + 7 + 4); // 7是header字体14的一半，4是间距
+                                    // 延迟更新header位置，等待content布局完成
+                                    UpdateHeaderPosition();
                                 }
                                 else
                                 {
@@ -412,12 +409,10 @@ namespace GI_Subtitles
                                 SubtitleText.Text = content;
                                 int fontSize = Config.Get<int>("Size");
                                 SubtitleText.FontSize = fontSize;
-                                // 如果header可见，更新header的上移距离，使其显示在content上方
+                                // 延迟更新header位置，等待content布局完成后再计算
                                 if (HeaderText.Visibility == Visibility.Visible && !string.IsNullOrEmpty(lastHeader))
                                 {
-                                    var transform = (System.Windows.Media.TranslateTransform)HeaderText.RenderTransform;
-                                    // 上移距离 = content字体大小的一半 + header字体大小的一半 + 间距
-                                    transform.Y = -(fontSize / 2.0 + 7 + 4); // 7是header字体14的一半，4是间距
+                                    UpdateHeaderPosition();
                                 }
                             }
                         }
@@ -462,6 +457,50 @@ namespace GI_Subtitles
                 }
                 Interlocked.Exchange(ref UI_TIMER, 0);
             }
+        }
+
+        /// <summary>
+        /// 更新header的位置，根据content的实际高度（支持多行）动态计算上移距离
+        /// </summary>
+        private void UpdateHeaderPosition()
+        {
+            // 等待布局完成后再计算，确保能获取到ActualHeight
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                try
+                {
+                    if (HeaderText.Visibility != Visibility.Visible || string.IsNullOrEmpty(lastHeader))
+                        return;
+
+                    // 强制更新布局以获取准确的ActualHeight
+                    SubtitleText.UpdateLayout();
+                    
+                    // 获取content的实际高度（考虑多行）
+                    double contentHeight = SubtitleText.ActualHeight;
+                    if (contentHeight <= 0)
+                    {
+                        // 如果ActualHeight还未计算，使用字体大小作为单行高度估算
+                        int fontSize = Config.Get<int>("Size");
+                        contentHeight = fontSize;
+                    }
+
+                    // 获取header的实际高度
+                    HeaderText.UpdateLayout();
+                    double headerHeight = HeaderText.ActualHeight;
+                    if (headerHeight <= 0)
+                    {
+                        headerHeight = 14; // header字体大小14
+                    }
+
+                    // 计算上移距离：content高度的一半 + header高度的一半 + 间距
+                    var transform = (System.Windows.Media.TranslateTransform)HeaderText.RenderTransform;
+                    transform.Y = -(contentHeight / 2.0 + headerHeight / 2.0 + 4); // 4是间距
+                }
+                catch (Exception ex)
+                {
+                    Logger.Log.Error($"Error updating header position: {ex}");
+                }
+            }), System.Windows.Threading.DispatcherPriority.Loaded);
         }
 
 
@@ -600,6 +639,7 @@ namespace GI_Subtitles
                 {
                     ShowText = !ShowText;
                     SubtitleText.Visibility = ShowText ? Visibility.Visible : Visibility.Collapsed;
+                    HeaderText.Visibility = ShowText ? Visibility.Visible : Visibility.Collapsed;
                     if (ShowText)
                     {
                         SystemSounds.Hand.Play();
