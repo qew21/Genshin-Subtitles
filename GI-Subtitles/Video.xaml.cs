@@ -1222,15 +1222,21 @@ namespace GI_Subtitles
                             {
                                 // 使用AddOrMergeSubtitle方法进行过滤和合并
                                 int entriesCountBefore = _currentSrtEntries.Count;
-                                var mergedEntry = AddOrMergeSubtitle(_currentSrtEntries, 
-                                    info.LatestSubtitle.Text, 
-                                    info.LatestSubtitle.StartTime.TotalSeconds, 
+                                var mergedEntry = AddOrMergeSubtitle(_currentSrtEntries,
+                                    info.LatestSubtitle.Text,
+                                    info.LatestSubtitle.StartTime.TotalSeconds,
                                     info.LatestSubtitle.EndTime.TotalSeconds);
+
+                                // 如果返回null，说明被过滤掉了，跳过
+                                if (mergedEntry == null)
+                                {
+                                    return; // 在lambda中使用return而不是continue
+                                }
 
                                 // 检查是否是合并到已有条目还是新条目
                                 // 如果entries数量没有增加，说明是合并到已有条目
                                 bool isNewEntry = (_currentSrtEntries.Count > entriesCountBefore);
-                                
+
                                 if (!isNewEntry)
                                 {
                                     // 合并到已有条目，更新UI
@@ -1240,18 +1246,18 @@ namespace GI_Subtitles
                                         var existingItem = Subtitles[entryIndex];
                                         existingItem.TimeRange = $"{FormatTimeSpan(mergedEntry.StartTime)} --> {FormatTimeSpan(mergedEntry.EndTime)}";
                                         existingItem.EndTimeSeconds = mergedEntry.EndTime.TotalSeconds;
-                                        
+
                                         // 更新文本（如果文本有变化）
                                         var newLines = mergedEntry.Text.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries).ToList();
                                         if (newLines.Count == 0) newLines.Add(mergedEntry.Text); // 如果没有换行，保持原样
-                                        
-                                        if (newLines.Count != existingItem.Lines.Count || 
+
+                                        if (newLines.Count != existingItem.Lines.Count ||
                                             !newLines.SequenceEqual(existingItem.Lines))
                                         {
                                             existingItem.Lines.Clear();
                                             existingItem.Lines.AddRange(newLines);
                                         }
-                                        
+
                                         // 刷新显示
                                         var collectionView = System.Windows.Data.CollectionViewSource.GetDefaultView(Subtitles);
                                         collectionView.Refresh();
@@ -1262,7 +1268,7 @@ namespace GI_Subtitles
                                     // 新条目，添加到UI
                                     var newLines = mergedEntry.Text.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries).ToList();
                                     if (newLines.Count == 0) newLines.Add(mergedEntry.Text); // 如果没有换行，保持原样
-                                    
+
                                     var subtitleItem = new SubtitleItem
                                     {
                                         TimeRange = $"{FormatTimeSpan(mergedEntry.StartTime)} --> {FormatTimeSpan(mergedEntry.EndTime)}",
@@ -1348,7 +1354,7 @@ namespace GI_Subtitles
         {
             // 避免在编辑时触发跳转
             if (e.AddedItems.Count == 0 || _isEditingSubtitle) return;
-            
+
             if (SubtitleListBox.SelectedItem is SubtitleItem item && !string.IsNullOrEmpty(_videoPath))
             {
                 // 跳转到字幕结束时间（因为开始时间可能字幕还没完全展示）
@@ -1394,7 +1400,7 @@ namespace GI_Subtitles
                     }
                 }
             }
-            
+
             // 编辑完成，重置标志
             _isEditingSubtitle = false;
         }
@@ -1408,7 +1414,7 @@ namespace GI_Subtitles
 
             // 获取所有选中的项，转换为 SubtitleItem 列表
             var selectedItems = SubtitleListBox.SelectedItems.Cast<SubtitleItem>().ToList();
-            
+
             if (selectedItems.Count == 0)
             {
                 return;
@@ -1427,11 +1433,11 @@ namespace GI_Subtitles
             }
 
             // 确认删除
-            string message = indicesToDelete.Count == 1 
-                ? "确定要删除选中的字幕吗？" 
+            string message = indicesToDelete.Count == 1
+                ? "确定要删除选中的字幕吗？"
                 : $"确定要删除选中的 {indicesToDelete.Count} 个字幕吗？";
-            
-            if (MessageBox.Show(message, "确认删除", MessageBoxButton.YesNo, MessageBoxImage.Question) 
+
+            if (MessageBox.Show(message, "确认删除", MessageBoxButton.YesNo, MessageBoxImage.Question)
                 != MessageBoxResult.Yes)
             {
                 return;
@@ -1552,9 +1558,74 @@ namespace GI_Subtitles
             ProcessVideo_Click(null, null);
         }
 
+        // 检测文本是否包含中文、日文或英文
+        private bool ContainsValidLanguage(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return false;
+
+            bool hasChinese = false;
+            bool hasJapanese = false;
+            bool hasEnglish = false;
+
+            foreach (char c in text)
+            {
+                // 检测中文（CJK统一汉字）
+                if (c >= 0x4E00 && c <= 0x9FFF)
+                {
+                    hasChinese = true;
+                }
+                // 检测日文平假名
+                else if (c >= 0x3040 && c <= 0x309F)
+                {
+                    hasJapanese = true;
+                }
+                // 检测日文片假名
+                else if (c >= 0x30A0 && c <= 0x30FF)
+                {
+                    hasJapanese = true;
+                }
+                // 检测英文
+                else if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'))
+                {
+                    hasEnglish = true;
+                }
+            }
+
+            return hasChinese || hasJapanese || hasEnglish;
+        }
+
+        // 改进的相似度计算：检查文本是否包含或高度重叠
+        private bool IsTextSimilar(string text1, string text2, double threshold = 0.8)
+        {
+            if (string.IsNullOrEmpty(text1) || string.IsNullOrEmpty(text2))
+                return false;
+
+            // 1. 完全相同
+            if (text1 == text2)
+                return true;
+
+            // 2. 检查是否一个包含另一个（处理前缀/后缀情况）
+            if (text1.Contains(text2) || text2.Contains(text1))
+            {
+                return true;
+            }
+
+            // 3. 使用编辑距离计算相似度
+            var similarity = CalculateLevenshteinSimilarity(text1, text2);
+            return similarity >= threshold;
+        }
+
         // 从VideoProcessor复制的字幕合并逻辑
         private SrtEntry AddOrMergeSubtitle(List<SrtEntry> entries, string text, double start, double end)
         {
+            // 过滤：如果字幕既没有英文也没有中文也没有日文，就过滤掉
+            if (!ContainsValidLanguage(text))
+            {
+                // 返回null表示被过滤掉，不添加到列表
+                return null;
+            }
+
             if (entries.Count > 0)
             {
                 var last = entries[entries.Count - 1];
@@ -1567,15 +1638,11 @@ namespace GI_Subtitles
                 }
 
                 // 2. 文本相似度高，且时间重叠或紧邻，合并
-                // 计算时间间隔
                 double gap = start - last.EndTime.TotalSeconds;
-                int lastLength = last.Text.Length;
-                int currentLength = text.Length;
-                // 放宽gap阈值到2.0秒，允许合并间隔稍长的相似文本
-                if (gap < 2.0 && CalculateLevenshteinSimilarity(last.Text, text.Substring(0, Math.Min(lastLength, currentLength))) > 0.8)
+                if (gap < 2.0 && IsTextSimilar(last.Text, text, 0.8))
                 {
                     // 相似合并，取较长的一个
-                    if (currentLength > lastLength) last.Text = text;
+                    if (text.Length > last.Text.Length) last.Text = text;
                     last.EndTime = TimeSpan.FromSeconds(end);
                     return last;
                 }
