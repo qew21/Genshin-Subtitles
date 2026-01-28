@@ -913,6 +913,7 @@ namespace GI_Subtitles
                 LoadEngine();
             }
             var video = new Video(engine);
+            this.Close();
             video.ShowDialog();
         }
 

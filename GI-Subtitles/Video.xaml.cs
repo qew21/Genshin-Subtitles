@@ -43,6 +43,7 @@ namespace GI_Subtitles
         private bool _isSliderDragging = false; // 滑块是否正在拖动
         private bool _keepSelectionVisible = false; // 是否保持选区可见
         private bool _isEditingSubtitle = false; // 标记是否正在编辑字幕
+        private VideoCapture videoCapture;
         PaddleOCREngine engine;
 
         // 存储用户选择的区域（GDI Rectangle）
@@ -165,6 +166,16 @@ namespace GI_Subtitles
             if (dialog.ShowDialog() == true)
             {
                 _videoPath = dialog.FileName;
+                videoCapture = new VideoCapture(_videoPath);
+                if (!videoCapture.IsOpened())
+                    throw new InvalidOperationException("无法打开视频，请尝试转码为 .avi 格式。");
+
+                _videoResolution = new System.Drawing.Size(
+                    (int)videoCapture.FrameWidth,
+                    (int)videoCapture.FrameHeight);
+
+                _videoFps = videoCapture.Fps;
+                if (_videoFps <= 0) _videoFps = 30; // 默认帧率
                 LoadFrameAtTime(_videoPath, 0);
                 JumpToTime.IsEnabled = true;
                 LoadRegion.IsEnabled = true;
@@ -181,19 +192,8 @@ namespace GI_Subtitles
         {
             try
             {
-                using var capture = new VideoCapture(videoPath);
-                if (!capture.IsOpened())
-                    throw new InvalidOperationException("无法打开视频，请尝试转码为 .avi 格式。");
-
-                _videoResolution = new System.Drawing.Size(
-                    (int)capture.FrameWidth,
-                    (int)capture.FrameHeight);
-
-                _videoFps = capture.Fps;
-                if (_videoFps <= 0) _videoFps = 30; // 默认帧率
-
                 // 跳转到指定时间
-                double totalDuration = capture.Get(VideoCaptureProperties.FrameCount) / _videoFps;
+                double totalDuration = videoCapture.Get(VideoCaptureProperties.FrameCount) / _videoFps;
                 _totalDurationSeconds = totalDuration;
                 timeSeconds = Math.Max(0, Math.Min(timeSeconds, totalDuration));
                 _currentTimeSeconds = timeSeconds;
@@ -206,10 +206,10 @@ namespace GI_Subtitles
                 UpdateTimeDisplay();
 
                 // 使用毫秒跳转（更准确）
-                capture.Set(VideoCaptureProperties.PosMsec, timeSeconds * 1000);
+                videoCapture.Set(VideoCaptureProperties.PosMsec, timeSeconds * 1000);
 
                 using var mat = new Mat();
-                capture.Read(mat); // 读取当前帧
+                videoCapture.Read(mat); // 读取当前帧
 
                 if (mat.Empty())
                     throw new Exception("无法读取视频帧。");
@@ -1300,23 +1300,11 @@ namespace GI_Subtitles
 
                     generator.GenerateSrt(engine, srtPath, progress);
 
-                    // 处理完成提示
-                    Dispatcher.Invoke(() =>
-                    {
-                        MessageBox.Show($"字幕生成完成！\n保存位置：{srtPath}\n字幕条数：{Subtitles.Count}",
-                            "成功", MessageBoxButton.OK, MessageBoxImage.Information);
-                    });
+                    Logger.Log.Info($"字幕生成完成！\n保存位置：{srtPath}\n字幕条数：{Subtitles.Count}");
                 }
                 catch (Exception ex)
                 {
-                    // 处理失败
-                    Dispatcher.Invoke(() =>
-                    {
-                        ProgressStatusText.Text = "处理失败";
-                        ProgressSpeedText.Text = "";
-                        ProcessVideo.IsEnabled = true;
-                        MessageBox.Show($"处理失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-                    });
+                    Logger.Log.Error($"处理失败：{ex.Message}");
                 }
             });
         }
