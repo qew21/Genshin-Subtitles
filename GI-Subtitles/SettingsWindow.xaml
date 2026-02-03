@@ -84,6 +84,7 @@
                                 <ComboBoxItem Content="{DynamicResource Game_StarRail}"/>
                                 <ComboBoxItem Content="{DynamicResource Game_zzz}"/>
                                 <ComboBoxItem Content="{DynamicResource Game_Wuthering}"/>
+                                <ComboBoxItem Content="{DynamicResource Game_Endfield}"/>
                             </ComboBox>
 
                             <TextBlock Text="{DynamicResource Recognize_Lang}" VerticalAlignment="Center" Margin="0,0,6,0"/>

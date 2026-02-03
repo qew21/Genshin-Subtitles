@@ -64,6 +64,7 @@ namespace GI_Subtitles
             ["星穹铁道"] = "StarRail",
             ["绝区零"] = "Zenless",
             ["鸣潮"] = "Wuthering",
+            ["终末地"] = "Endfield",
         };
         readonly Stopwatch sw = new Stopwatch();
         readonly bool mtuliline = Config.Get<bool>("Multiline", false);
@@ -251,6 +252,12 @@ namespace GI_Subtitles
                 InputLangDownloadUrl.Text = WutheringUrl(InputLanguage);
                 OutputLangDownloadUrl.Text = WutheringUrl(OutputLanguage);
             }
+            else if (Game == "Endfield")
+            {
+                repoUrl = "https://github.com/XiaBei-cy/EndfieldData/commits/master.atom";
+                InputLangDownloadUrl.Text = EndfieldUrl(InputLanguage);
+                OutputLangDownloadUrl.Text = EndfieldUrl(OutputLanguage);
+            }
         }
 
         private string ZenlessUrl(string language)
@@ -277,6 +284,16 @@ namespace GI_Subtitles
                     language = "JA";
                 }
                 url = $"https://raw.githubusercontent.com/Dimbreath/WutheringData/refs/heads/master/TextMap/{language.ToLower()}/MultiText.json";
+            }
+            return url;
+        }
+
+        private string EndfieldUrl(string language)
+        {
+            string url = "https://raw.githubusercontent.com/XiaBei-cy/EndfieldData/refs/heads/master/i18n/I18nTextTable_CN.json";
+            if (language != "CHS")
+            {
+                url = $"https://raw.githubusercontent.com/XiaBei-cy/EndfieldData/refs/heads/master/i18n/I18nTextTable_{language.ToUpper()}.json";
             }
             return url;
         }
