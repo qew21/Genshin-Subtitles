@@ -82,5 +82,49 @@ namespace GI_Subtitles
             _settings[key] = JToken.FromObject(value);
             Save();
         }
+
+        public static int GetPad(int defaultValue = 0)
+        {
+            if (_settings.TryGetValue("Pad", out var token))
+            {
+                try
+                {
+                    if (token.Type == JTokenType.Array)
+                    {
+                        var padArray = token.ToObject<int[]>();
+                        if (padArray != null && padArray.Length > 0)
+                        {
+                            return padArray[0];
+                        }
+                    }
+                    else
+                    {
+                        return token.ToObject<int>();
+                    }
+                }
+                catch { }
+            }
+            return defaultValue;
+        }
+
+        public static int GetPadHorizontal(int defaultValue = 0)
+        {
+            if (_settings.TryGetValue("Pad", out var token))
+            {
+                try
+                {
+                    if (token.Type == JTokenType.Array)
+                    {
+                        var padArray = token.ToObject<int[]>();
+                        if (padArray != null && padArray.Length > 1)
+                        {
+                            return padArray[1];
+                        }
+                    }
+                }
+                catch { }
+            }
+            return defaultValue;
+        }
     }
 }

@@ -233,7 +233,17 @@
                     <!-- Pad -->
                     <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,12">
                         <TextBlock Text="{DynamicResource Config_Pad_Label}" VerticalAlignment="Center" Width="200"/>
-                        <TextBox x:Name="PadTextBox" Width="80" VerticalContentAlignment="Center" Text="86" Margin="0,0,8,0"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,8,0">
+                            <Button Content="−" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,2,0" Click="PadVerticalDecrease_Click"/>
+                            <TextBox x:Name="PadTextBox" Width="60" VerticalContentAlignment="Center" Text="86" LostFocus="PadTextBox_LostFocus"/>
+                            <Button Content="+" Width="24" Height="24" VerticalAlignment="Center" Margin="2,0,8,0" Click="PadVerticalIncrease_Click"/>
+                        </StackPanel>
+                        <TextBlock Text="水平偏移:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,8,0">
+                            <Button Content="−" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,2,0" Click="PadHorizontalDecrease_Click"/>
+                            <TextBox x:Name="PadHorizontalTextBox" Width="60" VerticalContentAlignment="Center" Text="0" LostFocus="PadHorizontalTextBox_LostFocus"/>
+                            <Button Content="+" Width="24" Height="24" VerticalAlignment="Center" Margin="2,0,0,0" Click="PadHorizontalIncrease_Click"/>
+                        </StackPanel>
                         <TextBlock Text="{DynamicResource Config_Pad_Hint}" VerticalAlignment="Center" Foreground="Gray" FontStyle="Italic"/>
                     </StackPanel>
 

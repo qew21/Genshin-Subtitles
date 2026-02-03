@@ -75,7 +75,6 @@ namespace GI_Subtitles
         readonly string server = Config.Get<string>("Server");
         readonly string token = Config.Get<string>("Token");
         readonly int distant = Config.Get<int>("Distant", 3);
-        int Pad = Config.Get<int>("Pad");
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         public static extern int SetWindowPos(IntPtr hWnd, int hWndInsertAfter, int x, int y, int Width, int Height, int flags);
         [DllImport("User32.dll")]
@@ -276,21 +275,7 @@ namespace GI_Subtitles
                                 Logger.Log.Debug($"OCR Text: {ocrText}");
                             }
 
-                            double top = Convert.ToInt16(notify.Region[1]) / Scale + Config.Get<int>("Pad");
-                            foreach (var screen in Screen.AllScreens)
-                            {
-                                if (screen.WorkingArea.Contains(new System.Drawing.Point(Convert.ToInt16(notify.Region[0]), Convert.ToInt16(notify.Region[1]))))
-                                {
-                                    double scale = GetScaleForScreen(screen);
-                                    double left = screen.Bounds.Left / scale;
-                                    this.Top = top;
-                                    double width = Convert.ToInt16(notify.Region[2]) / scale + 200;
-                                    this.Left = left + (screen.Bounds.Width / scale - width) / 2;
-                                    this.Width = width;
-                                }
-                            }
-
-                            this.Height = 100;
+                            UpdateWindowPosition();
                             BitmapDict[bitStr] = ocrText; // LRU 缓存会自动管理大小，无需手动检查
                         }
 
@@ -320,6 +305,24 @@ namespace GI_Subtitles
                 }
                 Interlocked.Exchange(ref OCR_TIMER, 0);
             }
+        }
+
+        public void UpdateWindowPosition()
+        {
+            double top = Convert.ToInt16(notify.Region[1]) / Scale + Config.GetPad();
+            foreach (var screen in Screen.AllScreens)
+            {
+                if (screen.WorkingArea.Contains(new System.Drawing.Point(Convert.ToInt16(notify.Region[0]), Convert.ToInt16(notify.Region[1]))))
+                {
+                    double scale = GetScaleForScreen(screen);
+                    double left = screen.Bounds.Left / scale;
+                    this.Top = top;
+                    double width = Convert.ToInt16(notify.Region[2]) / scale + 200;
+                    this.Left = left + (screen.Bounds.Width / scale - width) / 2 + Config.GetPadHorizontal();
+                    this.Width = width;
+                }
+            }
+            this.Height = 100;
         }
 
         public void UpdateText(object sender, EventArgs e)
@@ -585,8 +588,9 @@ namespace GI_Subtitles
 
         private void MainWindow_LocationChanged(object sender, EventArgs e)
         {
-            Pad = Convert.ToInt16(this.Top - Convert.ToInt16(notify.Region[1]) / Scale);
-            Config.Set("Pad", Pad);
+            int pad = Convert.ToInt16(this.Top - Convert.ToInt16(notify.Region[1]) / Scale);
+            int padHorizontal = Config.GetPadHorizontal();
+            Config.Set("Pad", new int[] { pad, padHorizontal });
         }
 
 

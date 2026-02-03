@@ -58,7 +58,9 @@ namespace GI_Subtitles
             };
             settingItem.Click += (sender, e) =>
             {
+                isContextMenuOpen = true;
                 data.ShowDialog();
+                isContextMenuOpen = false;
             };
             exitItem.Click += (sender, e) => { System.Windows.Application.Current.Shutdown(); };
             contextMenuStrip.Items.Add(versionItem);

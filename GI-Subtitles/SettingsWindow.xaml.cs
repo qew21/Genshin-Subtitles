@@ -144,7 +144,10 @@ namespace GI_Subtitles
             saveButton.Click += SaveButton_Click;
             resetButton.Click += ResetButton_Click;
             // Pad
-            PadTextBox.Text = Config.Get("Pad", 86).ToString();
+            int pad = Config.GetPad(86);
+            int padHorizontal = Config.GetPadHorizontal(0);
+            PadTextBox.Text = pad.ToString();
+            PadHorizontalTextBox.Text = padHorizontal.ToString();
 
             // Region: 解析字符串 "x,y,w,h"
             var regionStr = Config.Get("Region", "763,1797,2226,110");
@@ -164,7 +167,10 @@ namespace GI_Subtitles
 
         private void ResetLocation_Click(object sender, RoutedEventArgs e)
         {
-            Config.Set("Pad", 86);
+            Config.Set("Pad", new int[] { 86, 0 });
+            PadTextBox.Text = "86";
+            PadHorizontalTextBox.Text = "0";
+            UpdateMainWindowPosition();
         }
 
         private void SecondRegion_Click(object sender, RoutedEventArgs e)
@@ -1092,7 +1098,77 @@ namespace GI_Subtitles
         private void PadTextBox_LostFocus(object sender, RoutedEventArgs e)
         {
             if (int.TryParse(PadTextBox.Text, out int pad))
-                Config.Set("Pad", pad);
+            {
+                int padHorizontal = Config.GetPadHorizontal(0);
+                Config.Set("Pad", new int[] { pad, padHorizontal });
+                UpdateMainWindowPosition();
+            }
+        }
+
+        private void PadHorizontalTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (int.TryParse(PadHorizontalTextBox.Text, out int padHorizontal))
+            {
+                int pad = Config.GetPad(86);
+                Config.Set("Pad", new int[] { pad, padHorizontal });
+                UpdateMainWindowPosition();
+            }
+        }
+
+        private void PadVerticalIncrease_Click(object sender, RoutedEventArgs e)
+        {
+            if (int.TryParse(PadTextBox.Text, out int pad))
+            {
+                pad++;
+                PadTextBox.Text = pad.ToString();
+                int padHorizontal = int.TryParse(PadHorizontalTextBox.Text, out int ph) ? ph : 0;
+                Config.Set("Pad", new int[] { pad, padHorizontal });
+                UpdateMainWindowPosition();
+            }
+        }
+
+        private void PadVerticalDecrease_Click(object sender, RoutedEventArgs e)
+        {
+            if (int.TryParse(PadTextBox.Text, out int pad))
+            {
+                pad--;
+                PadTextBox.Text = pad.ToString();
+                int padHorizontal = int.TryParse(PadHorizontalTextBox.Text, out int ph) ? ph : 0;
+                Config.Set("Pad", new int[] { pad, padHorizontal });
+                UpdateMainWindowPosition();
+            }
+        }
+
+        private void PadHorizontalIncrease_Click(object sender, RoutedEventArgs e)
+        {
+            if (int.TryParse(PadHorizontalTextBox.Text, out int padHorizontal))
+            {
+                padHorizontal++;
+                PadHorizontalTextBox.Text = padHorizontal.ToString();
+                int pad = int.TryParse(PadTextBox.Text, out int p) ? p : 86;
+                Config.Set("Pad", new int[] { pad, padHorizontal });
+                UpdateMainWindowPosition();
+            }
+        }
+
+        private void PadHorizontalDecrease_Click(object sender, RoutedEventArgs e)
+        {
+            if (int.TryParse(PadHorizontalTextBox.Text, out int padHorizontal))
+            {
+                padHorizontal--;
+                PadHorizontalTextBox.Text = padHorizontal.ToString();
+                int pad = int.TryParse(PadTextBox.Text, out int p) ? p : 86;
+                Config.Set("Pad", new int[] { pad, padHorizontal });
+                UpdateMainWindowPosition();
+            }
+        }
+
+        private void UpdateMainWindowPosition()
+        {
+            if (System.Windows.Application.Current.MainWindow is MainWindow mainWindow)
+            {
+                mainWindow.UpdateWindowPosition();
+            }
         }
 
         private void RegionField_LostFocus(object sender, RoutedEventArgs e)
