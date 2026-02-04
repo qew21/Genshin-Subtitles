@@ -56,9 +56,11 @@
     <sys:String x:Key="Config_Width" xmlns:sys="clr-namespace:System;assembly=mscorlib">幅</sys:String>
     <sys:String x:Key="Config_Height" xmlns:sys="clr-namespace:System;assembly=mscorlib">高さ</sys:String>
     <sys:String x:Key="Config_PreviewRegion_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">この領域を画面に5秒間ハイライト表示</sys:String>
-    <sys:String x:Key="Config_Multiline" xmlns:sys="clr-namespace:System;assembly=mscorlib">複数行認識を有効にする（パフォーマンスが低下します）</sys:String>
+    <sys:String x:Key="Config_Multiline" xmlns:sys="clr-namespace:System;assembly=mscorlib">複数行認識を有効にする</sys:String>
     <sys:String x:Key="Config_AutoStart" xmlns:sys="clr-namespace:System;assembly=mscorlib">Windows 起動時に自動起動</sys:String>
+    <sys:String x:Key="Config_PlayVoice" xmlns:sys="clr-namespace:System;assembly=mscorlib">支線音声を有効にする</sys:String>
     <sys:String x:Key="Btn_OpenFolder" xmlns:sys="clr-namespace:System;assembly=mscorlib">アプリフォルダを開く</sys:String>
     <sys:String x:Key="Btn_ResetLocation" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕位置をリセット</sys:String>
     <sys:String x:Key="Btn_SecondRegion" xmlns:sys="clr-namespace:System;assembly=mscorlib">第2認識領域を追加</sys:String>
+    <sys:String x:Key="Btn_Voice" xmlns:sys="clr-namespace:System;assembly=mscorlib">音声</sys:String>
 </ResourceDictionary>

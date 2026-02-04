@@ -434,7 +434,7 @@ namespace GI_Subtitles
                         }
 
                         // 播放音频（只在content变化时播放，避免重复播放）
-                        if (contentChanged && !AudioList.Contains(key))
+                        if (Config.Get<bool>("PlayVoice", true) && contentChanged && !AudioList.Contains(key))
                         {
                             string text = key;
                             if (VoiceMap.ContainsKey(text))

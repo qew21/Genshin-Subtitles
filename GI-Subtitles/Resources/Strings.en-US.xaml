@@ -55,9 +55,11 @@
     <sys:String x:Key="Config_Width" xmlns:sys="clr-namespace:System;assembly=mscorlib">Width</sys:String>
     <sys:String x:Key="Config_Height" xmlns:sys="clr-namespace:System;assembly=mscorlib">Height</sys:String>
     <sys:String x:Key="Config_PreviewRegion_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Highlight this region on screen for 5 seconds</sys:String>
-    <sys:String x:Key="Config_Multiline" xmlns:sys="clr-namespace:System;assembly=mscorlib">Enable multi-line recognition (lower performance)</sys:String>
+    <sys:String x:Key="Config_Multiline" xmlns:sys="clr-namespace:System;assembly=mscorlib">Enable multi-line recognition</sys:String>
     <sys:String x:Key="Config_AutoStart" xmlns:sys="clr-namespace:System;assembly=mscorlib">Start with Windows</sys:String>
+    <sys:String x:Key="Config_PlayVoice" xmlns:sys="clr-namespace:System;assembly=mscorlib">Enable voice</sys:String>
     <sys:String x:Key="Btn_OpenFolder" xmlns:sys="clr-namespace:System;assembly=mscorlib">Open App Folder</sys:String>
     <sys:String x:Key="Btn_ResetLocation" xmlns:sys="clr-namespace:System;assembly=mscorlib">Reset Subtitle Position</sys:String>
     <sys:String x:Key="Btn_SecondRegion" xmlns:sys="clr-namespace:System;assembly=mscorlib">Add Secondary Recognition Region</sys:String>
+    <sys:String x:Key="Btn_Voice" xmlns:sys="clr-namespace:System;assembly=mscorlib">Voice</sys:String>
 </ResourceDictionary>

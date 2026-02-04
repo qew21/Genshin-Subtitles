@@ -59,9 +59,11 @@
     <sys:String x:Key="Config_Width" xmlns:sys="clr-namespace:System;assembly=mscorlib">宽</sys:String>
     <sys:String x:Key="Config_Height" xmlns:sys="clr-namespace:System;assembly=mscorlib">高</sys:String>
     <sys:String x:Key="Config_PreviewRegion_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">在屏幕上高亮显示此区域5秒</sys:String>
-    <sys:String x:Key="Config_Multiline" xmlns:sys="clr-namespace:System;assembly=mscorlib">启用多行识别（性能较低）</sys:String>
+    <sys:String x:Key="Config_Multiline" xmlns:sys="clr-namespace:System;assembly=mscorlib">启用多行识别（推荐开启）</sys:String>
     <sys:String x:Key="Config_AutoStart" xmlns:sys="clr-namespace:System;assembly=mscorlib">开机自动启动</sys:String>
+    <sys:String x:Key="Config_PlayVoice" xmlns:sys="clr-namespace:System;assembly=mscorlib">启用支线配音</sys:String>
     <sys:String x:Key="Btn_OpenFolder" xmlns:sys="clr-namespace:System;assembly=mscorlib">打开程序文件夹</sys:String>
     <sys:String x:Key="Btn_ResetLocation" xmlns:sys="clr-namespace:System;assembly=mscorlib">重设字幕位置</sys:String>
     <sys:String x:Key="Btn_SecondRegion" xmlns:sys="clr-namespace:System;assembly=mscorlib">添加第二识别区域</sys:String>
+    <sys:String x:Key="Btn_Voice" xmlns:sys="clr-namespace:System;assembly=mscorlib">支线配音</sys:String>
 </ResourceDictionary>

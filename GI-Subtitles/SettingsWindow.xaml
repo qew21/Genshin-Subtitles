@@ -281,14 +281,16 @@
                     <!-- Boolean Flags -->
                     <StackPanel Grid.Row="2" Margin="0,0,0,12">
                         <CheckBox x:Name="MultilineCheckBox" Checked="MultilineCheckBox_Checked" Unchecked="MultilineCheckBox_Checked" Content="{DynamicResource Config_Multiline}" Margin="0,0,0,6"/>
-                        <CheckBox x:Name="AutoStartCheckBox" Checked="AutoStartCheckBox_Checked" Unchecked="AutoStartCheckBox_Checked" Content="{DynamicResource Config_AutoStart}" />
+                        <CheckBox x:Name="AutoStartCheckBox" Checked="AutoStartCheckBox_Checked" Unchecked="AutoStartCheckBox_Checked" Content="{DynamicResource Config_AutoStart}" Margin="0,0,0,6"/>
+                        <CheckBox x:Name="PlayVoiceCheckBox" Checked="PlayVoiceCheckBox_Checked" Unchecked="PlayVoiceCheckBox_Checked" Content="{DynamicResource Config_PlayVoice}" Margin="0,0,0,6"/>
                     </StackPanel>
 
                     <!-- Action Buttons -->
                     <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,10,0,0">
                         <Button Content="{DynamicResource Btn_ResetLocation}" Margin="0,0,20,0" Click="ResetLocation_Click"/>
                         <Button Content="{DynamicResource Btn_SecondRegion}" Margin="0,0,20,0" Click="SecondRegion_Click"/>
-                        <Button Content="{DynamicResource Btn_OpenFolder}" Click="OpenAppDataFolder_Click"/>
+                        <Button Content="{DynamicResource Btn_OpenFolder}" Margin="0,0,20,0" Click="OpenAppDataFolder_Click"/>
+                        <Button Content="{DynamicResource Btn_Voice}" Margin="0,0,20,0" Click="VoiceButton_Click"/>
                     </StackPanel>
 
                 </Grid>
