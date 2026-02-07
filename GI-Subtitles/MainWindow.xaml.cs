@@ -108,7 +108,6 @@ namespace GI_Subtitles
         string dataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GI-Subtitles");
         INotifyIcon notify;
         SettingsWindow data;
-        Dictionary<string, string> VoiceMap = new Dictionary<string, string>();
         SoundPlayer player = new SoundPlayer();
         private System.Drawing.Rectangle screenBounds = Screen.PrimaryScreen.Bounds;
         bool ShowText = true;
@@ -177,7 +176,6 @@ namespace GI_Subtitles
                     }
                 }
                 );
-                VoiceMap = VoiceContentHelper.LoadAudioMap(server, Path.Combine(dataDir, Game));
             }
             if (notify.Region[1] == "0")
             {
@@ -436,20 +434,8 @@ namespace GI_Subtitles
                         // 播放音频（只在content变化时播放，避免重复播放）
                         if (Config.Get<bool>("PlayVoice", true) && contentChanged && !AudioList.Contains(key))
                         {
-                            string text = key;
-                            if (VoiceMap.ContainsKey(text))
-                            {
-                                var audioPath = VoiceMap[text];
-                                if (string.IsNullOrEmpty(server))
-                                {
-                                    PlayAudio(audioPath);
-                                }
-                                else
-                                {
-                                    PlayAudioFromUrl($"{server}?md5={audioPath}&token={token}");
-                                }
-                            }
-                            Logger.Log.Debug($"key: {key}, contains: {VoiceMap.ContainsKey(text)}");
+                            string audioKey = VoiceContentHelper.CalculateMd5Hash(key);
+                            PlayAudioFromUrl($"{server}?md5={audioKey}&token={token}");
                             AudioList.Add(key);
                         }
                     }
@@ -477,7 +463,7 @@ namespace GI_Subtitles
 
                     // 强制更新布局以获取准确的ActualHeight
                     SubtitleText.UpdateLayout();
-                    
+
                     // 获取content的实际高度（考虑多行）
                     double contentHeight = SubtitleText.ActualHeight;
                     if (contentHeight <= 0)

@@ -9,6 +9,8 @@ using NAudio.SoundFont;
 using Newtonsoft.Json;
 using System.Buffers;
 using System.Threading.Tasks;
+using System.Security.Cryptography;
+using System.Text;
 
 
 public static class VoiceContentHelper
@@ -330,35 +332,21 @@ public static class VoiceContentHelper
         return input;
     }
 
-    public static Dictionary<string, string> LoadAudioMap(string server, string game)
+    public static string CalculateMd5Hash(string content, string SALE = "TIMWANG")
     {
-        var data = new Dictionary<string, string>();
-        if (!string.IsNullOrEmpty(server))
+        string combinedStr = content + SALE;
+        byte[] inputBytes = Encoding.UTF8.GetBytes(combinedStr);
+        using (MD5 md5Hash = MD5.Create())
         {
-            var serverPath = Path.Combine(game, "ServerMap.json");
-            if (File.Exists(serverPath))
+            byte[] hashBytes = md5Hash.ComputeHash(inputBytes);
+
+            StringBuilder sb = new StringBuilder();
+            foreach (byte b in hashBytes)
             {
-                foreach (var pair in JsonConvert.DeserializeObject<Dictionary<string, string>>(File.ReadAllText(serverPath)))
-                {
-                    data[pair.Key] = pair.Value;
-                }
+                sb.Append(b.ToString("X2").ToLower());
             }
+            return sb.ToString();
         }
-        else
-        {
-            foreach (var version in Directory.GetDirectories(game))
-            {
-                var jsonPath = Path.Combine(version, "AudioMap.json");
-                if (File.Exists(jsonPath))
-                {
-                    foreach (var pair in JsonConvert.DeserializeObject<Dictionary<string, string>>(File.ReadAllText(jsonPath)))
-                    {
-                        data[pair.Key] = pair.Value;
-                    }
-                }
-            }
-        }
-        return data;
     }
 
     private static bool IsTitleCase(string text)
