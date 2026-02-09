@@ -40,7 +40,7 @@ using Microsoft.Win32;
 namespace GI_Subtitles
 {
     /// <summary>
-    /// SettingsWindow.xaml 的交互逻辑
+    /// SettingsWindow.xaml interaction logic
     /// </summary>
     public partial class SettingsWindow : Window
     {
@@ -48,7 +48,7 @@ namespace GI_Subtitles
         string Game = Config.Get<string>("Game");
         string InputLanguage = Config.Get<string>("Input");
         string OutputLanguage = Config.Get<string>("Output");
-        private const int MaxRetries = 1; // 最大重试次数
+        private const int MaxRetries = 1; // Maximum number of retries
         private static readonly HttpClient client = new HttpClient();
         public Dictionary<string, string> contentDict = new Dictionary<string, string>();
         readonly Dictionary<string, string> OutputLanguages = new Dictionary<string, string>() { { "简体中文", "CHS" }, { "English", "EN" }, { "日本語", "JP" }, { "繁體中文", "CHT" }, { "Deutsch", "DE" }, { "Español", "ES" }, { "Français", "FR" }, { "Bahasa Indonesia", "ID" }, { "한국어", "KR" }, { "Português", "PT" }, { "Русский", "RU" }, { "ไทย", "TH" }, { "Tiếng Việt", "VI" } };
@@ -74,14 +74,14 @@ namespace GI_Subtitles
         private Bitmap bitmap;
         double Scale = 1;
         INotifyIcon notifyIcon;
-        // Windows API 函数用于注册和注销热键
+        // Windows API functions for registering and unregistering hotkeys
         [DllImport("user32.dll")]
         private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
 
         [DllImport("user32.dll")]
         private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
 
-        // 热键常量
+        // Hotkey constants
         private const int HOTKEY_ID_1 = 9000;
         private const int HOTKEY_ID_2 = 9001;
         private const int HOTKEY_ID_3 = 9002;
@@ -138,10 +138,10 @@ namespace GI_Subtitles
             notifyIcon = notify;
             DataContext = this;
 
-            // 初始化热键列表
+            // Initialize hotkey list
             InitializeHotkeys();
             Console.WriteLine("InitializeHotkeys");
-            // 绑定按钮事件
+            // Bind button events
             saveButton.Click += SaveButton_Click;
             resetButton.Click += ResetButton_Click;
             // Pad
@@ -150,7 +150,7 @@ namespace GI_Subtitles
             PadTextBox.Text = pad.ToString();
             PadHorizontalTextBox.Text = padHorizontal.ToString();
 
-            // Region: 解析字符串 "x,y,w,h"
+            // Region: parse the string "x,y,w,h"
             var regionStr = Config.Get("Region", "763,1797,2226,110");
             var parts = regionStr.Split(',');
             if (parts.Length == 4)
@@ -190,23 +190,23 @@ namespace GI_Subtitles
 
         private void ApplyLanguage(string cultureTag)
         {
-            // 可选：设置线程文化（如果你在其他地方需要）
+            // Optional: set the thread culture (if you need it elsewhere)
             try
             {
                 var culture = new CultureInfo(cultureTag);
                 CultureInfo.DefaultThreadCurrentCulture = culture;
                 CultureInfo.DefaultThreadCurrentUICulture = culture;
             }
-            catch { /* 忽略非法 culture */ }
+            catch { /* Ignore invalid culture */ }
 
-            // 先移除旧的语言资源
+            // First remove the old language resources
             var oldLangs = System.Windows.Application.Current.Resources.MergedDictionaries
                 .Where(d => d.Source != null && d.Source.OriginalString.Contains("Resources/Strings"))
                 .ToList();
             foreach (var d in oldLangs)
                 System.Windows.Application.Current.Resources.MergedDictionaries.Remove(d);
 
-            // 合并新的语言资源
+            // Merge the new language resources
             var rd = new ResourceDictionary();
             switch (cultureTag)
             {
@@ -222,7 +222,7 @@ namespace GI_Subtitles
             }
             System.Windows.Application.Current.Resources.MergedDictionaries.Add(rd);
 
-            // 强制刷新窗口上的绑定
+            // Force refresh the bindings on the window
             this.InvalidateVisual();
         }
 
@@ -618,7 +618,7 @@ namespace GI_Subtitles
                         {
                             response.EnsureSuccessStatusCode();
 
-                            // 获取总大小
+                            // Get the total size
                             long totalBytes = response.Content.Headers.ContentLength.Value;
 
                             using (Stream contentStream = await response.Content.ReadAsStreamAsync(),
@@ -631,11 +631,11 @@ namespace GI_Subtitles
                                     await fileStream.WriteAsync(buffer, 0, bytesRead);
                                     existingLength += bytesRead;
 
-                                    // 更新进度
+                                    // Update the progress
                                     double progressPercentage = (double)existingLength / totalBytes * 100;
                                     DownloadProgressBar.Value = progressPercentage;
 
-                                    // 计算下载速度
+                                    // Calculate the download speed
                                     double speed = existingLength / 1024d / sw.Elapsed.TotalSeconds;
                                     DownloadSpeedText.Text = $"{speed:0.00} KB/s";
                                 }
@@ -673,7 +673,7 @@ namespace GI_Subtitles
                         }
                     }
 
-                    DisplayLocalFileDates(); // 更新本地文件日期
+                    DisplayLocalFileDates(); // Update the local file date
                     success = true;
                 }
                 catch (Exception ex)
@@ -718,10 +718,10 @@ namespace GI_Subtitles
             OCRModelConfig config = null;
             OCRParameter oCRParameter = new OCRParameter
             {
-                cpu_math_library_num_threads = 3,//预测并发线程数
-                enable_mkldnn = true,//web部署该值建议设置为0,否则出错，内存如果使用很大，建议该值也设置为0.
-                use_angle_cls = false,//是否开启方向检测，用于检测识别180旋转
-                det_db_score_mode = false,//是否使用多段线，即文字区域是用多段线还是用矩形，
+                cpu_math_library_num_threads = 3,//Prediction concurrent thread count
+                enable_mkldnn = true,//If you deploy on the web, it is recommended to set this value to 0, otherwise it will error. If the memory is used very large, it is recommended to set this value to 0.
+                use_angle_cls = false,//Whether to enable direction detection, used to detect 180 degree rotation
+                det_db_score_mode = false,//Whether to use multiple segments, that is, whether the text area is used with multiple segments or with rectangles,
                 max_side_len = 960
             };
 
@@ -806,9 +806,9 @@ namespace GI_Subtitles
                 bitmapImage.UriSource = null;
                 bitmapImage.StreamSource = ms;
                 bitmapImage.EndInit();
-                bitmapImage.Freeze(); // 冻结，使其可以在多个线程中使用
+                bitmapImage.Freeze(); // Freeze, so it can be used in multiple threads
 
-                // 设置 Image 控件的 Source 属性
+                // Set the Source property of the Image control
                 Capture.Source = bitmapImage;
             }
         }
@@ -862,7 +862,7 @@ namespace GI_Subtitles
             if (!Directory.Exists(dir))
                 Directory.CreateDirectory(dir);
 
-            // 直接打开资源管理器并定位到该目录
+            // Directly open the explorer and locate to the directory
             Process.Start("explorer.exe", dir);
         }
 
@@ -870,9 +870,9 @@ namespace GI_Subtitles
         {
             var dialog = new Microsoft.Win32.OpenFileDialog
             {
-                Filter = "字幕文件|*.srt|所有文件|*.*",
+                Filter = "Subtitle file|*.srt|All files|*.*",
                 Multiselect = true,
-                Title = "选择要转换的SRT文件"
+                Title = "Select the SRT file to convert"
             };
 
             if (dialog.ShowDialog() == true)
@@ -886,7 +886,7 @@ namespace GI_Subtitles
                 {
                     try
                     {
-                        // 跳过已经是转换后的文件
+                        // Skip the file that has already been converted
                         if (file.EndsWith(".convert.srt", StringComparison.OrdinalIgnoreCase))
                         {
                             continue;
@@ -895,7 +895,7 @@ namespace GI_Subtitles
                         var subtitles = processor.ReadSrtFile(file);
                         var processedSubtitles = processor.ProcessSubtitles(Matcher, subtitles);
 
-                        // 输出文件保存到同一目录，文件名添加 .convert 后缀
+                        // Output the file to the same directory, add the .convert suffix to the file name
                         string outputPath = Path.Combine(
                             Path.GetDirectoryName(file),
                             Path.GetFileNameWithoutExtension(file) + ".convert.srt"
@@ -911,21 +911,21 @@ namespace GI_Subtitles
                     }
                 }
 
-                // 显示转换结果
-                string message = $"转换完成！\n成功: {successCount} 个文件";
+                // Display the conversion result
+                string message = $"Conversion completed!\nSuccess: {successCount} files";
                 if (failCount > 0)
                 {
-                    message += $"\n失败: {failCount} 个文件";
+                    message += $"\nFailed: {failCount} files";
                     if (errors.Count > 0)
                     {
-                        message += "\n\n错误详情:\n" + string.Join("\n", errors.Take(5));
+                        message += "\n\nError details:\n" + string.Join("\n", errors.Take(5));
                         if (errors.Count > 5)
                         {
-                            message += $"\n... 还有 {errors.Count - 5} 个错误";
+                            message += $"\n... there are {errors.Count - 5} errors";
                         }
                     }
                 }
-                System.Windows.MessageBox.Show(message, "转换结果", MessageBoxButton.OK,
+                System.Windows.MessageBox.Show(message, "Conversion result", MessageBoxButton.OK,
                     failCount > 0 ? MessageBoxImage.Warning : MessageBoxImage.Information);
             }
         }
@@ -941,16 +941,16 @@ namespace GI_Subtitles
             video.ShowDialog();
         }
 
-        // 修改InitializeHotkeys方法
+        // Modify the InitializeHotkeys method
         public void InitializeHotkeys()
         {
-            // 从设置加载热键
+            // Load the hotkeys from the settings
             var settings = HotkeySettingsManager.LoadSettings();
 
-            // 创建可用按键列表 (A-Z)
+            // Create the available key list (A-Z)
             var availableKeys = Enumerable.Range(65, 26).Select(c => (char)c).ToList();
 
-            // 初始化热键集合
+            // Initialize the hotkey collection
             _hotkeys = new ObservableCollection<HotkeyViewModel>(
                 settings.Hotkeys.Select(h => new HotkeyViewModel
                 {
@@ -966,38 +966,38 @@ namespace GI_Subtitles
             hotkeyListView.ItemsSource = _hotkeys;
         }
 
-        // 修改SaveButton_Click方法，添加保存到文件的功能
+        // Modify the SaveButton_Click method, add the function to save to the file
         private void SaveButton_Click(object sender, RoutedEventArgs e)
         {
-            // 验证每个热键：必须包含 Ctrl 或 Shift
+            // Verify each hotkey: must contain Ctrl or Shift
             foreach (var hotkey in _hotkeys)
             {
                 if (!hotkey.IsCtrl && !hotkey.IsShift)
                 {
-                    System.Windows.MessageBox.Show($"快捷键 \"{hotkey.Description}\" 必须包含 Ctrl 或 Shift。",
-                                    "无效快捷键", MessageBoxButton.OK, MessageBoxImage.Error);
+                    System.Windows.MessageBox.Show($"The hotkey \"{hotkey.Description}\" must contain Ctrl or Shift.",
+                                    "Invalid hotkey", MessageBoxButton.OK, MessageBoxImage.Error);
                     return;
                 }
 
-                // 确保选中的是 A-Z（防御性检查）
+                // Ensure the selected key is A-Z (defensive check)
                 if (!char.IsLetter(hotkey.SelectedKey) || hotkey.SelectedKey < 'A' || hotkey.SelectedKey > 'Z')
                 {
-                    System.Windows.MessageBox.Show($"快捷键 \"{hotkey.Description}\" 必须选择 A-Z 之间的字母。",
-                                    "无效按键", MessageBoxButton.OK, MessageBoxImage.Error);
+                    System.Windows.MessageBox.Show($"The hotkey \"{hotkey.Description}\" must select a letter between A-Z.",
+                                    "Invalid key", MessageBoxButton.OK, MessageBoxImage.Error);
                     return;
                 }
             }
 
-            // 检查重复
+            // Check for duplicates
             var hotkeyTexts = _hotkeys.Select(h => h.GetHotkeyText()).ToList();
             if (hotkeyTexts.GroupBy(t => t).Any(g => g.Count() > 1))
             {
-                System.Windows.MessageBox.Show("发现重复的快捷键组合，请修改后再保存。",
-                                "重复的快捷键", MessageBoxButton.OK, MessageBoxImage.Error);
+                System.Windows.MessageBox.Show("Duplicate hotkey combinations found, please modify and save again.",
+                                "Duplicate hotkeys", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
 
-            // 保存设置
+            // Save the settings
             var settings = new HotkeySettings
             {
                 Hotkeys = _hotkeys.Select(h => new HotkeyData
@@ -1013,7 +1013,7 @@ namespace GI_Subtitles
             HotkeySettingsManager.SaveSettings(settings);
             RegisterAllHotkeys();
 
-            System.Windows.MessageBox.Show("快捷键设置已保存。", "保存成功",
+            System.Windows.MessageBox.Show("Hotkey settings saved.", "Save successful",
                             MessageBoxButton.OK, MessageBoxImage.Information);
 
             foreach (var hotkey in _hotkeys)
@@ -1034,30 +1034,30 @@ namespace GI_Subtitles
             var hotkey = _hotkeys.FirstOrDefault(h => h.Id == hotkeyId);
             if (hotkey != null)
             {
-                System.Windows.MessageBox.Show($"触发快捷键: {hotkey.Description}\n组合键: {hotkey.GetHotkeyText()}",
-                                "快捷键触发", MessageBoxButton.OK, MessageBoxImage.Information);
+                System.Windows.MessageBox.Show($"Triggered hotkey: {hotkey.Description}\nCombination key: {hotkey.GetHotkeyText()}",
+                                "Hotkey triggered", MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
 
         private void RegisterAllHotkeys()
         {
-            // 先注销所有热键
+            // First unregister all hotkeys
             UnregisterAllHotkeys();
 
-            // 注册所有热键
+            // Register all hotkeys
             foreach (var hotkey in _hotkeys)
             {
                 RegisterHotkey(hotkey);
             }
         }
 
-        // 添加这个辅助方法到你的类中
+        // Add this helper method to your class
         private uint GetVirtualKeyFromChar(char c)
         {
-            // 对于字母字符，直接转换为对应的虚拟键码
+            // For letter characters, directly convert to the corresponding virtual key code
             if (char.IsLetter(c))
             {
-                // 字母的虚拟键码是ASCII码值 (A=65, B=66, ..., Z=90)
+                // The virtual key code for letters is the ASCII value (A=65, B=66, ..., Z=90)
                 return (uint)char.ToUpper(c);
             }
 
@@ -1070,16 +1070,16 @@ namespace GI_Subtitles
             if (hotkey.IsCtrl) modifiers |= MOD_CTRL;
             if (hotkey.IsShift) modifiers |= MOD_SHIFT;
 
-            // 使用这个自定义转换方法
+            // Use this custom conversion method
             uint virtualKey = GetVirtualKeyFromChar(hotkey.SelectedKey);
 
 
 
             if (!RegisterHotKey(_windowHandle, hotkey.Id, modifiers, virtualKey))
             {
-                // 注册失败，可能是因为热键冲突
-                System.Windows.MessageBox.Show($"无法注册快捷键 {hotkey.GetHotkeyText()}\n可能与其他应用程序冲突。",
-                                "注册失败", MessageBoxButton.OK, MessageBoxImage.Warning);
+                // Registration failed, possibly because of hotkey conflict
+                System.Windows.MessageBox.Show($"Failed to register hotkey {hotkey.GetHotkeyText()}\nMay be conflicts with other applications.",
+                                "Registration failed", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
 
@@ -1094,7 +1094,7 @@ namespace GI_Subtitles
 
         private void ResetButton_Click(object sender, RoutedEventArgs e)
         {
-            if (System.Windows.MessageBox.Show("确定要恢复默认快捷键设置吗？", "确认恢复默认",
+            if (System.Windows.MessageBox.Show("Are you sure you want to restore the default hotkey settings?", "Confirm restore default",
                                MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
             {
                 InitializeHotkeys();
@@ -1218,7 +1218,7 @@ namespace GI_Subtitles
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
                 {
                     FileName = e.Uri.AbsoluteUri,
-                    UseShellExecute = true // 必须为 true 才能用默认浏览器打开
+                    UseShellExecute = true // Must be true to open in the default browser
                 });
             }
             catch (Exception ex)
@@ -1228,20 +1228,20 @@ namespace GI_Subtitles
             e.Handled = true;
         }
 
-        // 重写关闭事件
+        // Override the closing event
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
         {
             if (!REAL_CLOSE)
             {
-                // 取消默认关闭行为
+                // Cancel the default close behavior
                 e.Cancel = true;
-                // 改为隐藏窗口
+                // Change to hide the window
                 this.Hide();
             }
             base.OnClosing(e);
         }
 
-        // 提供手动关闭窗口的方法（比如程序退出时调用）
+        // Provide a method to manually close the window (e.g. when the program exits)
         public void RealClose()
         {
             REAL_CLOSE = true;

@@ -56,7 +56,7 @@ namespace GI_Subtitles
     }
 
     /// <summary>
-    /// MainWindow.xaml 的交互逻辑
+    /// Interaction logic for MainWindow.xaml
     /// </summary>
     public partial class MainWindow : System.Windows.Window
     {
@@ -67,7 +67,7 @@ namespace GI_Subtitles
         string lastRes = null;
         string lastHeader = null;
         string lastContent = null;
-        // 使用 LRU 缓存限制内存占用，限制为100个条目
+        // Use an LRU cache to limit memory usage to 100 entries
         readonly LRUCache<string, string> resDict = new LRUCache<string, string>(100);
         public System.Windows.Threading.DispatcherTimer OCRTimer = new System.Windows.Threading.DispatcherTimer();
         public System.Windows.Threading.DispatcherTimer UITimer = new System.Windows.Threading.DispatcherTimer();
@@ -85,18 +85,18 @@ namespace GI_Subtitles
         [DllImport("user32.dll")]
         private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
 
-        private const int HOTKEY_ID_1 = 9000; // 自定义热键ID
-        private const int HOTKEY_ID_2 = 9001; // 自定义热键ID
-        private const int HOTKEY_ID_3 = 9002; // 自定义热键ID
+        private const int HOTKEY_ID_1 = 9000; // Custom hotkey ID
+        private const int HOTKEY_ID_2 = 9001; // Custom hotkey ID
+        private const int HOTKEY_ID_3 = 9002; // Custom hotkey ID
         private const int HOTKEY_ID_4 = 9003;
-        private const uint MOD_CTRL = 0x0002; // Ctrl键
-        private const uint MOD_SHIFT = 0x0004; // Shift键
-        private const uint VK_S = 0x53; // S键的虚拟键码
-        private const uint VK_R = 0x52; // R键的虚拟键码
-        private const uint VK_H = 0x48; // H键的虚拟键码
+        private const uint MOD_CTRL = 0x0002; // Ctrl key
+        private const uint MOD_SHIFT = 0x0004; // Shift key
+        private const uint VK_S = 0x53; // Virtual key code for S
+        private const uint VK_R = 0x52; // Virtual key code for R
+        private const uint VK_H = 0x48; // Virtual key code for H
         private const uint VK_D = 0x44;
         private double Scale = GetDpiForSystem() / 96f;
-        // 使用 LRU 缓存限制内存占用，限制为30个条目（图像哈希到OCR文本的映射）
+        // Use an LRU cache to limit memory usage to 30 entries (mapping from image hash to OCR text)
         LRUCache<string, string> BitmapDict = new LRUCache<string, string>(30);
         List<string> AudioList = new List<string>();
         string InputLanguage = Config.Get<string>("Input");
@@ -130,9 +130,9 @@ namespace GI_Subtitles
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            // 获取窗口句柄
+            // Get the window handle
             IntPtr handle = new WindowInteropHelper(this).Handle;
-            // 监听窗口消息
+            // Listen to window messages
             HwndSource source = HwndSource.FromHwnd(handle);
             source.AddHook(WndProc);
 
@@ -161,9 +161,9 @@ namespace GI_Subtitles
                             {
                                 System.Windows.Application.Current.Dispatcher.Invoke(() =>
                                 {
-                                    notifyIcon.ShowBalloonTip(3000, "语言包更新通知", $"仓库更新时间{repoDate}，本地修改时间{inputDate}", ToolTipIcon.Info);
+                                    notifyIcon.ShowBalloonTip(3000, "Language pack update notification", $"Repository update time: {repoDate}, local modification time: {inputDate}", ToolTipIcon.Info);
                                     string originalTitle = data.Title;
-                                    data.Title = $"【语言包更新】{originalTitle}";
+                                    data.Title = $"[Language pack update]{originalTitle}";
                                     data.ShowDialog();
                                     data.Title = originalTitle;
                                 });
@@ -186,11 +186,11 @@ namespace GI_Subtitles
             data.LoadEngine();
 
             OCRTimer.Interval = new TimeSpan(0, 0, 0, 0, 500);
-            OCRTimer.Tick += GetOCR;    //委托，要执行的方法
+            OCRTimer.Tick += GetOCR;    // Delegate: method to execute
 
 
             UITimer.Interval = new TimeSpan(0, 0, 0, 0, 500);
-            UITimer.Tick += UpdateText;    //委托，要执行的方法
+            UITimer.Tick += UpdateText;    // Delegate: method to execute
 
             SetWindowPos(new WindowInteropHelper(this).Handle, -1, 0, 0, 0, 0, 1 | 2);
             this.Width = screenBounds.Width;
@@ -248,7 +248,7 @@ namespace GI_Subtitles
                     Mat enhanced = target.ToMat();
                     string bitStr = ImageProcessor.ComputeRobustHash(enhanced);
 
-                    // 使用 LRU 缓存查找
+                    // Use LRU cache lookup
                     if (BitmapDict.TryGetValue(bitStr, out string cachedOcrText))
                     {
                         ocrText = cachedOcrText;
@@ -259,7 +259,7 @@ namespace GI_Subtitles
                         if (matchedImageHash != null)
                         {
                             ocrText = BitmapDict[matchedImageHash];
-                            BitmapDict[bitStr] = ocrText; // LRU 缓存会自动管理大小
+                            BitmapDict[bitStr] = ocrText; // LRU cache automatically manages its size, no manual checks needed
                         }
                         else
                         {
@@ -274,19 +274,19 @@ namespace GI_Subtitles
                             }
 
                             UpdateWindowPosition();
-                            BitmapDict[bitStr] = ocrText; // LRU 缓存会自动管理大小，无需手动检查
+                            BitmapDict[bitStr] = ocrText; // LRU cache automatically manages its size, no manual checks needed
                         }
 
                     }
 
-                    // 在 SetImage 之前设置图像（SetImage 会保存引用，所以不在这里释放）
+                    // Set image before calling SetImage (SetImage keeps a reference, so we don't dispose here)
                     if (data.IsVisible)
                     {
                         data.SetImage(target);
                     }
                     else
                     {
-                        // 如果不需要显示，立即释放资源
+                        // If it does not need to be displayed, release resources immediately
                         target?.Dispose();
                     }
                     Logger.Log.Debug($"OCR Content: {ocrText}");
@@ -339,7 +339,7 @@ namespace GI_Subtitles
                     {
                         if (Multi)
                         {
-                            // 使用新的分离方法
+                            // Use the new separation method
                             var matchResult = data.Matcher.FindMatchWithHeaderSeparated(ocrText, out key);
                             header = matchResult.Header ?? "";
                             content = matchResult.Content ?? "";
@@ -347,7 +347,7 @@ namespace GI_Subtitles
 
                             Logger.Log.Debug($"Convert ocrResult for {ocrText}: header={header}, content={content}, key={key}");
 
-                            // 缓存仍然使用拼接后的结果用于兼容性
+                            // Cache still uses the concatenated result for compatibility
                             if (!resDict.ContainsKey(ocrText))
                             {
                                 resDict[ocrText] = res;
@@ -356,11 +356,11 @@ namespace GI_Subtitles
                         }
                         else
                         {
-                            // 使用 LRU 缓存查找
+                            // Use LRU cache lookup
                             if (resDict.TryGetValue(ocrText, out string cachedRes))
                             {
                                 res = cachedRes;
-                                // 查找对应的 key
+                                // Look up the corresponding key
                                 if (resDict.TryGetValue(res, out string cachedKey))
                                 {
                                     key = cachedKey;
@@ -370,7 +370,7 @@ namespace GI_Subtitles
                             {
                                 res = data.Matcher.FindClosestMatch(ocrText, out key);
                                 Logger.Log.Debug($"Convert ocrResult for {ocrText}: {res},{key}");
-                                // LRU 缓存会自动管理大小，无需手动检查
+                                // LRU cache automatically manages its size, no manual checks needed
                                 resDict[ocrText] = res;
                                 resDict[res] = key;
                             }
@@ -379,7 +379,7 @@ namespace GI_Subtitles
                         }
                     }
 
-                    // 检查内容是否有变化（主要检查content，因为它是主要内容）
+                    // Check whether the content has changed (mainly check content, which is the main text)
                     bool contentChanged = content != lastContent;
                     bool headerChanged = header != lastHeader;
 
@@ -387,7 +387,7 @@ namespace GI_Subtitles
                     {
                         if (Multi)
                         {
-                            // 分别设置header和content
+                            // Set header and content separately
                             if (headerChanged)
                             {
                                 lastHeader = header;
@@ -395,7 +395,7 @@ namespace GI_Subtitles
                                 {
                                     HeaderText.Text = header;
                                     HeaderText.Visibility = Visibility.Visible;
-                                    // 延迟更新header位置，等待content布局完成
+                                    // Delay updating header position until content layout is completed
                                     UpdateHeaderPosition();
                                 }
                                 else
@@ -410,7 +410,7 @@ namespace GI_Subtitles
                                 SubtitleText.Text = content;
                                 int fontSize = Config.Get<int>("Size");
                                 SubtitleText.FontSize = fontSize;
-                                // 延迟更新header位置，等待content布局完成后再计算
+                                // Delay updating header position until content layout is completed
                                 if (HeaderText.Visibility == Visibility.Visible && !string.IsNullOrEmpty(lastHeader))
                                 {
                                     UpdateHeaderPosition();
@@ -419,19 +419,19 @@ namespace GI_Subtitles
                         }
                         else
                         {
-                            // 非Multi模式，保持原有逻辑
+                            // In non-Multi mode, keep the original logic
                             if (res != lastRes)
                             {
                                 lastRes = res;
                                 lastContent = content;
                                 SubtitleText.Text = res;
                                 SubtitleText.FontSize = Config.Get<int>("Size");
-                                // 确保header在非Multi模式下始终隐藏
+                                // Ensure the header is always hidden in non-Multi mode
                                 HeaderText.Visibility = Visibility.Collapsed;
                             }
                         }
 
-                        // 播放音频（只在content变化时播放，避免重复播放）
+                        // Play audio (only when content changes, to avoid repeated playback)
                         if (Config.Get<bool>("PlayVoice", true) && contentChanged && !AudioList.Contains(key))
                         {
                             string audioKey = VoiceContentHelper.CalculateMd5Hash(key);
@@ -449,11 +449,11 @@ namespace GI_Subtitles
         }
 
         /// <summary>
-        /// 更新header的位置，根据content的实际高度（支持多行）动态计算上移距离
+        /// Update the header position by dynamically calculating the upward offset based on the actual height of the content (supports multiple lines)
         /// </summary>
         private void UpdateHeaderPosition()
         {
-            // 等待布局完成后再计算，确保能获取到ActualHeight
+            // Wait for layout to complete before calculating to ensure ActualHeight can be obtained
             Dispatcher.BeginInvoke(new Action(() =>
             {
                 try
@@ -461,29 +461,29 @@ namespace GI_Subtitles
                     if (HeaderText.Visibility != Visibility.Visible || string.IsNullOrEmpty(lastHeader))
                         return;
 
-                    // 强制更新布局以获取准确的ActualHeight
+                    // Force layout update to get accurate ActualHeight
                     SubtitleText.UpdateLayout();
 
-                    // 获取content的实际高度（考虑多行）
+                    // Get the actual height of the content (considering multiple lines)
                     double contentHeight = SubtitleText.ActualHeight;
                     if (contentHeight <= 0)
                     {
-                        // 如果ActualHeight还未计算，使用字体大小作为单行高度估算
+                        // If ActualHeight has not been calculated, use the font size as an estimate for a single line height
                         int fontSize = Config.Get<int>("Size");
                         contentHeight = fontSize;
                     }
 
-                    // 获取header的实际高度
+                    // Get the actual height of the header
                     HeaderText.UpdateLayout();
                     double headerHeight = HeaderText.ActualHeight;
                     if (headerHeight <= 0)
                     {
-                        headerHeight = 14; // header字体大小14
+                        headerHeight = 14; // Header font size is 14
                     }
 
-                    // 计算上移距离：content高度的一半 + header高度的一半 + 间距
+                    // Calculate upward offset: half of content height + half of header height + spacing
                     var transform = (System.Windows.Media.TranslateTransform)HeaderText.RenderTransform;
-                    transform.Y = -(contentHeight / 2.0 + headerHeight / 2.0 + 4); // 4是间距
+                    transform.Y = -(contentHeight / 2.0 + headerHeight / 2.0 + 4); // 4 is the spacing
                 }
                 catch (Exception ex)
                 {
@@ -494,8 +494,8 @@ namespace GI_Subtitles
 
 
         /// <summary>
-        /// 捕获屏幕区域，修复内存泄漏问题
-        /// 优化：直接返回 Bitmap，由调用者负责释放，避免 Clone() 导致的内存问题
+        /// Capture a screen region and fix memory leak issues.
+        /// Optimization: directly return a Bitmap that must be disposed by the caller, avoiding memory issues caused by Clone().
         /// </summary>
         public static Bitmap CaptureRegion(string[] region)
         {
@@ -514,14 +514,14 @@ namespace GI_Subtitles
                 throw new ArgumentException("Region values must be valid integers", nameof(region));
             }
 
-            // 验证 width 和 height 必须大于 0
+            // Validate that width and height must be greater than 0
             if (width <= 0 || height <= 0)
             {
                 Logger.Log.Error($"Invalid region dimensions: width={width}, height={height}");
                 throw new ArgumentException($"Region dimensions must be positive: width={width}, height={height}");
             }
 
-            // 验证坐标是否在屏幕范围内（可选，但有助于调试）
+            // Validate that the coordinates are within the screen bounds (optional, but helpful for debugging)
             try
             {
                 var screenBounds = Screen.GetBounds(new System.Drawing.Point(x, y));
@@ -544,11 +544,11 @@ namespace GI_Subtitles
                 {
                     g.CopyFromScreen(x, y, 0, 0, new System.Drawing.Size(width, height));
                 }
-                return bitmap; // 直接返回，由调用者负责释放
+                return bitmap; // Directly return; the caller is responsible for disposing it
             }
             catch (Exception ex)
             {
-                // 如果出错，确保释放资源
+                // Ensure resources are released if an error occurs
                 bitmap?.Dispose();
                 Logger.Log.Error($"Failed to capture region: x={x}, y={y}, width={width}, height={height}, error={ex.Message}");
                 throw;
@@ -585,14 +585,14 @@ namespace GI_Subtitles
             Uri iconUri = new Uri($"pack://application:,,,/Resources/{iconName}");
             Stream iconStream = System.Windows.Application.GetResourceStream(iconUri).Stream;
 
-            // 创建新的Icon对象
+            // Create a new Icon object
             Icon newIcon = new Icon(iconStream);
 
-            // 更新NotifyIcon的图标
+            // Update the NotifyIcon's icon
             notifyIcon.Icon = newIcon;
         }
 
-        // 处理窗口消息
+        // Handle window messages
         private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
             const int WM_HOTKEY = 0x0312;
@@ -671,7 +671,7 @@ namespace GI_Subtitles
                     waveOut = new WaveOutEvent();
                 }
 
-                // 下载文件到临时文件
+                // Download the file to a temporary file
                 using (var webClient = new WebClient())
                 {
                     string tempFile = Path.GetTempFileName();
@@ -682,7 +682,7 @@ namespace GI_Subtitles
                         StopAudio();
                         tempFilePath = tempFile;
 
-                        // 使用 MediaFoundationReader 从文件读取
+                        // Use MediaFoundationReader to read from the file
                         mediaReader = new MediaFoundationReader(tempFile);
                         waveOut.Init(mediaReader);
                         waveOut.Play();
@@ -704,20 +704,20 @@ namespace GI_Subtitles
 
         public static double GetScaleForScreen(Screen screen)
         {
-            // 获取屏幕的工作区域中心点
+            // Get the center point of the screen's working area
             System.Drawing.Point screenCenter = new System.Drawing.Point(
                 screen.Bounds.Left + screen.Bounds.Width / 2,
                 screen.Bounds.Top + screen.Bounds.Height / 2
             );
 
-            // 获取屏幕的句柄
+            // Get the screen handle
             IntPtr monitorHandle = NativeMethods.MonitorFromPoint(screenCenter, 2); // MONITOR_DEFAULTTONEAREST
 
-            // 获取 DPI 值
+            // Get DPI value
             uint dpiX, dpiY;
             NativeMethods.GetDpiForMonitor(monitorHandle, NativeMethods.MonitorDpiType.EffectiveDpi, out dpiX, out dpiY);
 
-            // 计算缩放比例（基准 DPI 为 96）
+            // Calculate scale factor (base DPI is 96)
             return dpiX / 96.0;
         }
 
@@ -744,8 +744,8 @@ namespace GI_Subtitles
             }
             if (new Version(remote["version"]) > new Version(version))
             {
-                System.Windows.Forms.DialogResult dr = System.Windows.Forms.MessageBox.Show($"发现新版本 {remote["version"]}，是否更新？\n更新日期：{remote["date"]}\n更新内容：\n{remote["info"]}",
-                                                  "更新提示", System.Windows.Forms.MessageBoxButtons.YesNo);
+                System.Windows.Forms.DialogResult dr = System.Windows.Forms.MessageBox.Show($"New version {remote["version"]} found, update?\nUpdate date: {remote["date"]}\nUpdate content:\n{remote["info"]}",
+                                                  "Update notification", System.Windows.Forms.MessageBoxButtons.YesNo);
                 if (dr == System.Windows.Forms.DialogResult.Yes)
                 {
                     try
@@ -756,14 +756,14 @@ namespace GI_Subtitles
                         var startInfo = new ProcessStartInfo
                         {
                             FileName = "msiexec.exe",
-                            // 使用 /i 安装新版本，/quiet 静默，/norestart 防止自动重启
+                            // Use /i to install the new version, /quiet for silent install, /norestart to prevent automatic restart
                             Arguments = $"/i \"{msi}\" /quiet /norestart",
                             UseShellExecute = true,
-                            Verb = "runas"  // 请求管理员权限（如果 MSI 需要）
+                            Verb = "runas"  // Request administrator privileges (if MSI requires it)
                         };
 
                         Process updaterProcess = Process.Start(startInfo);
-                        Logger.Log.Debug($"启动安装: msiexec {startInfo.Arguments}");
+                        Logger.Log.Debug($"Start installation: msiexec {startInfo.Arguments}");
                         System.Windows.Application.Current.Shutdown();
                     }
                     catch (Exception ex)

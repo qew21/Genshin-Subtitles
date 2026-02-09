@@ -34,7 +34,7 @@ namespace GI_Subtitles
         {
             if (!File.Exists(_settingsPath))
             {
-                // 返回默认设置
+                // Return default settings
                 return GetDefaultSettings();
             }
 
@@ -48,7 +48,7 @@ namespace GI_Subtitles
             }
             catch
             {
-                // 读取失败时返回默认设置
+                // Return default settings when reading fails
                 return GetDefaultSettings();
             }
         }
@@ -63,7 +63,7 @@ namespace GI_Subtitles
                     serializer.Serialize(writer, settings);
                 }
             }
-            catch { /* 处理保存错误 */ }
+            catch { /* Handle save errors */ }
         }
 
         private static HotkeySettings GetDefaultSettings()
@@ -167,7 +167,7 @@ namespace GI_Subtitles
             }
         }
 
-        public string ButtonText => IsEditing ? "取消" : "修改";
+        public string ButtonText => IsEditing ? "Cancel" : "Edit";
 
         public ICommand ToggleEditCommand => new RelayCommand(ToggleEdit);
 

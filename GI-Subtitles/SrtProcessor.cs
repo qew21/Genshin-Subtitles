@@ -32,12 +32,12 @@ namespace GI_Subtitles
         {
             this.contentDict = contentDict;
         }
-        // 读取SRT文件并解析为SubtitleItem列表
+        // Read the SRT file and parse it into a SubtitleItem list
         public List<SubtitleItem> ReadSrtFile(string filePath)
         {
             if (!File.Exists(filePath))
             {
-                throw new FileNotFoundException("SRT文件不存在", filePath);
+                throw new FileNotFoundException("SRT file not found", filePath);
             }
 
             var subtitles = new List<SubtitleItem>();
@@ -45,7 +45,7 @@ namespace GI_Subtitles
             SubtitleItem currentSubtitle = null;
             int lineNumber = 0;
 
-            // SRT格式的正则表达式模式
+            // SRT format regular expression pattern
             var timeRangePattern = @"^\d{2}:\d{2}:\d{2},\d{3} --> \d{2}:\d{2}:\d{2},\d{3}$";
 
             foreach (var line in lines)
@@ -53,7 +53,7 @@ namespace GI_Subtitles
                 lineNumber++;
                 var trimmedLine = line.Trim();
 
-                // 空行表示当前字幕项结束
+                // Empty line means the current subtitle item ends
                 if (string.IsNullOrEmpty(trimmedLine))
                 {
                     if (currentSubtitle != null)
@@ -64,33 +64,33 @@ namespace GI_Subtitles
                     continue;
                 }
 
-                // 如果是新的字幕项且尚未初始化
+                // If it is a new subtitle item and not yet initialized
                 if (currentSubtitle == null)
                 {
-                    // 尝试解析序号
+                    // Try to parse the index
                     if (int.TryParse(trimmedLine, out int index))
                     {
                         currentSubtitle = new SubtitleItem { Index = index };
                     }
                     else
                     {
-                        throw new FormatException($"SRT格式错误，在第{lineNumber}行预期序号但找到: {trimmedLine}");
+                        throw new FormatException($"SRT format error, expected index on line {lineNumber} but found: {trimmedLine}");
                     }
                 }
-                // 检查是否是时间范围行
+                // Check if it is a time range line
                 else if (string.IsNullOrEmpty(currentSubtitle.TimeRange) &&
                          Regex.IsMatch(trimmedLine, timeRangePattern))
                 {
                     currentSubtitle.TimeRange = trimmedLine;
                 }
-                // 否则视为字幕内容行
+                // Otherwise add it to the subtitle lines
                 else
                 {
                     currentSubtitle.Lines.Add(trimmedLine);
                 }
             }
 
-            // 添加最后一个字幕项（如果文件末尾没有空行）
+            // Add the last subtitle item (if the file ends with an empty line)
             if (currentSubtitle != null)
             {
                 subtitles.Add(currentSubtitle);
@@ -99,7 +99,7 @@ namespace GI_Subtitles
             return subtitles;
         }
 
-        // 将处理后的字幕列表写入SRT文件
+        // Write the processed subtitle list to the SRT file
         public void WriteSrtFile(string filePath, List<SubtitleItem> subtitles)
         {
             using (var writer = new StreamWriter(filePath, false))
@@ -114,23 +114,23 @@ namespace GI_Subtitles
                         writer.WriteLine(line);
                     }
 
-                    // 字幕项之间用空行分隔
+                    // Subtitle items are separated by empty lines
                     writer.WriteLine();
                 }
             }
         }
 
-        // 转换字幕内容的示例方法（可根据需要修改）
+        // Example method to convert subtitle content (can be modified as needed)
         public string ConvertSubtitleText(OptimizedMatcher Matcher, string text)
         {
-            // 这里只是示例：将文本转为大写
+            // Here is just an example: convert the text to uppercase
             string key;
             string res = Matcher.FindClosestMatch(text, out key);
             Logger.Log.Debug($"Convert {text} ocrResult: {res}");
             return res;
         }
 
-        // 处理整个字幕列表的内容
+        // Process the content of the entire subtitle list
         public List<SubtitleItem> ProcessSubtitles(OptimizedMatcher Matcher, List<SubtitleItem> subtitles)
         {
             var processedSubtitles = new List<SubtitleItem>();
@@ -143,7 +143,7 @@ namespace GI_Subtitles
                     TimeRange = subtitle.TimeRange
                 };
 
-                // 转换每一行字幕内容
+                // Convert each line of subtitle content
                 foreach (var line in subtitle.Lines)
                 {
                     processedSubtitle.Lines.Add(ConvertSubtitleText(Matcher, line));

@@ -7,12 +7,12 @@
         mc:Ignorable="d"
         WindowStyle="None" Height="20"  ShowInTaskbar="False" Topmost="True" Background="Transparent" AllowsTransparency="True" MouseDown="Window_MouseDown" Cursor="Hand">
     <Grid>
-        <!-- Content始终固定在中心位置，不受header影响 -->
+        <!-- Content always fixed at the center position,不受header影响 -->
         <TextBlock x:Name="SubtitleText" TextWrapping="Wrap" Foreground="White" 
                    TextAlignment="Center" FontWeight="Bold" 
                    VerticalAlignment="Center" HorizontalAlignment="Center"/>
         
-        <!-- Header显示在content上方，居中显示，使用负Margin定位在content上方 -->
+        <!-- Header displayed above the content, centered display, using negative Margin to locate above the content -->
         <TextBlock x:Name="HeaderText" TextWrapping="Wrap" Foreground="White" 
                    TextAlignment="Center" FontWeight="Bold" FontSize="14" 
                    HorizontalAlignment="Center" VerticalAlignment="Center"

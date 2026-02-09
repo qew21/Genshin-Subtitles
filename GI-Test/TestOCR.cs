@@ -8,14 +8,13 @@ using System.Threading.Tasks;
 using GI_Subtitles;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Newtonsoft.Json;
-// VoiceContentHelper 在全局命名空间中，直接使用即可
 
 
 namespace GI_Test
 {
     /// <summary>
-    /// 文本匹配单元测试
-    /// 用于验证多段文本匹配的正确性
+    /// Text matching unit tests
+    /// Used to verify the correctness of multi-segment text matching
     /// </summary>
     [TestClass]
     public class TextMatchingTests
@@ -38,20 +37,20 @@ namespace GI_Test
                 { expectedKey, expectedResult }
             };
 
-            // 模拟多段匹配逻辑：先尝试完整文本匹配
+            // Simulate multi-segment matching logic: first try complete text matching
             string matchedKey;
             string matchedResult = VoiceContentHelper.FindClosestMatch(ocrText, contentDict, out matchedKey);
             Logger.Log.Debug($"matchedResult = {matchedResult}, matchedKey = {matchedKey}");
 
-            // 如果完整文本匹配成功，就不需要分割
+            // If the complete text matching succeeds, no need to split
             if (!string.IsNullOrEmpty(matchedResult))
             {
-                Assert.AreEqual(expectedResult, matchedResult, "完整文本匹配应该成功");
+                Assert.AreEqual(expectedResult, matchedResult, "Complete text matching should succeed");
             }
             else
             {
-                // 如果完整匹配失败，才进行分割（这里不应该发生）
-                Assert.Fail("完整文本匹配应该成功，不应该需要分割");
+                // If the complete matching fails, then split (this should not happen)
+                Assert.Fail("Complete text matching should succeed, no need to split");
             }
         }
 
@@ -72,19 +71,19 @@ namespace GI_Test
                 { "Raimondo, nothing could go wrong here, right?", "雷蒙多，这不会出什么问题的，对吧？" }
             };
 
-            // 模拟多段匹配逻辑：先尝试完整文本匹配
+            // Simulate multi-segment matching logic: first try complete text matching
             string matchedKey;
             string matchedResult = VoiceContentHelper.FindMatchWithHeader(ocrText, contentDict, out matchedKey);
             Logger.Log.Debug($"matchedResult = {matchedResult}, matchedKey = {matchedKey}");
 
-            // 如果完整文本匹配成功，就不需要分割
+            // If the complete text matching succeeds, no need to split
             if (!string.IsNullOrEmpty(matchedResult))
             {
                 Assert.AreEqual(expectedResult, matchedResult, "完整文本匹配应该成功");
             }
             else
             {
-                // 如果完整匹配失败，才进行分割（这里不应该发生）
+                // If the complete matching fails, then split (this should not happen)
                 Assert.Fail("完整文本匹配应该成功，不应该需要分割");
             }
         }
@@ -105,31 +104,31 @@ namespace GI_Test
                 { expectedKey, expectedResult }
             };
 
-            // 模拟多段匹配逻辑：先尝试完整文本匹配
+            // Simulate multi-segment matching logic: first try complete text matching
             string matchedKey;
             string matchedResult = VoiceContentHelper.FindClosestMatch(ocrText, contentDict, out matchedKey);
             Logger.Log.Debug($"matchedResult = {matchedResult}, matchedKey = {matchedKey}");
 
-            // 如果完整文本匹配成功，就不需要分割
+            // If the complete text matching succeeds, no need to split
             if (!string.IsNullOrEmpty(matchedResult))
             {
                 Assert.AreEqual(expectedResult, matchedResult, "完整文本匹配应该成功");
             }
             else
             {
-                // 如果完整匹配失败，才进行分割（这里不应该发生）
+                // If the complete matching fails, then split (this should not happen)
                 Assert.Fail("完整文本匹配应该成功，不应该需要分割");
             }
         }
 
         /// <summary>
-        /// 性能测试：测试FindClosestMatch方法的性能
-        /// 测试5个句子的匹配，计算平均耗时，输出JSON格式结果
+        /// Performance test: test the performance of the FindClosestMatch method
+        /// Test the matching of 5 sentences, calculate the average time, and output the JSON format result
         /// </summary>
         [TestMethod]
         public void TestFindClosestMatchPerformance()
         {
-            // 测试句子列表
+            // Test sentence list
             var testSentences = new[]
             {
                 "您可以这么说吧。我是挪德卡莱的「执灯士」，平日驻守在北部的坟莹附近，今天到这边只是",
@@ -139,7 +138,7 @@ namespace GI_Test
                 "原来是同深渊对抗的工作啊···那一定很辛苦吧？"
             };
 
-            // 按照正常加载方式读取JSON
+            // Read JSON in the normal way
             string dataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GI-Subtitles");
             string game = Config.Get<string>("Game", "Genshin");
             string inputLanguage = Config.Get<string>("Input", "CHS");
@@ -149,32 +148,32 @@ namespace GI_Test
             string inputFilePath = Path.Combine(dataDir, game, $"TextMap{inputLanguage}.json");
             string outputFilePath = Path.Combine(dataDir, game, $"TextMap{outputLanguage}.json");
 
-            // 检查文件是否存在
+            // Check if the files exist
             if (!File.Exists(inputFilePath) || !File.Exists(outputFilePath))
             {
-                Logger.Log.Debug($"JSON文件不存在，跳过性能测试。Input: {inputFilePath}, Output: {outputFilePath}");
-                Assert.Inconclusive($"JSON文件不存在。请确保文件存在：\nInput: {inputFilePath}\nOutput: {outputFilePath}");
+                Logger.Log.Debug($"JSON file does not exist, skipping performance test. Input: {inputFilePath}, Output: {outputFilePath}");
+                Assert.Inconclusive($"JSON file does not exist. Please ensure the files exist:\nInput: {inputFilePath}\nOutput: {outputFilePath}");
                 return;
             }
 
-            // 加载字典（按照正常方式）
+            // Load the dictionary (in the normal way)
             Dictionary<string, string> voiceContentDict;
             try
             {
                 voiceContentDict = VoiceContentHelper.CreateVoiceContentDictionary(inputFilePath, outputFilePath, userName);
-                Logger.Log.Debug($"成功加载字典，共 {voiceContentDict.Count} 条记录");
+                Logger.Log.Debug($"Successfully loaded dictionary, containing {voiceContentDict.Count} records");
             }
             catch (Exception ex)
             {
-                Logger.Log.Error($"加载字典失败: {ex}");
-                Assert.Fail($"加载字典失败: {ex.Message}");
+                Logger.Log.Error($"Failed to load dictionary: {ex}");
+                Assert.Fail($"Failed to load dictionary: {ex.Message}");
                 return;
             }
 
-            // 测试结果列表
+            // Test result list
             var testResults = new List<TestResult>();
 
-            // 对每个句子进行测试
+            // Test each sentence
             foreach (var sentence in testSentences)
             {
                 var stopwatch = Stopwatch.StartNew();
@@ -191,14 +190,14 @@ namespace GI_Test
                 };
 
                 testResults.Add(result);
-                Logger.Log.Debug($"句子: {sentence.Substring(0, Math.Min(30, sentence.Length))}... | 耗时: {result.ElapsedMilliseconds:F2}ms | 匹配键: {matchedKey?.Substring(0, Math.Min(30, matchedKey?.Length ?? 0))}...");
+                Logger.Log.Debug($"Sentence: {sentence.Substring(0, Math.Min(30, sentence.Length))}... | Time: {result.ElapsedMilliseconds:F2}ms | Matched key: {matchedKey?.Substring(0, Math.Min(30, matchedKey?.Length ?? 0))}...");
             }
 
-            // 计算平均耗时
+            // Calculate the average time
             double averageTime = testResults.Average(r => r.ElapsedMilliseconds);
             double totalTime = testResults.Sum(r => r.ElapsedMilliseconds);
 
-            // 构建结果对象
+            // Build the result object
             var performanceResult = new PerformanceTestResult
             {
                 DictionarySize = voiceContentDict.Count,
@@ -208,45 +207,45 @@ namespace GI_Test
                 TestResults = testResults
             };
 
-            // 输出JSON格式结果
+            // Output JSON format result
             string jsonResult = JsonConvert.SerializeObject(performanceResult, Formatting.Indented);
-            Logger.Log.Debug($"性能测试结果（JSON）:\n{jsonResult}");
+            Logger.Log.Debug($"Performance test result (JSON):\n{jsonResult}");
 
-            // 输出到控制台（在测试输出中可见）
-            Console.WriteLine("=== FindClosestMatch 性能测试结果 ===");
+            // Output to the console (visible in the test output)
+            Console.WriteLine("=== FindClosestMatch Performance Test Result ===");
             Console.WriteLine(jsonResult);
             Console.WriteLine("=====================================");
 
-            // 将结果写入文件（保存到项目根目录）
+            // Write the result to the file (save to the project root directory)
             string projectRoot = Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(AppDomain.CurrentDomain.BaseDirectory)));
             if (string.IsNullOrEmpty(projectRoot))
             {
-                // 如果无法确定项目根目录，使用当前目录
+                // If the project root directory cannot be determined, use the current directory
                 projectRoot = Directory.GetCurrentDirectory();
             }
             string resultFilePath = Path.Combine(projectRoot, "PerformanceTestResult.json");
             try
             {
                 File.WriteAllText(resultFilePath, jsonResult, System.Text.Encoding.UTF8);
-                Logger.Log.Debug($"结果已保存到: {resultFilePath}");
+                Logger.Log.Debug($"Result saved to: {resultFilePath}");
             }
             catch (Exception ex)
             {
-                Logger.Log.Warn($"保存结果文件失败: {ex.Message}，但测试结果已在控制台输出");
+                Logger.Log.Warn($"Failed to save result file: {ex.Message}, but the test result has been output to the console");
             }
 
-            // 断言：确保所有测试都完成了（不验证性能，只验证功能）
-            Assert.IsTrue(testResults.Count == testSentences.Length, "所有测试句子都应该被处理");
+            // Assert: ensure that all tests have been completed (do not verify performance, only verify functionality)
+            Assert.IsTrue(testResults.Count == testSentences.Length, "All test sentences should be processed");
         }
 
         /// <summary>
-        /// 性能测试：测试FindClosestMatch方法的性能
-        /// 测试5个句子的匹配，计算平均耗时，输出JSON格式结果
+        /// Performance test: test the performance of the FindClosestMatch method
+        /// Test the matching of 5 sentences, calculate the average time, and output the JSON format result
         /// </summary>
         [TestMethod]
         public void TestFindClosestMatchPerformanceNew()
         {
-            // 测试句子列表
+            // Test sentence list
             var testSentences = new[]
             {
                 "您可以这么说吧。我是挪德卡莱的「执灯士」，平日驻守在北部的坟莹附近，今天到这边只是",
@@ -258,7 +257,7 @@ namespace GI_Test
                 "原来是同深渊对抗的工作啊···那一定很辛苦吧？"
             };
 
-            // 按照正常加载方式读取JSON
+            // Read JSON in the normal way
             string dataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GI-Subtitles");
             string game = Config.Get<string>("Game", "Genshin");
             string inputLanguage = Config.Get<string>("Input", "CHS");
@@ -268,33 +267,33 @@ namespace GI_Test
             string inputFilePath = Path.Combine(dataDir, game, $"TextMap{inputLanguage}.json");
             string outputFilePath = Path.Combine(dataDir, game, $"TextMap{outputLanguage}.json");
 
-            // 检查文件是否存在
+            // Check if the files exist
             if (!File.Exists(inputFilePath) || !File.Exists(outputFilePath))
             {
-                Logger.Log.Debug($"JSON文件不存在，跳过性能测试。Input: {inputFilePath}, Output: {outputFilePath}");
-                Assert.Inconclusive($"JSON文件不存在。请确保文件存在：\nInput: {inputFilePath}\nOutput: {outputFilePath}");
+                Logger.Log.Debug($"JSON file does not exist, skipping performance test. Input: {inputFilePath}, Output: {outputFilePath}");
+                Assert.Inconclusive($"JSON file does not exist. Please ensure the files exist:\nInput: {inputFilePath}\nOutput: {outputFilePath}");
                 return;
             }
 
-            // 加载字典（按照正常方式）
+            // Load the dictionary (in the normal way)
             Dictionary<string, string> voiceContentDict;
             try
             {
                 voiceContentDict = VoiceContentHelper.CreateVoiceContentDictionary(inputFilePath, outputFilePath, userName);
-                Logger.Log.Debug($"成功加载字典，共 {voiceContentDict.Count} 条记录");
+                Logger.Log.Debug($"Successfully loaded dictionary, containing {voiceContentDict.Count} records");
             }
             catch (Exception ex)
             {
-                Logger.Log.Error($"加载字典失败: {ex}");
-                Assert.Fail($"加载字典失败: {ex.Message}");
+                Logger.Log.Error($"Failed to load dictionary: {ex}");
+                Assert.Fail($"Failed to load dictionary: {ex.Message}");
                 return;
             }
 
-            // 测试结果列表
+            // Test result list
             var testResults = new List<TestResult>();
             var matcher = new OptimizedMatcher(voiceContentDict);
 
-            // 对每个句子进行测试
+            // Test each sentence
             foreach (var sentence in testSentences)
             {
                 var stopwatch = Stopwatch.StartNew();
@@ -311,14 +310,14 @@ namespace GI_Test
                 };
 
                 testResults.Add(result);
-                Logger.Log.Debug($"句子: {sentence.Substring(0, Math.Min(30, sentence.Length))}... | 耗时: {result.ElapsedMilliseconds:F2}ms | 匹配键: {matchedKey?.Substring(0, Math.Min(30, matchedKey?.Length ?? 0))}...");
+                Logger.Log.Debug($"Sentence: {sentence.Substring(0, Math.Min(30, sentence.Length))}... | Time: {result.ElapsedMilliseconds:F2}ms | Matched key: {matchedKey?.Substring(0, Math.Min(30, matchedKey?.Length ?? 0))}...");
             }
 
-            // 计算平均耗时
+            // Calculate the average time
             double averageTime = testResults.Average(r => r.ElapsedMilliseconds);
             double totalTime = testResults.Sum(r => r.ElapsedMilliseconds);
 
-            // 构建结果对象
+            // Build the result object
             var performanceResult = new PerformanceTestResult
             {
                 DictionarySize = voiceContentDict.Count,
@@ -328,38 +327,38 @@ namespace GI_Test
                 TestResults = testResults
             };
 
-            // 输出JSON格式结果
+            // Output JSON format result
             string jsonResult = JsonConvert.SerializeObject(performanceResult, Formatting.Indented);
-            Logger.Log.Debug($"性能测试结果（JSON）:\n{jsonResult}");
+            Logger.Log.Debug($"Performance test result (JSON):\n{jsonResult}");
 
-            // 输出到控制台（在测试输出中可见）
-            Console.WriteLine("=== FindClosestMatch 性能测试结果 ===");
+            // Output to the console (visible in the test output)
+            Console.WriteLine("=== FindClosestMatch Performance Test Result ===");
             Console.WriteLine(jsonResult);
             Console.WriteLine("=====================================");
 
-            // 将结果写入文件（保存到项目根目录）
+            // Write the result to the file (save to the project root directory)
             string projectRoot = Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(AppDomain.CurrentDomain.BaseDirectory)));
             if (string.IsNullOrEmpty(projectRoot))
             {
-                // 如果无法确定项目根目录，使用当前目录
+                // If the project root directory cannot be determined, use the current directory
                 projectRoot = Directory.GetCurrentDirectory();
             }
             string resultFilePath = "PerformanceTestResult.json";
             try
             {
                 File.WriteAllText(resultFilePath, jsonResult, System.Text.Encoding.UTF8);
-                Logger.Log.Debug($"结果已保存到: {resultFilePath}");
+                Logger.Log.Debug($"Result saved to: {resultFilePath}");
             }
             catch (Exception ex)
             {
-                Logger.Log.Warn($"保存结果文件失败: {ex.Message}，但测试结果已在控制台输出");
+                Logger.Log.Warn($"Failed to save result file: {ex.Message}, but the test result has been output to the console");
             }
 
-            // 断言：确保所有测试都完成了（不验证性能，只验证功能）
-            Assert.IsTrue(testResults.Count == testSentences.Length, "所有测试句子都应该被处理");
+            // Assert: ensure that all tests have been completed (do not verify performance, only verify functionality)
+            Assert.IsTrue(testResults.Count == testSentences.Length, "All test sentences should be processed");
         }
 
-        // 测试结果类
+        // Test result class
         private class TestResult
         {
             [JsonProperty("input")]
@@ -375,7 +374,7 @@ namespace GI_Test
             public double ElapsedMilliseconds { get; set; }
         }
 
-        // 性能测试结果类
+        // Performance test result class
         private class PerformanceTestResult
         {
             [JsonProperty("dictionarySize")]
@@ -395,7 +394,7 @@ namespace GI_Test
         }
 
         /// <summary>
-        /// 测试 Images 文件夹处理逻辑
+        /// Test the processing logic of the Images folder
         /// </summary>
         [TestMethod]
         public void TestProcessImagesFolder()
@@ -404,7 +403,7 @@ namespace GI_Test
             Directory.SetCurrentDirectory(appDir);
             if (!Directory.Exists("Images"))
             {
-                Assert.Inconclusive("Images 文件夹不存在，跳过测试");
+                Assert.Inconclusive("Images folder does not exist, skipping test");
                 return;
             }
 
@@ -412,27 +411,27 @@ namespace GI_Test
             {
                 var engine = SettingsWindow.LoadEngine("CHS");
 
-                // 处理 Images 文件夹
+                // Process the Images folder
                 OCRSummary.ProcessFolder("Images", engine);
 
-                // 验证结果文件是否存在
-                Assert.IsTrue(File.Exists("result.json"), "应该生成 result.json 文件");
+                // Verify that the result file exists
+                Assert.IsTrue(File.Exists("result.json"), "Should generate result.json file");
             }
             catch (Exception ex)
             {
-                Assert.Fail($"处理 Images 文件夹失败: {ex.Message}");
+                Assert.Fail($"Failed to process Images folder: {ex.Message}");
             }
         }
 
         /// <summary>
-        /// 测试 Videos 文件夹处理逻辑（demo视频自动处理）
+        /// Test the processing logic of the Videos folder (demo video automatic processing)
         /// </summary>
         [TestMethod]
         public void TestProcessVideosFolder()
         {
             if (!Directory.Exists("Videos"))
             {
-                Assert.Inconclusive("Videos 文件夹不存在，跳过测试");
+                Assert.Inconclusive("Videos folder does not exist, skipping test");
                 return;
             }
 
@@ -441,7 +440,7 @@ namespace GI_Test
 
             if (!File.Exists(demoVideoPath) || !File.Exists(demoRegionPath))
             {
-                Assert.Inconclusive("demo.mp4 或 demo_region.json 文件不存在，跳过测试");
+                Assert.Inconclusive("demo.mp4 or demo_region.json file does not exist, skipping test");
                 return;
             }
 
@@ -452,7 +451,7 @@ namespace GI_Test
                 bool completed = false;
                 Exception processException = null;
 
-                // 处理 demo 视频
+                // Process the demo video
                 Task.Run(() =>
                 {
                     try
@@ -469,7 +468,7 @@ namespace GI_Test
                     }
                 });
 
-                // 等待处理完成（最多等待5分钟）
+                // Wait for processing to complete (up to 5 minutes)
                 int waitCount = 0;
                 while (!completed && waitCount < 300)
                 {
@@ -479,17 +478,17 @@ namespace GI_Test
 
                 if (processException != null)
                 {
-                    Assert.Fail($"处理 demo 视频失败: {processException.Message}");
+                    Assert.Fail($"Failed to process demo video: {processException.Message}");
                 }
 
                 if (!completed)
                 {
-                    Assert.Inconclusive("处理超时（超过5分钟）");
+                    Assert.Inconclusive("Processing timed out (exceeds 5 minutes)");
                 }
             }
             catch (Exception ex)
             {
-                Assert.Fail($"处理 Videos 文件夹失败: {ex.Message}");
+                Assert.Fail($"Failed to process Videos folder: {ex.Message}");
             }
         }
     }

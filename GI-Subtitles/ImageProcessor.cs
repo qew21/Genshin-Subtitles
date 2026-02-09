@@ -19,12 +19,12 @@ namespace GI_Subtitles
     public class ImageProcessor
     {
         /// <summary>
-        /// 使用 LockBits 优化图像哈希计算
-        /// 优化：避免使用 GetPixel() 方法，直接访问内存数据
+        /// Use LockBits to optimize image hash calculation.
+        /// Optimization: avoid using GetPixel(), and access memory data directly.
         /// </summary>
         public static string ComputeDHash(Bitmap bmp)
         {
-            // 创建 9x8 的缩放图像
+            // Create a scaled 9x8 image
             var resized = new Bitmap(9, 8);
             try
             {
@@ -34,9 +34,9 @@ namespace GI_Subtitles
                     g.DrawImage(bmp, 0, 0, 9, 8);
                 }
 
-                var hash = new StringBuilder(64); // 预分配容量
+                var hash = new StringBuilder(64); // Pre-allocate capacity
 
-                // 使用 LockBits 直接访问像素数据，比 GetPixel 快 3-5 倍
+                // Use LockBits to directly access pixel data, 3–5 times faster than GetPixel
                 var data = resized.LockBits(
                     new Rectangle(0, 0, 9, 8),
                     ImageLockMode.ReadOnly,
@@ -53,11 +53,11 @@ namespace GI_Subtitles
                         {
                             for (int x = 0; x < 8; x++)
                             {
-                                // 计算两个相邻像素的偏移量
+                                // Calculate offsets of two adjacent pixels
                                 int offset1 = y * stride + x * 3;
                                 int offset2 = y * stride + (x + 1) * 3;
 
-                                // 使用灰度公式计算亮度 (0.299*R + 0.587*G + 0.114*B)
+                                // Compute brightness using grayscale formula (0.299*R + 0.587*G + 0.114*B)
                                 int brightness1 = (int)(ptr[offset1] * 0.299 + ptr[offset1 + 1] * 0.587 + ptr[offset1 + 2] * 0.114);
                                 int brightness2 = (int)(ptr[offset2] * 0.299 + ptr[offset2 + 1] * 0.587 + ptr[offset2 + 2] * 0.114);
 
@@ -83,14 +83,14 @@ namespace GI_Subtitles
         {
             if (srcMat == null) return string.Empty;
 
-            // 1. 转灰度
+            // 1. Convert to grayscale
             using var gray = new OpenCvSharp.Mat();
             if (srcMat.Channels() == 3 || srcMat.Channels() == 4)
                 Cv2.CvtColor(srcMat, gray, ColorConversionCodes.BGR2GRAY);
             else
                 srcMat.CopyTo(gray);
 
-            // 2. 关键步骤：二值化 (Threshold)
+            // 2. Key step: binarization (thresholding)
             using var bin = new OpenCvSharp.Mat();
             Cv2.Threshold(gray, bin, 200, 255, ThresholdTypes.Binary);
 
@@ -110,16 +110,16 @@ namespace GI_Subtitles
             }
             else
             {
-                // 全黑图像，直接返回全0哈希，或者处理为空
+                // All-black image: directly return an all-zero hash, or treat as empty
                 return new string('0', 64);
             }
 
-            // 裁剪出只有字的区域
+            // Crop out the region that only contains text
             using var cropped = new OpenCvSharp.Mat(bin, roi);
             using var resized = new OpenCvSharp.Mat();
             Cv2.Resize(cropped, resized, new OpenCvSharp.Size(9, 8), 0, 0, InterpolationFlags.Area);
 
-            // 4. 计算哈希 (此时 resized 虽然源自二值图，但因 Area 插值变成了灰度图)
+            // 4. Compute hash (resized is derived from a binary image but becomes grayscale due to Area interpolation)
             var hash = new StringBuilder(64);
 
             unsafe
@@ -132,7 +132,7 @@ namespace GI_Subtitles
                     byte* row = ptr + (y * step);
                     for (int x = 0; x < 8; x++)
                     {
-                        // 比较相邻块的“文字密度”
+                        // Compare "text density" of adjacent blocks
                         hash.Append(row[x] > row[x + 1] ? '1' : '0');
                     }
                 }
@@ -142,7 +142,7 @@ namespace GI_Subtitles
         }
 
         /// <summary>
-        /// 计算两个哈希字符串的汉明距离（不同位的数量）
+        /// Calculate the Hamming distance between two hash strings (number of different bits)
         /// </summary>
         public static int CalculateHammingDistance(string hash1, string hash2)
         {
@@ -159,13 +159,13 @@ namespace GI_Subtitles
         }
 
         /// <summary>
-        /// 查找最相似的图像哈希（基于汉明距离的模糊匹配）
-        /// 支持 Dictionary 和 LRUCache
+        /// Find the most similar image hash (fuzzy matching based on Hamming distance).
+        /// Supports both Dictionary and LRUCache.
         /// </summary>
-        /// <param name="targetHash">目标哈希</param>
-        /// <param name="hashDict">哈希字典（支持 Dictionary 或 LRUCache）</param>
-        /// <param name="maxDistance">最大允许的汉明距离（默认5，约6%的差异）</param>
-        /// <returns>最相似的哈希键，如果未找到则返回null</returns>
+        /// <param name="targetHash">Target hash</param>
+        /// <param name="hashDict">Hash dictionary (supports Dictionary or LRUCache)</param>
+        /// <param name="maxDistance">Maximum allowed Hamming distance (default 5, about 6% difference)</param>
+        /// <returns>The most similar hash key, or null if none is found</returns>
         public static string FindSimilarImageHash(string targetHash, object hashDict, int maxDistance = 5)
         {
             if (string.IsNullOrEmpty(targetHash) || hashDict == null)
@@ -174,7 +174,7 @@ namespace GI_Subtitles
             string bestMatch = null;
             int minDistance = int.MaxValue;
 
-            // 支持 Dictionary<string, string> 和 LRUCache<string, string>
+            // Support Dictionary<string, string> and LRUCache<string, string>
             IEnumerable<KeyValuePair<string, string>> items = null;
 
             if (hashDict is Dictionary<string, string> dict)

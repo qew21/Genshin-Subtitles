@@ -68,8 +68,8 @@ namespace GI_Subtitles
             contextMenuStrip.Items.Add(fontSizeSelector);
             contextMenuStrip.Items.Add(settingItem);
             contextMenuStrip.Items.Add(exitItem);
-            contextMenuStrip.Opening += ContextMenuStrip_Opening; // 菜单打开前触发
-            contextMenuStrip.Closed += ContextMenuStrip_Closed;   // 菜单关闭后触发
+            contextMenuStrip.Opening += ContextMenuStrip_Opening; // The menu is opened before triggering
+            contextMenuStrip.Closed += ContextMenuStrip_Closed;   // The menu is closed after triggering
             Uri iconUri = new Uri("pack://application:,,,/Resources/mask.ico");
             Stream iconStream = System.Windows.Application.GetResourceStream(iconUri).Stream;
             notifyIcon = new NotifyIcon
@@ -170,7 +170,7 @@ namespace GI_Subtitles
 
             if (key == null)
             {
-                Logger.Log.Error("无法打开注册表项");
+                Logger.Log.Error("Failed to open registry key");
             }
 
             string existingValue = (string)key.GetValue(Process.GetCurrentProcess().ProcessName, null);
@@ -179,7 +179,7 @@ namespace GI_Subtitles
                 if (existingValue != appPath)
                 {
                     key.SetValue(Process.GetCurrentProcess().ProcessName, appPath);
-                    Logger.Log.Info("开机启动项添加成功！");
+                    Logger.Log.Info("Startup item added successfully!");
                 }
             }
             else
@@ -187,7 +187,7 @@ namespace GI_Subtitles
                 if (existingValue != null)
                 {
                     key.DeleteValue(Process.GetCurrentProcess().ProcessName, false);
-                    Logger.Log.Info("开机启动项已移除！");
+                    Logger.Log.Info("Startup item removed!");
                 }
             }
         }
@@ -230,7 +230,7 @@ namespace GI_Subtitles
                 StrokeThickness = 10,
                 Width = w,
                 Height = h,
-                IsHitTestVisible = true // 确保可以捕获鼠标事件
+                IsHitTestVisible = true // Ensure that mouse events can be captured
             };
             Canvas.SetLeft(rect, x);
             Canvas.SetTop(rect, y);

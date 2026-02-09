@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:GI_Subtitles"
         mc:Ignorable="d"
-        Title="视频字幕提取" Height="800" Width="1310" MinWidth="1310"
+        Title="Subtitle extraction" Height="800" Width="1310" MinWidth="1310"
         AllowDrop="True"
         Topmost="True"
         Icon="Resources/mask.ico" 
@@ -18,31 +18,31 @@
             <ColumnDefinition Width="300" MinWidth="200"/>
         </Grid.ColumnDefinitions>
 
-        <!-- 左侧面板 -->
+        <!-- Left panel -->
         <Grid Grid.Column="0">
             <Grid.RowDefinitions>
                 <RowDefinition Height="500" MinHeight="400"/>
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <!-- 视频预览区域 - 使用固定大小的容器 -->
+            <!-- Video preview area - use a fixed-size container -->
             <Border Grid.Row="0" Margin="10" BorderBrush="#CCCCCC" BorderThickness="1" x:Name="PreviewBorder">
                 <Grid x:Name="PreviewContainer" HorizontalAlignment="Center" VerticalAlignment="Center">
                     <Image x:Name="PreviewImage" Stretch="Uniform" />
 
-                    <!-- 可视化选择框 -->
+                    <!-- Visual selection box -->
                     <Canvas x:Name="SelectionCanvas" Background="Transparent" HorizontalAlignment="Stretch"
                         VerticalAlignment="Stretch" MouseLeftButtonDown="SelectionCanvas_MouseLeftButtonDown"
                         MouseMove="SelectionCanvas_MouseMove" MouseLeftButtonUp="SelectionCanvas_MouseLeftButtonUp">
                     
-                    <!-- 选择矩形 -->
+                    <!-- Selection rectangle -->
                     <Rectangle x:Name="SelectionRect"
                                Stroke="Red" StrokeThickness="2"
                                Fill="#20FF0000"
                                Visibility="Collapsed"
                                Cursor="SizeAll" />
                     
-                    <!-- 调整手柄（8个角点） -->
+                    <!-- Resize handles (8 corner points) -->
                     <Rectangle x:Name="HandleTopLeft" Width="8" Height="8" Fill="Red" Stroke="White" StrokeThickness="1"
                                Visibility="Collapsed" Cursor="SizeNWSE" />
                     <Rectangle x:Name="HandleTopRight" Width="8" Height="8" Fill="Red" Stroke="White" StrokeThickness="1"
@@ -60,7 +60,7 @@
                     <Rectangle x:Name="HandleRight" Width="8" Height="8" Fill="Red" Stroke="White" StrokeThickness="1"
                                Visibility="Collapsed" Cursor="SizeWE" />
                     
-                    <!-- 坐标信息显示 -->
+                    <!-- Coordinate information display -->
                     <Border x:Name="InfoBorder" Background="#CC000000" Padding="5" CornerRadius="3"
                             Visibility="Collapsed">
                         <TextBlock x:Name="InfoText" Foreground="White" FontSize="12" />
@@ -69,9 +69,9 @@
             </Grid>
             </Border>
 
-            <!-- 控制区域 -->
+            <!-- Control area -->
             <StackPanel Grid.Row="1" Margin="10">
-                <!-- 时间轴滑块 -->
+                <!-- Timeline slider -->
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,10">
                     <TextBlock x:Name="CurrentTimeText" VerticalAlignment="Center" Margin="5,0" 
                                FontSize="14" FontWeight="SemiBold" MinWidth="80" TextAlignment="Right"/>
@@ -86,7 +86,7 @@
                                FontSize="14" FontWeight="SemiBold" MinWidth="80" TextAlignment="Left"/>
                 </StackPanel>
 
-                <!-- 时间输入（辅助） -->
+                <!-- Time input (auxiliary) -->
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,10">
                     <TextBlock Text="跳转到时间:" VerticalAlignment="Center" Margin="5"/>
                     <TextBox x:Name="TimeInput" Width="80" Text="00:00" VerticalAlignment="Center" Margin="5"
@@ -94,7 +94,7 @@
                     <Button Content="跳转" x:Name="JumpToTime" Click="JumpToTime_Click" Margin="5" IsEnabled="False"/>
                 </StackPanel>
 
-                <!-- 控制按钮 -->
+                <!-- Control buttons -->
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,10">
                     <Button Content="打开视频" x:Name="Open" Click="OpenVideo_Click" Margin="5" Padding="10,5"/>
                     <Button Content="确认区域" x:Name="Confirm" Click="ConfirmRegion_Click" Margin="5" 
@@ -107,7 +107,7 @@
                             Margin="5" Padding="10,5" ToolTip="切换选区框的显示/隐藏"/>
                 </StackPanel>
 
-                <!-- 可折叠设置面板 -->
+                <!-- Collapsible settings panel -->
                 <Expander x:Name="SettingsExpander" Header="设置" IsExpanded="False" Margin="0,0,0,10">
                     <StackPanel Margin="10">
                         <StackPanel Orientation="Horizontal" Margin="0,5">
@@ -130,7 +130,7 @@
                     </StackPanel>
                 </Expander>
 
-                <!-- 进度显示区域 -->
+                <!-- Progress display area -->
                 <StackPanel x:Name="ProgressPanel" Visibility="Collapsed" Margin="0,0,0,10">
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
                         <TextBlock x:Name="ProgressCurrentTimeText" Text="00:00" 
@@ -142,7 +142,7 @@
                     </StackPanel>
                 </StackPanel>
 
-                <!-- 按钮区域：处理完成状态、导出字幕、处理视频 -->
+                <!-- Button area: processing status, export subtitles, process video -->
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,10">
                     <TextBlock x:Name="ProgressStatusText" Text="处理中..." 
                                FontWeight="SemiBold" 
@@ -179,11 +179,11 @@
             </StackPanel>
         </Grid>
 
-        <!-- 分割条 -->
+        <!-- Splitter -->
         <GridSplitter Grid.Column="1" Width="3" HorizontalAlignment="Stretch" 
                       Background="#CCCCCC" Cursor="SizeWE"/>
 
-        <!-- 右侧字幕列表 -->
+        <!-- Right-side subtitle list -->
         <Grid Grid.Column="2" Background="#F5F5F5">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>

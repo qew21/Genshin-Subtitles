@@ -8,7 +8,7 @@
         WindowStartupLocation="CenterOwner">
 
     <Window.Resources>
-        <!-- 统一按钮样式 -->
+        <!-- Unified button style -->
         <Style TargetType="Button" x:Key="PrimaryButton">
             <Setter Property="MinWidth" Value="90"/>
             <Setter Property="Height" Value="30"/>
@@ -16,7 +16,7 @@
             <Setter Property="Margin" Value="0,0,12,0"/>
         </Style>
 
-        <!-- 小问号帮助按钮 -->
+        <!-- Small question-mark help button -->
         <Style TargetType="Button" x:Key="HelpButton">
             <Setter Property="MinWidth" Value="16"/>
             <Setter Property="Height" Value="16"/>
@@ -43,7 +43,7 @@
             </Setter>
         </Style>
 
-        <!-- 链接式 TextBox -->
+        <!-- Link-style TextBox -->
         <Style TargetType="TextBox" x:Key="LinkTextBox">
             <Setter Property="IsReadOnly" Value="True"/>
             <Setter Property="Background" Value="Transparent"/>
@@ -68,7 +68,7 @@
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
 
-                        <!-- 控制面板：语言 & 游戏选择 -->
+                        <!-- Control panel: language & game selection -->
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,16">
                             <TextBlock Text="{DynamicResource UI_Language}" VerticalAlignment="Center" Margin="0,0,6,0"/>
                             <ComboBox Name="UILangSelector" Width="100" VerticalAlignment="Center" Margin="0,0,16,0"
@@ -112,7 +112,7 @@
                             </ComboBox>
                         </StackPanel>
 
-                        <!-- 数据信息区域 -->
+                        <!-- Data information area -->
                         <StackPanel Grid.Row="1" Margin="0,0,0,16">
                             <GroupBox Header="{DynamicResource Local_File_Info}">
                                 <StackPanel>
@@ -145,7 +145,7 @@
                             </GroupBox>
                         </StackPanel>
 
-                        <!-- 进度条和下载速度 -->
+                        <!-- Progress bar and download speed -->
                         <StackPanel Grid.Row="4" Margin="0,6,0,0">
                             <ProgressBar Name="DownloadProgressBar" Height="20" Minimum="0" Maximum="100"/>
                             <TextBlock Name="DownloadSpeedText" Margin="0,6,0,0"/>
@@ -155,7 +155,7 @@
                    Content="Loading..."/>
                         <Image Grid.Row="6" Name="Capture" HorizontalAlignment="Center"/>
 
-                        <!-- 操作按钮 -->
+                        <!-- Action buttons -->
                         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center">
                             <Button x:Name="SyncButton" Style="{StaticResource PrimaryButton}" 
                                     Content="{DynamicResource Btn_Sync}" Click="SyncButton_Click"
@@ -312,7 +312,7 @@
 
                         <TextBlock Text="{DynamicResource App_HelpTitle}" FontSize="16" FontWeight="Bold" Grid.Row="0" HorizontalAlignment="Center" Margin="0,0,0,12"/>
 
-                        <!-- 第一行：GitHub -->
+                        <!-- First row: GitHub -->
                         <StackPanel Orientation="Horizontal" Grid.Row="0" VerticalAlignment="Center">
                             <TextBlock Text="Github:" VerticalAlignment="Center" Margin="0,0,6,0"/>
                             <TextBlock VerticalAlignment="Center">
@@ -323,7 +323,7 @@
                             </TextBlock>
                         </StackPanel>
 
-                        <!-- 第二行：Wiki -->
+                        <!-- Second row: Wiki -->
                         <StackPanel Orientation="Horizontal" Grid.Row="1" VerticalAlignment="Center" Margin="0,6,0,0">
                             <TextBlock Text="Wiki:" VerticalAlignment="Center" Margin="0,0,6,0"/>
                             <TextBlock VerticalAlignment="Center">

@@ -10,7 +10,7 @@ using Newtonsoft.Json;
 namespace GI_Subtitles
 {
     /// <summary>
-    /// 进度信息类
+    /// Progress information class
     /// </summary>
     public class ProgressInfo
     {
@@ -31,7 +31,7 @@ namespace GI_Subtitles
 
         private const double SimilarityThreshold = 0.995;
 
-        // 字幕通常是高亮的。如果你的字幕是黄色的或白色的，180-200的阈值通常能过滤掉大部分深色背景
+        // Subtitles are usually bright. If your subtitles are yellow or white, a threshold of 180–200 usually filters out most dark backgrounds.
         private const double SubtitleBrightnessThreshold = 220;
 
         public VideoProcessor(
@@ -47,12 +47,12 @@ namespace GI_Subtitles
             _minDurationMs = minDurationMs;
             _limitToFirstMinute = limitToFirstMinute;
 
-            // 采样间隔：FPS越高，漏掉短字幕的概率越低。建议每3-4帧采一次。
-            // 例如30fps视频，detectFps=10，则step=3。
+            // Sampling interval: higher FPS reduces the chance of missing short subtitles. Recommended to sample every 3–4 frames.
+            // For example, for a 30fps video, if detectFps=10, then step=3.
             _detectionInterval = Math.Max(1, 30 / detectionFps);
         }
 
-        // 向后兼容构造函数
+        // Backward-compatible constructor
         public VideoProcessor(string videoPath, System.Drawing.Rectangle ocrRegion, double intervalSeconds, bool limitToFirstMinute = false)
             : this(videoPath, ocrRegion, (int)(1.0 / intervalSeconds), 100, limitToFirstMinute, false) { }
 
@@ -79,15 +79,15 @@ namespace GI_Subtitles
 
             var srtEntries = new List<SrtEntry>();
 
-            // 状态机变量
-            Mat lastProcessed = null;      // 上一帧处理后的图像（二值化后）
-            Mat pendingStableFrame = null; // 原始彩图（用于OCR）
+            // State machine variables
+            Mat lastProcessed = null;      // Previous processed frame (binarized)
+            Mat pendingStableFrame = null; // Original color frame (for OCR)
 
-            double stableStartTime = -1;   // 稳定开始时间
-            double lastTime = 0;           // 上一帧时间
-            int stableFrameCount = 0;      // 连续稳定帧数计数
+            double stableStartTime = -1;   // Time when stability started
+            double lastTime = 0;           // Time of previous frame
+            int stableFrameCount = 0;      // Counter for consecutive stable frames
 
-            // 预分配内存
+            // Pre-allocate memory
             Mat currentFrame = new Mat();
             Mat roiFrame = new Mat();
             Mat currentProcessed = new Mat();
@@ -101,7 +101,7 @@ namespace GI_Subtitles
 
             try
             {
-                // 确保 ROI 有效
+                // Ensure the ROI is valid
                 capture.Read(currentFrame);
                 var validRoi = new OpenCvSharp.Rect(
                     Math.Max(0, _ocrRegion.X),
@@ -109,15 +109,15 @@ namespace GI_Subtitles
                     Math.Min(_ocrRegion.Width, currentFrame.Width - _ocrRegion.X),
                     Math.Min(_ocrRegion.Height, currentFrame.Height - _ocrRegion.Y)
                 );
-                // 重置回去
+                // Reset back to the beginning
                 capture.Set(VideoCaptureProperties.PosFrames, 0);
 
                 for (long frameIdx = 0; frameIdx < maxFrameToProcess; frameIdx += step)
                 {
-                    // 1. 读取
+                    // 1. Read the frame
                     if (frameIdx > 0)
                     {
-                        // 跳过 step-1 帧
+                        // Skip step-1 frames
                         for (int i = 0; i < step - 1; i++)
                         {
                             capture.Grab(); // Grab 比 Read 快得多，因为它只解压不解码像素
@@ -127,26 +127,26 @@ namespace GI_Subtitles
                     double currentTime = capture.PosMsec / 1000.0;
                     if (currentTime > maxDuration) break;
 
-                    // 2. 裁剪 ROI
+                    // 2. Crop ROI
                     roiFrame = new Mat(currentFrame, validRoi);
 
-                    // 3. 图像预处理 (核心优化点)
-                    // 将图像转换为"易于比较"的二值形态，过滤背景干扰
+                    // 3. Image preprocessing (key optimization)
+                    // Convert the image into a binary form that is easy to compare, filtering out background interference
                     PreProcessFrame(roiFrame, currentProcessed);
 
-                    // 4. 差异检测
+                    // 4. Difference detection
                     bool isStable = false;
 
                     if (lastProcessed != null)
                     {
-                        // 计算差异：只比较二值化后的白色像素（即字幕部分）
+                        // Compute difference: compare only white pixels in the binarized image (i.e., subtitle region)
                         Cv2.Absdiff(currentProcessed, lastProcessed, diffFrame);
 
-                        // 统计差异像素
+                        // Count differing pixels
                         int nonZero = Cv2.CountNonZero(diffFrame);
                         double changeRatio = (double)nonZero / (validRoi.Width * validRoi.Height);
 
-                        // 如果变化率很小，说明字幕没变（或者背景全黑没变）
+                        // If the change ratio is small, subtitles are likely unchanged (or a solid black background remains unchanged)
                         if (changeRatio < (1.0 - SimilarityThreshold))
                         {
                             isStable = true;
@@ -154,20 +154,20 @@ namespace GI_Subtitles
                     }
                     else
                     {
-                        // 第一帧，默认不稳定，先初始化
+                        // First frame: treat as unstable and initialize
                         isStable = false;
                     }
 
-                    // 5. 状态机逻辑
+                    // 5. State machine logic
                     if (isStable)
                     {
-                        // 检测到画面静止（字幕可能正在显示）
+                        // Detected a still frame (subtitles may be showing)
                         if (stableStartTime < 0)
                         {
-                            // 刚开始稳定
+                            // Stability just started
                             stableStartTime = lastTime;
                             stableFrameCount = 0;
-                            // 备份这一帧用于OCR（存彩图，OCR识别率高）
+                            // Backup this frame for OCR (keep color image for better OCR accuracy)
                             pendingStableFrame?.Dispose();
                             pendingStableFrame = roiFrame.Clone();
                         }
@@ -175,26 +175,26 @@ namespace GI_Subtitles
                     }
                     else
                     {
-                        // 画面发生变化（字幕出现、消失或切换）
+                        // Frame changed (subtitle appears, disappears, or switches)
 
-                        // 检查之前是否有一段稳定的字幕
+                        // Check whether there was a stable subtitle segment before
                         if (stableStartTime >= 0)
                         {
                             double durationMs = (lastTime - stableStartTime) * 1000;
-                            // 只有稳定持续了一定时间，且这期间画面是有内容的（排除纯黑转纯黑的情况）
-                            // 简单的判断：如果 pendingStableFrame 全黑或太暗，可能不是字幕
+                            // Only consider it if the stability lasted long enough and the frame contained content (exclude pure-black to pure-black situations)
+                            // Simple heuristic: if pendingStableFrame is all black or too dark, it is likely not subtitles
                             if (durationMs >= _minDurationMs && pendingStableFrame != null)
                             {
-                                // === 触发 OCR ===
+                                // === Trigger OCR ===
                                 string text = PerformOcr(engine, pendingStableFrame);
 
                                 if (!string.IsNullOrWhiteSpace(text))
                                 {
                                     var newEntry = AddOrMergeSubtitle(srtEntries, text, stableStartTime, lastTime);
                                     ocrCount++;
-                                    Console.Write("+"); // 成功识别
+                                    Console.Write("+"); // Recognition succeeded
 
-                                    // 报告进度（包含最新字幕）
+                                    // Report progress (including latest subtitle)
                                     if (progress != null)
                                     {
                                         var elapsed = stopWatch.Elapsed.TotalSeconds;
@@ -211,11 +211,11 @@ namespace GI_Subtitles
                                 }
                                 else
                                 {
-                                    Console.Write("."); // 识别为空（可能是误判的稳定期）
+                                    Console.Write("."); // OCR result empty (may be a misdetected stable segment)
                                 }
-                            }
+                        }
 
-                            // 重置状态
+                        // Reset state
                             stableStartTime = -1;
                             stableFrameCount = 0;
                             pendingStableFrame?.Dispose();
@@ -223,13 +223,13 @@ namespace GI_Subtitles
                         }
                     }
 
-                    // 更新上一帧
+                    // Update previous frame
                     if (lastProcessed == null) lastProcessed = new Mat();
                     currentProcessed.CopyTo(lastProcessed);
                     lastTime = currentTime;
                     processedCount++;
 
-                    // 定期报告进度（每处理一定帧数或时间间隔）
+                    // Periodically report progress (after processing a certain number of frames or time interval)
                     if (progress != null && processedCount % 10 == 0)
                     {
                         var elapsed = stopWatch.Elapsed.TotalSeconds;
@@ -245,7 +245,7 @@ namespace GI_Subtitles
                     }
                 }
 
-                // 收尾：处理最后一段
+                // Finalization: handle the last subtitle segment
                 if (stableStartTime >= 0 && pendingStableFrame != null)
                 {
                     double durationMs = (lastTime - stableStartTime) * 1000;
@@ -257,7 +257,7 @@ namespace GI_Subtitles
                             var newEntry = AddOrMergeSubtitle(srtEntries, text, stableStartTime, lastTime);
                             ocrCount++;
 
-                            // 报告进度
+                            // Report progress
                             if (progress != null)
                             {
                                 var elapsed = stopWatch.Elapsed.TotalSeconds;
@@ -286,12 +286,12 @@ namespace GI_Subtitles
             }
 
             stopWatch.Stop();
-            Console.WriteLine($"\n处理完成。耗时: {stopWatch.Elapsed.TotalSeconds:F1}s");
-            Console.WriteLine($"扫描帧数: {processedCount}, OCR次数: {ocrCount}, 字幕条数: {srtEntries.Count}");
+            Console.WriteLine($"\nProcessing completed. Time: {stopWatch.Elapsed.TotalSeconds:F1}s");
+            Console.WriteLine($"Scanned frames: {processedCount}, OCR count: {ocrCount}, Subtitle count: {srtEntries.Count}");
 
             WriteSrtFile(outputSrtPath, srtEntries);
 
-            // 报告完成
+            // Report completion
             if (progress != null)
             {
                 var elapsed = stopWatch.Elapsed.TotalSeconds;
@@ -308,20 +308,20 @@ namespace GI_Subtitles
         }
 
         /// <summary>
-        /// 预处理：将图像转换为只包含字幕轮廓的二值图，屏蔽背景干扰
+        /// Preprocess a frame: convert it to a binary image containing only subtitle outlines, masking background interference.
         /// </summary>
         private void PreProcessFrame(Mat src, Mat dst)
         {
-            // 1. 转灰度
+            // 1. Convert to grayscale
             if (src.Channels() == 3)
                 Cv2.CvtColor(src, dst, ColorConversionCodes.BGR2GRAY);
             else
                 src.CopyTo(dst);
 
-            // 2. 二值化 (关键步骤)
-            // 假设字幕是白色的，背景较暗。
-            // 阈值设为 180，只有亮度大于180的像素（字幕）会被保留为白色，其余变黑。
-            // 这样背景怎么动（只要亮度不超过180）都变成黑色，不会产生差异。
+            // 2. Binarization (key step)
+            // Assume subtitles are white and the background is darker.
+            // Set threshold to 180: only pixels with brightness above 180 (subtitles) remain white, others become black.
+            // This way, as long as the background brightness does not exceed 180, it becomes black and will not create differences.
             Cv2.Threshold(dst, dst, SubtitleBrightnessThreshold, 255, ThresholdTypes.Binary);
 
         }
@@ -330,7 +330,7 @@ namespace GI_Subtitles
         {
             try
             {
-                // OCR 最好还是用原图（彩图或灰度），不要用二值化后的图，因为OCR引擎自己会处理
+                // OCR works best on the original image (color or grayscale); avoid using the binarized image because the OCR engine will handle preprocessing itself.
                 var result = engine.DetectTextFromMat(mat);
                 return result?.Text?.Trim();
             }
@@ -346,22 +346,22 @@ namespace GI_Subtitles
             {
                 var last = entries[entries.Count - 1];
 
-                // 1. 文本完全相同，合并
+                // 1. If text is exactly the same, merge
                 if (last.Text == text)
                 {
                     last.EndTime = TimeSpan.FromSeconds(end);
                     return last;
                 }
 
-                // 2. 文本相似度高，且时间重叠或紧邻，合并
-                // 计算时间间隔
+                // 2. If text is highly similar and times overlap or are adjacent, merge
+                // Calculate time gap
                 double gap = start - last.EndTime.TotalSeconds;
                 int lastLength = last.Text.Length;
                 int currentLength = text.Length;
-                // 放宽gap阈值到2.0秒，允许合并间隔稍长的相似文本
+                // Relax gap threshold to 2.0 seconds, allowing merging of slightly more distant similar texts
                 if (gap < 2.0 && CalculateLevenshteinSimilarity(last.Text, text.Substring(0, Math.Min(lastLength, currentLength))) > 0.8)
                 {
-                    // 相似合并，取较长的一个
+                    // For similar texts, keep the longer one
                     if (currentLength > lastLength) last.Text = text;
                     last.EndTime = TimeSpan.FromSeconds(end);
                     return last;
@@ -425,12 +425,12 @@ namespace GI_Subtitles
     }
 
     /// <summary>
-    /// 选区信息类（用于JSON序列化/反序列化）
+    /// Region information class (for JSON serialization/deserialization)
     /// </summary>
     public class RegionInfo
     {
         public string VideoPath { get; set; }
-        public string TimeCode { get; set; } // 格式: HH:MM:SS 或 MM:SS
+        public string TimeCode { get; set; } // Format: HH:MM:SS or MM:SS
         public int X { get; set; }
         public int Y { get; set; }
         public int Width { get; set; }
@@ -440,35 +440,35 @@ namespace GI_Subtitles
     }
 
     /// <summary>
-    /// 视频处理工具类
+    /// Video processing tool class
     /// </summary>
     public static class VideoProcessorHelper
     {
         /// <summary>
-        /// 自动处理demo视频，用于性能评估
+        /// Automatically process demo video for performance evaluation
         /// </summary>
         public static void ProcessDemoVideo(string videoPath, string regionJsonPath, PaddleOCREngine engine, Action onComplete = null)
         {
             try
             {
-                Console.WriteLine("=== 开始处理Demo视频 ===");
-                Console.WriteLine($"视频路径: {videoPath}");
-                Console.WriteLine($"选区配置: {regionJsonPath}");
+                Console.WriteLine("=== Start processing demo video ===");
+                Console.WriteLine($"Video path: {videoPath}");
+                Console.WriteLine($"Region configuration: {regionJsonPath}");
 
-                // 读取选区信息
+                // Read region information
                 string json = File.ReadAllText(regionJsonPath, Encoding.UTF8);
                 var regionInfo = JsonConvert.DeserializeObject<RegionInfo>(json);
 
                 if (regionInfo == null)
                 {
-                    Console.WriteLine("错误: 无法解析选区配置文件");
+                    Console.WriteLine("Error: Unable to parse region configuration file");
                     return;
                 }
 
-                Console.WriteLine($"选区: X={regionInfo.X}, Y={regionInfo.Y}, W={regionInfo.Width}, H={regionInfo.Height}");
-                Console.WriteLine($"视频分辨率: {regionInfo.VideoWidth}x{regionInfo.VideoHeight}");
+                Console.WriteLine($"Region: X={regionInfo.X}, Y={regionInfo.Y}, W={regionInfo.Width}, H={regionInfo.Height}");
+                Console.WriteLine($"Video resolution: {regionInfo.VideoWidth}x{regionInfo.VideoHeight}");
 
-                // 创建选区矩形
+                // Create region rectangle
                 var ocrRegion = new System.Drawing.Rectangle(
                     regionInfo.X,
                     regionInfo.Y,
@@ -476,24 +476,24 @@ namespace GI_Subtitles
                     regionInfo.Height
                 );
 
-                // 从配置读取参数
+                // Read parameters from configuration
                 int detectionFps = Config.Get<int>("SubtitleDetectionFps", 5);
                 int minDurationMs = Config.Get<int>("SubtitleMinDurationMs", 200);
-                bool debugMode = Config.Get<bool>("SubtitleDebugMode", false); // 调试模式：只执行第一阶段
+                bool debugMode = Config.Get<bool>("SubtitleDebugMode", false); // Debug mode: only execute the first stage
 
-                Console.WriteLine($"检测频率: {detectionFps} FPS");
-                Console.WriteLine($"最短持续时间: {minDurationMs} ms");
+                Console.WriteLine($"Detection frequency: {detectionFps} FPS");
+                Console.WriteLine($"Minimum duration: {minDurationMs} ms");
                 if (debugMode)
                 {
-                    Console.WriteLine($"调试模式: 开启（只执行第一阶段快速扫描）");
+                    Console.WriteLine($"Debug mode: enabled (only execute the first stage fast scan)");
                 }
 
-                // 生成输出文件路径
+                // Generate output file path
                 string videoDir = Path.GetDirectoryName(videoPath);
                 string videoName = Path.GetFileNameWithoutExtension(videoPath);
                 string srtPath = Path.Combine(videoDir, $"{videoName}.srt");
 
-                // 获取视频信息（用于性能统计）
+                // Get video information (for performance statistics)
                 double videoDurationSeconds = 0;
                 try
                 {
@@ -504,16 +504,16 @@ namespace GI_Subtitles
                             var fps = capture.Fps;
                             var totalFrames = (long)capture.Get(OpenCvSharp.VideoCaptureProperties.FrameCount);
                             videoDurationSeconds = totalFrames / fps;
-                            Console.WriteLine($"视频时长: {videoDurationSeconds:F2} 秒 ({videoDurationSeconds / 60:F2} 分钟)");
+                            Console.WriteLine($"Video duration: {videoDurationSeconds:F2} seconds ({videoDurationSeconds / 60:F2} minutes)");
                         }
                     }
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"警告: 无法获取视频信息: {ex.Message}");
+                    Console.WriteLine($"Warning: Unable to get video information: {ex.Message}");
                 }
 
-                // 创建处理器
+                // Create processor
                 var processor = new VideoProcessor(
                     videoPath,
                     ocrRegion,
@@ -523,58 +523,58 @@ namespace GI_Subtitles
                     debugMode: debugMode
                 );
 
-                // 开始计时
+                // Start timing
                 var stopwatch = Stopwatch.StartNew();
-                Console.WriteLine("\n开始提取字幕...");
+                Console.WriteLine("\nStart extracting subtitles...");
 
-                // 处理视频
+                // Process video
                 processor.GenerateSrt(engine, srtPath);
 
-                // 停止计时
+                // Stop timing
                 stopwatch.Stop();
 
-                // 输出结果
-                Console.WriteLine("\n=== 处理完成 ===");
-                Console.WriteLine($"输出文件: {srtPath}");
-                Console.WriteLine($"总耗时: {stopwatch.Elapsed.TotalSeconds:F2} 秒 ({stopwatch.ElapsedMilliseconds} 毫秒)");
+                // Output results
+                Console.WriteLine("\n=== Processing completed ===");
+                Console.WriteLine($"Output file: {srtPath}");
+                Console.WriteLine($"Total time: {stopwatch.Elapsed.TotalSeconds:F2} seconds ({stopwatch.ElapsedMilliseconds} milliseconds)");
 
                 if (videoDurationSeconds > 0)
                 {
                     double speedRatio = videoDurationSeconds / stopwatch.Elapsed.TotalSeconds;
-                    Console.WriteLine($"处理速度: {speedRatio:F2}x (实时速度的 {speedRatio:F2} 倍)");
-                    Console.WriteLine($"平均速度: {stopwatch.Elapsed.TotalSeconds / (videoDurationSeconds / 60):F2} 秒/分钟视频");
+                    Console.WriteLine($"Processing speed: {speedRatio:F2}x (real-time speed of {speedRatio:F2} times)");
+                    Console.WriteLine($"Average speed: {stopwatch.Elapsed.TotalSeconds / (videoDurationSeconds / 60):F2} seconds/minute video");
                 }
                 Console.WriteLine("==================\n");
 
-                // 检查输出文件是否存在
+                // Check if the output file exists
                 if (File.Exists(srtPath))
                 {
                     var fileInfo = new FileInfo(srtPath);
-                    Console.WriteLine($"SRT文件大小: {fileInfo.Length} 字节");
+                    Console.WriteLine($"SRT file size: {fileInfo.Length} bytes");
 
-                    // 统计字幕条目数（SRT格式：序号、时间轴、文本、空行）
+                    // Count subtitle entries (SRT format: index, time range, text, empty line)
                     var lines = File.ReadAllLines(srtPath);
                     int entryCount = 0;
                     for (int i = 0; i < lines.Length; i++)
                     {
-                        // 检查是否是序号行（纯数字）
+                        // Check if it is a index line (pure number)
                         if (int.TryParse(lines[i].Trim(), out int index) && index > 0)
                         {
                             entryCount++;
                         }
                     }
-                    Console.WriteLine($"字幕条目数: {entryCount}");
+                    Console.WriteLine($"Subtitle entries: {entryCount}");
                 }
 
-                // 调用完成回调
+                // Call the completion callback
                 onComplete?.Invoke();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"\n错误: {ex.Message}");
-                Console.WriteLine($"堆栈跟踪: {ex.StackTrace}");
+                Console.WriteLine($"\nError: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
                 Logger.Log.Error(ex);
-                throw; // 重新抛出异常，让调用者处理
+                throw; // Rethrow the exception, let the caller handle it
             }
         }
     }

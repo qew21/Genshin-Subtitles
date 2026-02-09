@@ -1,7 +1,7 @@
 namespace PaddleOCRSharp
 {
     /// <summary>
-    /// 日志记录器类，使用 log4net
+    /// Logger class, using log4net
     /// </summary>
     public static class Logger
     {

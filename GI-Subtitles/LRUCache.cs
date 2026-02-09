@@ -5,8 +5,8 @@ using System.Linq;
 namespace GI_Subtitles
 {
     /// <summary>
-    /// LRU (Least Recently Used) 缓存实现
-    /// 用于限制缓存大小，自动移除最久未使用的项
+    /// LRU (Least Recently Used) cache implementation
+    /// To limit the cache size, automatically remove the least recently used items
     /// </summary>
     public class LRUCache<TKey, TValue>
     {
@@ -31,7 +31,7 @@ namespace GI_Subtitles
         }
 
         /// <summary>
-        /// 获取缓存值，如果存在则将其移到最前面（标记为最近使用）
+        /// Get the cache value, if it exists, move it to the front (marked as recently used)
         /// </summary>
         public bool TryGetValue(TKey key, out TValue value)
         {
@@ -39,7 +39,7 @@ namespace GI_Subtitles
             if (!_cache.TryGetValue(key, out var node))
                 return false;
 
-            // 移到最前面（标记为最近使用）
+            // Move to the front (marked as recently used)
             _list.Remove(node);
             _list.AddFirst(node);
 
@@ -48,23 +48,23 @@ namespace GI_Subtitles
         }
 
         /// <summary>
-        /// 添加或更新缓存项
+        /// Add or update the cache item
         /// </summary>
         public void AddOrUpdate(TKey key, TValue value)
         {
             if (_cache.TryGetValue(key, out var existingNode))
             {
-                // 更新现有项
+                // Update the existing item
                 existingNode.Value.Value = value;
                 _list.Remove(existingNode);
                 _list.AddFirst(existingNode);
             }
             else
             {
-                // 添加新项
+                // Add a new item
                 if (_cache.Count >= _capacity)
                 {
-                    // 移除最久未使用的项（最后一个）
+                    // Remove the least recently used item (last one)
                     var lastNode = _list.Last;
                     if (lastNode != null)
                     {
@@ -80,21 +80,21 @@ namespace GI_Subtitles
         }
 
         /// <summary>
-        /// 检查是否包含指定的键
+        /// Check if the specified key is included
         /// </summary>
         public bool ContainsKey(TKey key)
         {
             if (!_cache.TryGetValue(key, out var node))
                 return false;
 
-            // 移到最前面（标记为最近使用）
+            // Move to the front (marked as recently used)
             _list.Remove(node);
             _list.AddFirst(node);
             return true;
         }
 
         /// <summary>
-        /// 移除指定的键
+        /// Remove the specified key
         /// </summary>
         public bool Remove(TKey key)
         {
@@ -107,17 +107,17 @@ namespace GI_Subtitles
         }
 
         /// <summary>
-        /// 获取所有键
+        /// Get all keys
         /// </summary>
         public IEnumerable<TKey> Keys => _cache.Keys;
 
         /// <summary>
-        /// 获取缓存项数量
+        /// Get the number of cache items
         /// </summary>
         public int Count => _cache.Count;
 
         /// <summary>
-        /// 清空缓存
+        /// Clear the cache
         /// </summary>
         public void Clear()
         {
@@ -126,7 +126,7 @@ namespace GI_Subtitles
         }
 
         /// <summary>
-        /// 获取或设置缓存值（类似字典的索引器）
+        /// Get or set the cache value (similar to the indexer of a dictionary)
         /// </summary>
         public TValue this[TKey key]
         {
@@ -140,3 +140,4 @@ namespace GI_Subtitles
         }
     }
 }
+

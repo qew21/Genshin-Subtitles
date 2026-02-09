@@ -24,7 +24,7 @@ using Newtonsoft.Json;
 namespace GI_Subtitles
 {
     /// <summary>
-    /// Video.xaml 的交互逻辑
+    /// Video.xaml interaction logic
     /// </summary>
     public partial class Video : System.Windows.Window
     {
@@ -36,23 +36,23 @@ namespace GI_Subtitles
         private bool _isResizing = false;
         private ResizeHandle _resizeHandle = ResizeHandle.None;
         private System.Windows.Point _lastMousePos;
-        private System.Windows.Rect _imageBounds; // 图像在Canvas中的实际显示区域
-        private double _currentTimeSeconds = 0; // 当前显示的时间点（秒）
-        private double _totalDurationSeconds = 0; // 视频总时长（秒）
-        private double _videoFps = 0; // 视频帧率
-        private bool _isSliderDragging = false; // 滑块是否正在拖动
-        private bool _keepSelectionVisible = false; // 是否保持选区可见
-        private bool _isEditingSubtitle = false; // 标记是否正在编辑字幕
+        private System.Windows.Rect _imageBounds; // The actual display area of the image in the Canvas
+        private double _currentTimeSeconds = 0; // The current display time point (seconds)
+        private double _totalDurationSeconds = 0; // The total duration of the video (seconds)
+        private double _videoFps = 0; // The frame rate of the video
+        private bool _isSliderDragging = false; // Whether the slider is being dragged
+        private bool _keepSelectionVisible = false; // Whether to keep the selection visible
+        private bool _isEditingSubtitle = false; // Whether to mark whether the subtitle is being edited
         private VideoCapture videoCapture;
         PaddleOCREngine engine;
 
-        // 存储用户选择的区域（GDI Rectangle）
+        // Store the user-selected region (GDI Rectangle)
         public System.Drawing.Rectangle SelectedRegion { get; private set; }
 
-        // 字幕列表
+        // Subtitle list
         public ObservableCollection<SubtitleItem> Subtitles { get; set; } = new ObservableCollection<SubtitleItem>();
 
-        // 当前处理的字幕列表（用于导出）
+        // The current list of subtitles being processed (for export)
         private List<SrtEntry> _currentSrtEntries = new List<SrtEntry>();
 
         private enum ResizeHandle
@@ -73,11 +73,11 @@ namespace GI_Subtitles
             engine = _engine;
             InitializeComponent();
 
-            // 计算图像边界
+            // Calculate the image boundaries
             PreviewImage.Loaded += (s, e) => UpdateImageBounds();
             PreviewImage.SizeChanged += (s, e) => UpdateImageBounds();
 
-            // 监听容器大小变化（在InitializeComponent之后）
+            // Listen for container size changes (after InitializeComponent)
             Dispatcher.BeginInvoke(new Action(() =>
             {
                 var container = this.FindName("PreviewContainer") as FrameworkElement;
@@ -87,20 +87,20 @@ namespace GI_Subtitles
                 }
             }), System.Windows.Threading.DispatcherPriority.Loaded);
 
-            // 监听窗口大小变化
+            // Listen for window size changes
             this.SizeChanged += (s, e) =>
             {
-                // 延迟更新，等待布局完成
+                // Delay update, wait for layout to complete
                 Dispatcher.BeginInvoke(new Action(() => UpdateImageBounds()),
                     System.Windows.Threading.DispatcherPriority.Loaded);
             };
 
-            // 绑定字幕列表
+            // Bind the subtitle list
             SubtitleListBox.ItemsSource = Subtitles;
 
-            // 初始化进度面板
+            // Initialize the progress panel
             ProgressPanel.Visibility = Visibility.Collapsed;
-            // 初始化状态文本（始终可见）
+            // Initialize the status text (always visible)
             ProgressStatusText.Text = "";
             ProgressSpeedText.Text = "";
         }
@@ -112,8 +112,8 @@ namespace GI_Subtitles
             var source = PreviewImage.Source as BitmapSource;
             if (source == null) return;
 
-            // 使用PreviewContainer的实际大小来计算图像显示区域
-            // Canvas覆盖整个Grid，所以坐标是相对于Grid的
+            // Use the actual size of PreviewContainer to calculate the image display area
+            // The canvas covers the entire grid, so the coordinates are relative to the grid
             FrameworkElement container = null;
             try
             {
@@ -123,13 +123,13 @@ namespace GI_Subtitles
 
             if (container == null || container.ActualWidth <= 0 || container.ActualHeight <= 0)
             {
-                // 如果容器还没渲染，使用Image控件的大小
+                // If the container hasn't been rendered, use the size of the Image control
                 if (PreviewImage.ActualWidth <= 0 || PreviewImage.ActualHeight <= 0)
                     return;
                 container = PreviewImage;
             }
 
-            // 计算图像在容器中的实际显示区域（考虑Stretch="Uniform"）
+            // Calculate the actual display area of the image in the container (considering Stretch="Uniform")
             double scale = Math.Min(
                 container.ActualWidth / source.PixelWidth,
                 container.ActualHeight / source.PixelHeight);
@@ -137,8 +137,8 @@ namespace GI_Subtitles
             double renderedWidth = source.PixelWidth * scale;
             double renderedHeight = source.PixelHeight * scale;
 
-            // Canvas覆盖整个Grid，所以偏移是相对于Grid的
-            // 图像在Grid中居中显示
+            // The canvas covers the entire grid, so the offset is relative to the grid
+            // The image is centered in the grid
             double offsetX = (container.ActualWidth - renderedWidth) / 2;
             double offsetY = (container.ActualHeight - renderedHeight) / 2;
 
@@ -148,7 +148,7 @@ namespace GI_Subtitles
                 renderedWidth,
                 renderedHeight);
 
-            // 如果选区存在，更新选区位置以适应新的边界
+            // If the selection exists, update the selection position to fit the new boundaries
             if (SelectionRect.Visibility == Visibility.Visible)
             {
                 ConstrainSelectionToImage();
@@ -160,7 +160,7 @@ namespace GI_Subtitles
         {
             var dialog = new Microsoft.Win32.OpenFileDialog
             {
-                Filter = "视频文件|*.mp4;*.avi;*.mov;*.mkv|所有文件|*.*"
+                Filter = "Video files|*.mp4;*.avi;*.mov;*.mkv|All files|*.*"
             };
 
             if (dialog.ShowDialog() == true)
@@ -168,19 +168,19 @@ namespace GI_Subtitles
                 _videoPath = dialog.FileName;
                 videoCapture = new VideoCapture(_videoPath);
                 if (!videoCapture.IsOpened())
-                    throw new InvalidOperationException("无法打开视频，请尝试转码为 .avi 格式。");
+                    throw new InvalidOperationException("Failed to open video, please try to convert to .avi format.");
 
                 _videoResolution = new System.Drawing.Size(
                     (int)videoCapture.FrameWidth,
                     (int)videoCapture.FrameHeight);
 
                 _videoFps = videoCapture.Fps;
-                if (_videoFps <= 0) _videoFps = 30; // 默认帧率
+                if (_videoFps <= 0) _videoFps = 30; // Default frame rate
                 LoadFrameAtTime(_videoPath, 0);
                 JumpToTime.IsEnabled = true;
                 LoadRegion.IsEnabled = true;
 
-                // 自动尝试加载已保存的选区信息
+                // Automatically try to load the saved selection information
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
                     TryAutoLoadRegion();
@@ -192,43 +192,43 @@ namespace GI_Subtitles
         {
             try
             {
-                // 跳转到指定时间
+                // Jump to the specified time
                 double totalDuration = videoCapture.Get(VideoCaptureProperties.FrameCount) / _videoFps;
                 _totalDurationSeconds = totalDuration;
                 timeSeconds = Math.Max(0, Math.Min(timeSeconds, totalDuration));
                 _currentTimeSeconds = timeSeconds;
 
-                // 更新滑块范围
+                // Update the slider range
                 TimeSlider.Maximum = 1000;
                 TimeSlider.IsEnabled = true;
-                _isSliderDragging = false; // 重置拖动状态
+                _isSliderDragging = false; // Reset the dragging state
                 UpdateTimeSliderPosition();
                 UpdateTimeDisplay();
 
-                // 使用毫秒跳转（更准确）
+                // Jump using milliseconds (more accurate)
                 videoCapture.Set(VideoCaptureProperties.PosMsec, timeSeconds * 1000);
 
                 using var mat = new Mat();
-                videoCapture.Read(mat); // 读取当前帧
+                videoCapture.Read(mat); // Read the current frame
 
                 if (mat.Empty())
-                    throw new Exception("无法读取视频帧。");
+                    throw new Exception("Failed to read video frame.");
 
-                // 转为 BitmapSource 用于 WPF 显示
+                // Convert to BitmapSource for WPF display
                 var bitmapSource = MatToBitmapSource(mat);
                 PreviewImage.Source = (BitmapSource)bitmapSource;
                 SelectionCanvas.Visibility = Visibility.Visible;
 
-                // 更新当前时间显示
+                // Update the current time display
                 UpdateCurrentTimeDisplay();
 
-                // 清除之前的选区（如果未设置保持可见）
+                // Clear the previous selection (if not set to keep visible)
                 if (!_keepSelectionVisible)
                 {
                     ClearSelection();
                 }
 
-                // 更新图像边界（等待布局完成）
+                // Update the image boundaries (wait for layout to complete)
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
                     UpdateImageBounds();
@@ -236,7 +236,7 @@ namespace GI_Subtitles
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"加载视频失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Failed to load video: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -257,7 +257,7 @@ namespace GI_Subtitles
         {
             UpdateCurrentTimeDisplay();
 
-            // 更新总时长显示
+            // Update the total duration display
             if (_totalDurationSeconds > 0)
             {
                 var totalSpan = TimeSpan.FromSeconds(_totalDurationSeconds);
@@ -286,7 +286,7 @@ namespace GI_Subtitles
             if (string.IsNullOrWhiteSpace(timeStr))
                 return 0;
 
-            // 支持格式: MM:SS 或 HH:MM:SS
+            // Supported formats: MM:SS or HH:MM:SS
             var parts = timeStr.Split(':');
             if (parts.Length == 2)
             {
@@ -307,7 +307,7 @@ namespace GI_Subtitles
                 }
             }
 
-            throw new FormatException("时间格式错误，请使用 MM:SS 或 HH:MM:SS 格式");
+            throw new FormatException("Invalid time format, please use MM:SS or HH:MM:SS format");
         }
 
         private string FormatTimeString(double seconds)
@@ -327,7 +327,7 @@ namespace GI_Subtitles
         {
             if (string.IsNullOrEmpty(_videoPath))
             {
-                MessageBox.Show("请先打开视频文件", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show("Please open the video file first", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
 
@@ -338,7 +338,7 @@ namespace GI_Subtitles
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"跳转失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Failed to jump: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -368,7 +368,7 @@ namespace GI_Subtitles
             _isSliderDragging = false;
         }
 
-        // 拖拽支持
+        // Drag support
         private void Window_DragOver(object sender, DragEventArgs e)
         {
             if (e.Data.GetDataPresent(DataFormats.FileDrop))
@@ -389,7 +389,7 @@ namespace GI_Subtitles
                 if (files != null && files.Length > 0)
                 {
                     string filePath = files[0];
-                    // 检查是否是视频文件
+                    // Check if it is a video file
                     string ext = System.IO.Path.GetExtension(filePath).ToLower();
                     if (ext == ".mp4" || ext == ".avi" || ext == ".mov" || ext == ".mkv")
                     {
@@ -398,7 +398,7 @@ namespace GI_Subtitles
                         JumpToTime.IsEnabled = true;
                         LoadRegion.IsEnabled = true;
 
-                        // 自动尝试加载已保存的选区信息
+                        // Automatically try to load the saved selection information
                         Dispatcher.BeginInvoke(new Action(() =>
                         {
                             TryAutoLoadRegion();
@@ -412,7 +412,7 @@ namespace GI_Subtitles
         {
             var pos = e.GetPosition(SelectionCanvas);
 
-            // 检查是否点击在调整手柄上
+            // Check if it is clicked on the adjustment handle
             _resizeHandle = GetResizeHandle(pos);
             if (_resizeHandle != ResizeHandle.None)
             {
@@ -422,7 +422,7 @@ namespace GI_Subtitles
                 return;
             }
 
-            // 检查是否点击在选区内
+            // Check if it is clicked on the selection area
             if (SelectionRect.Visibility == Visibility.Visible)
             {
                 var rect = new System.Windows.Rect(
@@ -441,7 +441,7 @@ namespace GI_Subtitles
                 }
             }
 
-            // 开始创建新选区
+            // Start creating a new selection area
             if (_imageBounds.Contains(pos))
             {
                 _isSelecting = true;
@@ -459,7 +459,7 @@ namespace GI_Subtitles
         {
             var current = e.GetPosition(SelectionCanvas);
 
-            // 更新坐标信息显示
+            // Update the coordinate information display
             UpdateInfoDisplay(current);
 
             if (_isResizing)
@@ -476,7 +476,7 @@ namespace GI_Subtitles
             }
             else if (SelectionRect.Visibility == Visibility.Visible)
             {
-                // 更新鼠标光标
+                // Update the mouse cursor
                 var handle = GetResizeHandle(current);
                 UpdateCursor(handle);
             }
@@ -491,14 +491,14 @@ namespace GI_Subtitles
                 _isResizing = false;
                 _resizeHandle = ResizeHandle.None;
 
-                // 验证选区是否有效
+                // Verify that the selection is valid
                 if (SelectionRect.Width < 5 || SelectionRect.Height < 5)
                 {
                     ClearSelection();
                 }
                 else
                 {
-                    // 确保选区在图像范围内
+                    // Ensure that the selection is within the image boundaries
                     ConstrainSelectionToImage();
                     UpdateHandles();
                     Confirm.IsEnabled = true;
@@ -509,7 +509,7 @@ namespace GI_Subtitles
 
         private void CreateSelection(System.Windows.Point current)
         {
-            // 限制在图像区域内 - 允许到达边界（使用<=而不是<）
+            // Limit the selection to the image boundaries - allow reaching the boundaries (using <= instead of <)
             current.X = Math.Max(_imageBounds.Left, Math.Min(_imageBounds.Right, current.X));
             current.Y = Math.Max(_imageBounds.Top, Math.Min(_imageBounds.Bottom, current.Y));
 
@@ -518,8 +518,8 @@ namespace GI_Subtitles
             double width = Math.Abs(current.X - _startPoint.X);
             double height = Math.Abs(current.Y - _startPoint.Y);
 
-            // 确保选区不超出图像边界 - 允许到达边界
-            // 使用<=确保可以到达右边界
+            // Ensure that the selection does not exceed the image boundaries - allow reaching the boundaries
+            // Use <= to ensure that the right boundary can be reached
             if (x + width > _imageBounds.Right)
             {
                 width = _imageBounds.Right - x;
@@ -529,11 +529,11 @@ namespace GI_Subtitles
                 height = _imageBounds.Bottom - y;
             }
 
-            // 确保最小尺寸
+            // Ensure the minimum size
             if (width < 10) width = 10;
             if (height < 10) height = 10;
 
-            // 确保不超出左边界
+            // Ensure that the selection does not exceed the left boundary
             if (x < _imageBounds.Left)
             {
                 width = width - (_imageBounds.Left - x);
@@ -563,7 +563,7 @@ namespace GI_Subtitles
             double newLeft = Canvas.GetLeft(SelectionRect) + deltaX;
             double newTop = Canvas.GetTop(SelectionRect) + deltaY;
 
-            // 限制在图像区域内 - 修复右侧边界问题
+            // Limit the selection to the image boundaries - fix the right boundary problem
             newLeft = Math.Max(_imageBounds.Left, Math.Min(newLeft, _imageBounds.Right - SelectionRect.Width));
             newTop = Math.Max(_imageBounds.Top, Math.Min(newTop, _imageBounds.Bottom - SelectionRect.Height));
 
@@ -576,7 +576,7 @@ namespace GI_Subtitles
 
         private void ResizeSelection(System.Windows.Point current)
         {
-            // 限制在图像区域内
+            // Limit the selection to the image boundaries
             current.X = Math.Max(_imageBounds.Left, Math.Min(_imageBounds.Right, current.X));
             current.Y = Math.Max(_imageBounds.Top, Math.Min(_imageBounds.Bottom, current.Y));
 
@@ -619,20 +619,20 @@ namespace GI_Subtitles
                     break;
             }
 
-            // 确保最小尺寸
+            // Ensure the minimum size
             if (right - left < 10) right = left + 10;
             if (bottom - top < 10) bottom = top + 10;
 
-            // 限制在图像区域内 - 允许到达边界
-            // 先限制right和bottom，允许它们等于边界
+            // Limit the selection to the image boundaries - allow reaching the boundaries
+            // First limit right and bottom, allow them to equal the boundaries
             right = Math.Min(right, _imageBounds.Right);
             bottom = Math.Min(bottom, _imageBounds.Bottom);
 
-            // 然后限制left和top，确保选区不超出左边界和上边界
+            // Then limit left and top, ensure that the selection does not exceed the left and upper boundaries
             left = Math.Max(_imageBounds.Left, left);
             top = Math.Max(_imageBounds.Top, top);
 
-            // 如果调整后导致尺寸太小，调整另一边
+            // If the adjustment causes the size to be too small, adjust the other side
             if (right - left < 10)
             {
                 if (_resizeHandle == ResizeHandle.Left || _resizeHandle == ResizeHandle.TopLeft || _resizeHandle == ResizeHandle.BottomLeft)
@@ -648,7 +648,7 @@ namespace GI_Subtitles
                     bottom = top + 10;
             }
 
-            // 最终确保不超出边界
+            // Finally ensure that the selection does not exceed the boundaries
             left = Math.Max(_imageBounds.Left, Math.Min(left, _imageBounds.Right - 10));
             top = Math.Max(_imageBounds.Top, Math.Min(top, _imageBounds.Bottom - 10));
             right = Math.Max(left + 10, Math.Min(right, _imageBounds.Right));
@@ -672,9 +672,9 @@ namespace GI_Subtitles
             double right = left + SelectionRect.Width;
             double bottom = top + SelectionRect.Height;
 
-            const double handleSize = 12; // 手柄检测区域
+            const double handleSize = 12; // Handle detection area
 
-            // 检查各个手柄
+            // Check each handle
             if (Math.Abs(pos.X - left) < handleSize && Math.Abs(pos.Y - top) < handleSize)
                 return ResizeHandle.TopLeft;
             if (Math.Abs(pos.X - right) < handleSize && Math.Abs(pos.Y - top) < handleSize)
@@ -777,14 +777,14 @@ namespace GI_Subtitles
             double width = SelectionRect.Width;
             double height = SelectionRect.Height;
 
-            // 确保选区在图像范围内 - 允许到达边界
+            // Ensure that the selection is within the image boundaries - allow reaching the boundaries
             left = Math.Max(_imageBounds.Left, Math.Min(left, _imageBounds.Right - width));
             top = Math.Max(_imageBounds.Top, Math.Min(top, _imageBounds.Bottom - height));
-            // 允许width到达右边界
+            // Allow width to reach the right boundary
             width = Math.Min(width, _imageBounds.Right - left);
             height = Math.Min(height, _imageBounds.Bottom - top);
 
-            // 确保最小尺寸
+            // Ensure the minimum size
             if (width < 10) width = 10;
             if (height < 10) height = 10;
 
@@ -799,11 +799,11 @@ namespace GI_Subtitles
             if (SelectionRect.Visibility == Visibility.Visible)
             {
                 var rect = GetSelectedRegionInVideoSpace();
-                InfoText.Text = $"选区: X={rect.X}, Y={rect.Y}, W={rect.Width}, H={rect.Height}\n" +
-                               $"视频: {_videoResolution.Width}x{_videoResolution.Height}";
+                InfoText.Text = $"Selection: X={rect.X}, Y={rect.Y}, W={rect.Width}, H={rect.Height}\n" +
+                               $"Video: {_videoResolution.Width}x{_videoResolution.Height}";
                 InfoBorder.Visibility = Visibility.Visible;
 
-                // 将信息框放在选区上方
+                // Place the information box above the selection
                 double left = Canvas.GetLeft(SelectionRect);
                 double top = Canvas.GetTop(SelectionRect);
                 Canvas.SetLeft(InfoBorder, left);
@@ -822,7 +822,7 @@ namespace GI_Subtitles
 
         private void ClearSelection()
         {
-            // 如果设置了保持可见，则不隐藏
+            // If the keep selection visible is set, do not hide
             if (_keepSelectionVisible && SelectionRect.Visibility == Visibility.Visible)
             {
                 return;
@@ -837,27 +837,27 @@ namespace GI_Subtitles
 
         private void ConfirmRegion_Click(object sender, RoutedEventArgs e)
         {
-            // 将 WPF 坐标转换为视频原始分辨率坐标
+            // Convert the WPF coordinates to the original video resolution coordinates
             var rect = GetSelectedRegionInVideoSpace();
             SelectedRegion = rect;
 
-            // 保存选区信息到JSON文件
+            // Save the selection information to the JSON file
             try
             {
                 SaveRegionToJson(rect);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"保存选区信息失败：{ex.Message}", "警告", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show($"Failed to save selection information: {ex.Message}", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
 
-            MessageBox.Show($"已选择区域：{rect.X}, {rect.Y}, {rect.Width}x{rect.Height}\n" +
-                            $"视频分辨率：{_videoResolution.Width}x{_videoResolution.Height}\n" +
-                            $"时间点：{FormatTimeString(_currentTimeSeconds)}\n" +
-                            $"选区信息已保存到JSON文件",
-                            "区域已确认", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show($"Selected region: {rect.X}, {rect.Y}, {rect.Width}x{rect.Height}\n" +
+                            $"Video resolution: {_videoResolution.Width}x{_videoResolution.Height}\n" +
+                            $"Time: {FormatTimeString(_currentTimeSeconds)}\n" +
+                            $"Selection information saved to JSON file",
+                            "Region confirmed", MessageBoxButton.OK, MessageBoxImage.Information);
 
-            // 启用处理视频按钮
+            // Enable the process video button
             ProcessVideo.IsEnabled = true;
         }
 
@@ -866,7 +866,7 @@ namespace GI_Subtitles
             if (string.IsNullOrEmpty(_videoPath))
                 return System.IO.Path.Combine(Environment.CurrentDirectory, "region_info.json");
 
-            // 使用视频文件所在目录
+            // Use the directory of the video file
             string videoDir = System.IO.Path.GetDirectoryName(_videoPath);
             string videoName = System.IO.Path.GetFileNameWithoutExtension(_videoPath);
             return System.IO.Path.Combine(videoDir, $"{videoName}_region.json");
@@ -899,13 +899,13 @@ namespace GI_Subtitles
             {
                 string jsonPath = GetJsonFilePath();
                 if (!File.Exists(jsonPath))
-                    return; // 静默失败，不显示错误
+                    return; // Silent failure, do not show error
 
                 LoadRegionFromFile(jsonPath, showMessage: false);
             }
             catch
             {
-                // 静默失败
+                // Silent failure
             }
         }
 
@@ -922,7 +922,7 @@ namespace GI_Subtitles
                 string jsonPath = GetJsonFilePath();
                 if (!File.Exists(jsonPath))
                 {
-                    MessageBox.Show($"未找到选区信息文件：{jsonPath}", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                    MessageBox.Show($"Selection information file not found: {jsonPath}", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
                     return;
                 }
 
@@ -930,7 +930,7 @@ namespace GI_Subtitles
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"加载选区信息失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Failed to load selection information: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -942,7 +942,7 @@ namespace GI_Subtitles
             if (regionInfo == null)
             {
                 if (showMessage)
-                    MessageBox.Show("JSON文件格式错误", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show("JSON file format error", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
 
@@ -953,22 +953,22 @@ namespace GI_Subtitles
                 if (showMessage)
                 {
                     var result = MessageBox.Show(
-                        $"JSON中的视频文件与当前打开的视频不同。\n" +
+                        $"The video file in the JSON is different from the currently opened video.\n" +
                         $"JSON: {System.IO.Path.GetFileName(regionInfo.VideoPath)}\n" +
-                        $"当前: {System.IO.Path.GetFileName(_videoPath)}\n\n" +
-                        $"是否继续加载？",
-                        "提示", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                        $"Current: {System.IO.Path.GetFileName(_videoPath)}\n\n" +
+                        $"Continue loading?",
+                        "Question", MessageBoxButton.YesNo, MessageBoxImage.Question);
 
                     if (result != MessageBoxResult.Yes)
                         return;
                 }
                 else
                 {
-                    return; // 自动加载时，如果视频不匹配则跳过
+                    return; // If the video does not match during automatic loading, skip
                 }
             }
 
-            // 跳转到指定时间
+            // Jump to the specified time
             if (!string.IsNullOrEmpty(regionInfo.TimeCode))
             {
                 try
@@ -979,11 +979,11 @@ namespace GI_Subtitles
                 }
                 catch
                 {
-                    // 如果时间解析失败，继续加载区域
+                    // If the time parsing fails, continue to load the region
                 }
             }
 
-            // 等待图像加载完成后再设置选区
+            // Wait for the image to load before setting the selection
             Dispatcher.BeginInvoke(new Action(() =>
             {
                 ApplyRegionFromJson(regionInfo);
@@ -991,10 +991,10 @@ namespace GI_Subtitles
 
             if (showMessage)
             {
-                MessageBox.Show($"已加载选区信息\n" +
-                               $"时间：{regionInfo.TimeCode}\n" +
-                               $"区域：{regionInfo.X}, {regionInfo.Y}, {regionInfo.Width}x{regionInfo.Height}",
-                               "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show($"Selection information loaded\n" +
+                               $"Time: {regionInfo.TimeCode}\n" +
+                               $"Region: {regionInfo.X}, {regionInfo.Y}, {regionInfo.Width}x{regionInfo.Height}",
+                               "Success", MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
 
@@ -1002,47 +1002,47 @@ namespace GI_Subtitles
         {
             if (regionInfo == null) return;
 
-            // 检查视频分辨率是否匹配
+            // Check if the video resolution matches
             if (regionInfo.VideoWidth != _videoResolution.Width ||
                 regionInfo.VideoHeight != _videoResolution.Height)
             {
                 var result = MessageBox.Show(
-                    $"JSON中的视频分辨率 ({regionInfo.VideoWidth}x{regionInfo.VideoHeight}) " +
-                    $"与当前视频分辨率 ({_videoResolution.Width}x{_videoResolution.Height}) 不匹配。\n\n" +
-                    $"是否继续应用选区？（坐标可能会不准确）",
-                    "警告", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                    $"The video resolution in the JSON ({regionInfo.VideoWidth}x{regionInfo.VideoHeight}) " +
+                    $"does not match the current video resolution ({_videoResolution.Width}x{_videoResolution.Height}).\n\n" +
+                    $"Continue applying the selection? (coordinates may be inaccurate)",
+                    "Warning", MessageBoxButton.YesNo, MessageBoxImage.Warning);
 
                 if (result != MessageBoxResult.Yes)
                     return;
             }
 
-            // 更新图像边界
+            // Update the image boundaries
             UpdateImageBounds();
 
-            // 计算缩放比例（从视频坐标转换到Canvas坐标）
+            // Calculate the scale ratio (from video coordinates to Canvas coordinates)
             double scaleX = _imageBounds.Width / _videoResolution.Width;
             double scaleY = _imageBounds.Height / _videoResolution.Height;
 
-            // 转换坐标
+            // Convert coordinates
             double canvasX = _imageBounds.Left + regionInfo.X * scaleX;
             double canvasY = _imageBounds.Top + regionInfo.Y * scaleY;
             double canvasW = regionInfo.Width * scaleX;
             double canvasH = regionInfo.Height * scaleY;
 
-            // 设置选区
+            // Set the selection
             Canvas.SetLeft(SelectionRect, canvasX);
             Canvas.SetTop(SelectionRect, canvasY);
             SelectionRect.Width = canvasW;
             SelectionRect.Height = canvasH;
             SelectionRect.Visibility = Visibility.Visible;
 
-            // 更新手柄和状态
+            // Update the handles and status
             UpdateHandles();
             Confirm.IsEnabled = true;
             Clear.IsEnabled = true;
             ProcessVideo.IsEnabled = true;
 
-            // 更新显示
+            // Update the display
             SelectedRegion = new System.Drawing.Rectangle(regionInfo.X, regionInfo.Y, regionInfo.Width, regionInfo.Height);
             UpdateInfoDisplay(new System.Windows.Point(canvasX, canvasY));
         }
@@ -1052,29 +1052,29 @@ namespace GI_Subtitles
             if (SelectionRect.Visibility != Visibility.Visible)
                 return new System.Drawing.Rectangle();
 
-            // 使用已计算的图像边界
+            // Use the calculated image boundaries
             if (_imageBounds.Width <= 0 || _imageBounds.Height <= 0)
             {
                 UpdateImageBounds();
             }
 
-            // 计算缩放比例
+            // Calculate the scale ratio
             double scaleX = _videoResolution.Width / _imageBounds.Width;
             double scaleY = _videoResolution.Height / _imageBounds.Height;
 
-            // 获取选择框相对于图像边界的坐标
+            // Get the coordinates of the selection box relative to the image boundaries
             double selX = Canvas.GetLeft(SelectionRect) - _imageBounds.Left;
             double selY = Canvas.GetTop(SelectionRect) - _imageBounds.Top;
             double selW = SelectionRect.Width;
             double selH = SelectionRect.Height;
 
-            // 转换回视频原始坐标
+            // Convert back to the original video coordinates
             int x = (int)Math.Round(selX * scaleX);
             int y = (int)Math.Round(selY * scaleY);
             int w = (int)Math.Round(selW * scaleX);
             int h = (int)Math.Round(selH * scaleY);
 
-            // 边界保护
+            // Boundary protection
             x = Math.Max(0, Math.Min(x, _videoResolution.Width - 1));
             y = Math.Max(0, Math.Min(y, _videoResolution.Height - 1));
             w = Math.Max(1, Math.Min(w, _videoResolution.Width - x));
@@ -1090,46 +1090,46 @@ namespace GI_Subtitles
                 return null;
             }
 
-            // 1. 确定像素格式
+            // 1. Determine the pixel format
             PixelFormat pixelFormat;
 
-            // OpenCvSharp 的 Type 通常是:
-            // CV_8UC1 (灰度), CV_8UC3 (BGR), CV_8UC4 (BGRA)
+            // The Type of OpenCvSharp is usually:
+            // CV_8UC1 (gray), CV_8UC3 (BGR), CV_8UC4 (BGRA)
             switch (mat.Type().ToString())
             {
                 case "CV_8UC1":
                     pixelFormat = PixelFormats.Gray8;
                     break;
                 case "CV_8UC3":
-                    pixelFormat = PixelFormats.Bgr24; // OpenCV 默认是 BGR
+                    pixelFormat = PixelFormats.Bgr24; // OpenCV defaults to BGR
                     break;
                 case "CV_8UC4":
-                    pixelFormat = PixelFormats.Bgra32; // 带 Alpha 通道
+                    pixelFormat = PixelFormats.Bgra32; // With Alpha channel
                     break;
                 default:
-                    throw new ArgumentException($"不支持的 Mat 类型: {mat.Type()}");
+                    throw new ArgumentException($"Unsupported Mat type: {mat.Type()}");
             }
 
-            // 2. 计算图像数据大小
-            // stride (步幅) = 每一行占用的字节数 (包含填充)
+            // 2. Calculate the image data size
+            // stride (stride) = the number of bytes per row (including padding)
             int stride = (int)mat.Step();
             int size = (int)mat.Total() * mat.ElemSize();
 
-            // 3. 创建 BitmapSource
-            // 使用 Create 方法直接从内存指针创建，避免了转成 System.Drawing.Bitmap 的中间损耗
+            // 3. Create BitmapSource
+            // Use the Create method to create directly from the memory pointer, avoiding the intermediate loss of converting to System.Drawing.Bitmap
             BitmapSource bitmapSource = BitmapSource.Create(
                 mat.Width,
                 mat.Height,
-                96d, 96d, // DPI 设置，通常设为 96
+                96d, 96d, // DPI setting, usually set to 96
                 pixelFormat,
-                null, // 调色板
-                mat.Data, // 直接使用 Mat 的数据指针
+                null, // Palette
+                mat.Data, // Use the data pointer of the Mat directly
                 size,
                 stride
             );
 
-            // 4. 冻结对象 (重要)
-            // 这样做可以让 BitmapSource 在非 UI 线程创建后，被 UI 线程访问
+            // 4. Freeze the object (important)
+            // This allows the BitmapSource to be accessed by the UI thread after it is created in a non-UI thread
             bitmapSource.Freeze();
 
             return bitmapSource;
@@ -1139,17 +1139,17 @@ namespace GI_Subtitles
         {
             if (string.IsNullOrEmpty(_videoPath))
             {
-                MessageBox.Show("请先打开视频文件", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show("Please open the video file first", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
 
             if (SelectedRegion.Width <= 0 || SelectedRegion.Height <= 0)
             {
-                MessageBox.Show("请先选择有效的区域", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show("Please select a valid region first", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
 
-            // 获取设置参数
+            // Get the setting parameters
             int detectionFps = 5;
             int minDurationMs = 200;
             if (int.TryParse(DetectionFpsInput.Text, out int fps))
@@ -1161,26 +1161,26 @@ namespace GI_Subtitles
                 minDurationMs = Math.Max(1, Math.Min(5000, minMs));
             }
 
-            // 获取处理范围
+            // Get the processing range
             bool limitToFirstMinute = ProcessFirstMinute.IsChecked == true;
 
-            // 生成字幕文件名（与视频文件名一致）
+            // Generate the subtitle file name (the same as the video file name)
             string videoDir = System.IO.Path.GetDirectoryName(_videoPath);
             string videoName = System.IO.Path.GetFileNameWithoutExtension(_videoPath);
             string srtPath = System.IO.Path.Combine(videoDir, $"{videoName}.srt");
 
-            // 清空之前的字幕列表
+            // Clear the previous subtitle list
             Subtitles.Clear();
             _currentSrtEntries.Clear();
 
-            // 禁用处理按钮，显示进度面板
+            // Disable the processing button, show the progress panel
             ProcessVideo.IsEnabled = false;
             ProgressPanel.Visibility = Visibility.Visible;
             ProgressBar.Value = 0;
-            ProgressStatusText.Text = "处理中...";
+            ProgressStatusText.Text = "Processing...";
             ExportSrtButton.Visibility = Visibility.Collapsed;
 
-            // 在后台线程运行（避免阻塞 UI）
+            // Run in the background thread (to avoid blocking the UI)
             Task.Run(() =>
             {
                 try
@@ -1197,49 +1197,49 @@ namespace GI_Subtitles
                     {
                         Dispatcher.Invoke(() =>
                         {
-                            // 更新进度
+                            // Update the progress
                             if (info.TotalTime > 0)
                             {
                                 double progressPercent = (info.CurrentTime / info.TotalTime) * 100;
                                 ProgressBar.Value = Math.Min(100, Math.Max(0, progressPercent));
                             }
 
-                            // 更新速度显示
+                            // Update the speed display
                             ProgressSpeedText.Text = $"[x{info.SpeedRatio:F1}]";
                             if (info.SpeedRatio > 1)
                                 ProgressSpeedText.Foreground = new SolidColorBrush(Colors.Green);
                             else
                                 ProgressSpeedText.Foreground = new SolidColorBrush(Colors.Red);
 
-                            // 更新时间显示
+                            // Update the time display
                             var currentSpan = TimeSpan.FromSeconds(info.CurrentTime);
                             var totalSpan = TimeSpan.FromSeconds(info.TotalTime);
                             ProgressCurrentTimeText.Text = FormatTimeSpan(currentSpan);
                             ProgressTotalTimeText.Text = FormatTimeSpan(totalSpan);
 
-                            // 添加新字幕到列表（使用AddOrMergeSubtitle进行过滤和合并）
+                            // Add new subtitle to the list (using AddOrMergeSubtitle for filtering and merging)
                             if (info.LatestSubtitle != null)
                             {
-                                // 使用AddOrMergeSubtitle方法进行过滤和合并
+                                // Use the AddOrMergeSubtitle method for filtering and merging
                                 int entriesCountBefore = _currentSrtEntries.Count;
                                 var mergedEntry = AddOrMergeSubtitle(_currentSrtEntries,
                                     info.LatestSubtitle.Text,
                                     info.LatestSubtitle.StartTime.TotalSeconds,
                                     info.LatestSubtitle.EndTime.TotalSeconds);
 
-                                // 如果返回null，说明被过滤掉了，跳过
+                                // If null is returned, it means it has been filtered out, skip
                                 if (mergedEntry == null)
                                 {
-                                    return; // 在lambda中使用return而不是continue
+                                    return; // Use return instead of continue in lambda
                                 }
 
-                                // 检查是否是合并到已有条目还是新条目
-                                // 如果entries数量没有增加，说明是合并到已有条目
+                                // Check if it is merged into an existing entry or a new entry
+                                // If the number of entries does not increase, it means it is merged into an existing entry
                                 bool isNewEntry = (_currentSrtEntries.Count > entriesCountBefore);
 
                                 if (!isNewEntry)
                                 {
-                                    // 合并到已有条目，更新UI
+                                    // Merge into an existing entry, update the UI
                                     int entryIndex = _currentSrtEntries.IndexOf(mergedEntry);
                                     if (entryIndex >= 0 && entryIndex < Subtitles.Count)
                                     {
@@ -1247,9 +1247,9 @@ namespace GI_Subtitles
                                         existingItem.TimeRange = $"{FormatTimeSpan(mergedEntry.StartTime)} --> {FormatTimeSpan(mergedEntry.EndTime)}";
                                         existingItem.EndTimeSeconds = mergedEntry.EndTime.TotalSeconds;
 
-                                        // 更新文本（如果文本有变化）
+                                        // Update the text (if the text has changed)
                                         var newLines = mergedEntry.Text.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries).ToList();
-                                        if (newLines.Count == 0) newLines.Add(mergedEntry.Text); // 如果没有换行，保持原样
+                                        if (newLines.Count == 0) newLines.Add(mergedEntry.Text); // If there is no line break, keep the original
 
                                         if (newLines.Count != existingItem.Lines.Count ||
                                             !newLines.SequenceEqual(existingItem.Lines))
@@ -1258,16 +1258,16 @@ namespace GI_Subtitles
                                             existingItem.Lines.AddRange(newLines);
                                         }
 
-                                        // 刷新显示
+                                        // Refresh the display
                                         var collectionView = System.Windows.Data.CollectionViewSource.GetDefaultView(Subtitles);
                                         collectionView.Refresh();
                                     }
                                 }
                                 else
                                 {
-                                    // 新条目，添加到UI
+                                    // New entry, add to the UI
                                     var newLines = mergedEntry.Text.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries).ToList();
-                                    if (newLines.Count == 0) newLines.Add(mergedEntry.Text); // 如果没有换行，保持原样
+                                    if (newLines.Count == 0) newLines.Add(mergedEntry.Text); // If there is no line break, keep the original
 
                                     var subtitleItem = new SubtitleItem
                                     {
@@ -1279,17 +1279,17 @@ namespace GI_Subtitles
                                     Subtitles.Add(subtitleItem);
                                 }
 
-                                // 自动滚动到底部
+                                // Automatically scroll to the bottom
                                 if (SubtitleListBox.Items.Count > 0)
                                 {
                                     SubtitleListBox.ScrollIntoView(SubtitleListBox.Items[SubtitleListBox.Items.Count - 1]);
                                 }
                             }
 
-                            // 处理完成
+                            // Processing completed
                             if (info.IsFinished)
                             {
-                                ProgressStatusText.Text = "处理完成";
+                                ProgressStatusText.Text = "Processing completed";
                                 ProgressBar.Value = 100;
                                 ProgressSpeedText.Foreground = new SolidColorBrush(Colors.Green);
                                 ExportSrtButton.Visibility = Visibility.Visible;
@@ -1300,11 +1300,11 @@ namespace GI_Subtitles
 
                     generator.GenerateSrt(engine, srtPath, progress);
 
-                    Logger.Log.Info($"字幕生成完成！\n保存位置：{srtPath}\n字幕条数：{Subtitles.Count}");
+                    Logger.Log.Info($"Subtitles generated successfully!\nSave location: {srtPath}\nSubtitle count: {Subtitles.Count}");
                 }
                 catch (Exception ex)
                 {
-                    Logger.Log.Error($"处理失败：{ex.Message}");
+                    Logger.Log.Error($"Processing failed: {ex.Message}");
                 }
             });
         }
@@ -1323,13 +1323,13 @@ namespace GI_Subtitles
 
         private void SubtitleListBox_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            // 检查点击的是否是TextBox
+            // Check if the clicked object is a TextBox
             var source = e.OriginalSource as System.Windows.DependencyObject;
             while (source != null)
             {
                 if (source is TextBox)
                 {
-                    // 点击的是TextBox，不处理选择事件，让TextBox获得焦点
+                    // The clicked object is a TextBox, do not process the selection event, let the TextBox get the focus
                     _isEditingSubtitle = true;
                     return;
                 }
@@ -1340,12 +1340,12 @@ namespace GI_Subtitles
 
         private void SubtitleListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            // 避免在编辑时触发跳转
+            // Avoid triggering a jump when editing
             if (e.AddedItems.Count == 0 || _isEditingSubtitle) return;
 
             if (SubtitleListBox.SelectedItem is SubtitleItem item && !string.IsNullOrEmpty(_videoPath))
             {
-                // 跳转到字幕结束时间（因为开始时间可能字幕还没完全展示）
+                // Jump to the subtitle end time (because the start time may not have fully displayed the subtitle)
                 LoadFrameAtTime(_videoPath, item.EndTimeSeconds);
             }
         }
@@ -1355,11 +1355,11 @@ namespace GI_Subtitles
             var textBox = sender as TextBox;
             if (textBox == null) return;
 
-            // 获取原始文本（DataContext）
+            // Get the original text (DataContext)
             var originalText = textBox.DataContext as string;
             if (originalText == null) return;
 
-            // 向上查找ListBoxItem以获取SubtitleItem
+            // Find the ListBoxItem upwards to get the SubtitleItem
             var parent = System.Windows.Media.VisualTreeHelper.GetParent(textBox);
             while (parent != null && !(parent is ListBoxItem))
             {
@@ -1371,7 +1371,7 @@ namespace GI_Subtitles
                 var subtitleItem = listBoxItem.DataContext as SubtitleItem;
                 if (subtitleItem != null)
                 {
-                    // 更新字幕文本
+                    // Update the subtitle text
                     var newText = textBox.Text;
                     var lineIndex = subtitleItem.Lines.IndexOf(originalText);
 
@@ -1379,7 +1379,7 @@ namespace GI_Subtitles
                     {
                         subtitleItem.Lines[lineIndex] = newText;
 
-                        // 同步更新_currentSrtEntries
+                        // Synchronize update _currentSrtEntries
                         var subtitleIndex = Subtitles.IndexOf(subtitleItem);
                         if (subtitleIndex >= 0 && subtitleIndex < _currentSrtEntries.Count)
                         {
@@ -1389,7 +1389,7 @@ namespace GI_Subtitles
                 }
             }
 
-            // 编辑完成，重置标志
+            // Editing completed, reset the flag
             _isEditingSubtitle = false;
         }
 
@@ -1400,7 +1400,7 @@ namespace GI_Subtitles
                 return;
             }
 
-            // 获取所有选中的项，转换为 SubtitleItem 列表
+            // Get all selected items, convert to SubtitleItem list
             var selectedItems = SubtitleListBox.SelectedItems.Cast<SubtitleItem>().ToList();
 
             if (selectedItems.Count == 0)
@@ -1408,7 +1408,7 @@ namespace GI_Subtitles
                 return;
             }
 
-            // 获取要删除的索引（从大到小排序，避免删除时索引变化的问题）
+            // Get the indices to delete (from largest to smallest to avoid the problem of index change when deleting)
             var indicesToDelete = selectedItems
                 .Select(item => Subtitles.IndexOf(item))
                 .Where(index => index >= 0 && index < _currentSrtEntries.Count)
@@ -1420,18 +1420,18 @@ namespace GI_Subtitles
                 return;
             }
 
-            // 确认删除
+            // Confirm deletion
             string message = indicesToDelete.Count == 1
-                ? "确定要删除选中的字幕吗？"
-                : $"确定要删除选中的 {indicesToDelete.Count} 个字幕吗？";
+                ? "Are you sure you want to delete the selected subtitles?"
+                : $"Are you sure you want to delete the selected {indicesToDelete.Count} subtitles?";
 
-            if (MessageBox.Show(message, "确认删除", MessageBoxButton.YesNo, MessageBoxImage.Question)
+            if (MessageBox.Show(message, "Confirm deletion", MessageBoxButton.YesNo, MessageBoxImage.Question)
                 != MessageBoxResult.Yes)
             {
                 return;
             }
 
-            // 从后往前删除，避免索引变化
+            // Delete from the back to avoid index change
             foreach (var index in indicesToDelete)
             {
                 if (index >= 0 && index < Subtitles.Count)
@@ -1444,14 +1444,14 @@ namespace GI_Subtitles
                 }
             }
 
-            // 如果删除后列表为空，隐藏导出按钮
+            // If the list is empty after deletion, hide the export button
             if (_currentSrtEntries.Count == 0)
             {
                 ExportSrtButton.Visibility = Visibility.Collapsed;
             }
 
-            // 更新后续项的索引（如果需要）
-            // 注意：SubtitleItem 的 Index 属性在导出时会重新计算，所以这里不需要更新
+            // Update the indices of the subsequent items (if needed)
+            // Note: The Index property of SubtitleItem will be recalculated when exporting, so it does not need to be updated here
         }
 
         private void ToggleSelectionButton_Click(object sender, RoutedEventArgs e)
@@ -1460,10 +1460,10 @@ namespace GI_Subtitles
 
             if (_keepSelectionVisible)
             {
-                // 显示选区
+                // Show the selection
                 if (SelectedRegion.Width > 0 && SelectedRegion.Height > 0)
                 {
-                    // 如果已有选区，显示它
+                    // If there is already a selection, show it
                     UpdateImageBounds();
                     var scaleX = _imageBounds.Width / _videoResolution.Width;
                     var scaleY = _imageBounds.Height / _videoResolution.Height;
@@ -1481,21 +1481,21 @@ namespace GI_Subtitles
                 }
                 else if (SelectionRect.Visibility == Visibility.Collapsed)
                 {
-                    // 如果没有选区，提示用户
-                    MessageBox.Show("请先选择区域", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                    // If there is no selection, prompt the user
+                    MessageBox.Show("Please select a region first", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
                     _keepSelectionVisible = false;
-                    ToggleSelectionButton.Content = "显示选区";
+                    ToggleSelectionButton.Content = "Show selection";
                     return;
                 }
-                ToggleSelectionButton.Content = "隐藏选区";
+                ToggleSelectionButton.Content = "Hide selection";
             }
             else
             {
-                // 隐藏选区
+                // Hide the selection
                 SelectionRect.Visibility = Visibility.Collapsed;
                 UpdateHandles();
                 InfoBorder.Visibility = Visibility.Collapsed;
-                ToggleSelectionButton.Content = "显示选区";
+                ToggleSelectionButton.Content = "Show selection";
             }
         }
 
@@ -1503,13 +1503,13 @@ namespace GI_Subtitles
         {
             if (_currentSrtEntries.Count == 0)
             {
-                MessageBox.Show("没有可导出的字幕", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show("No subtitles to export", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
             var dialog = new Microsoft.Win32.SaveFileDialog
             {
-                Filter = "字幕文件|*.srt|所有文件|*.*",
+                Filter = "Subtitle file|*.srt|All files|*.*",
                 FileName = System.IO.Path.GetFileNameWithoutExtension(_videoPath) + ".srt"
             };
 
@@ -1518,11 +1518,11 @@ namespace GI_Subtitles
                 try
                 {
                     WriteSrtFile(dialog.FileName, _currentSrtEntries);
-                    MessageBox.Show($"字幕已导出到：{dialog.FileName}", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                    MessageBox.Show($"Subtitles exported to: {dialog.FileName}", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"导出失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show($"Export failed: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
         }
@@ -1542,11 +1542,11 @@ namespace GI_Subtitles
 
         private void StartOcrProcessing()
         {
-            // 保留此方法以兼容旧代码，但实际使用ProcessVideo_Click
+            // Keep this method for backward compatibility, but actually use ProcessVideo_Click
             ProcessVideo_Click(null, null);
         }
 
-        // 检测文本是否包含中文、日文或英文
+        // Check if the text contains Chinese, Japanese or English
         private bool ContainsValidLanguage(string text)
         {
             if (string.IsNullOrWhiteSpace(text))
@@ -1558,22 +1558,22 @@ namespace GI_Subtitles
 
             foreach (char c in text)
             {
-                // 检测中文（CJK统一汉字）
+                // Check Chinese (CJK unified Han characters)
                 if (c >= 0x4E00 && c <= 0x9FFF)
                 {
                     hasChinese = true;
                 }
-                // 检测日文平假名
+                // Check Japanese hiragana
                 else if (c >= 0x3040 && c <= 0x309F)
                 {
                     hasJapanese = true;
                 }
-                // 检测日文片假名
+                // Check Japanese katakana
                 else if (c >= 0x30A0 && c <= 0x30FF)
                 {
                     hasJapanese = true;
                 }
-                // 检测英文
+                // Check English
                 else if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'))
                 {
                     hasEnglish = true;
@@ -1583,34 +1583,34 @@ namespace GI_Subtitles
             return hasChinese || hasJapanese || hasEnglish;
         }
 
-        // 改进的相似度计算：检查文本是否包含或高度重叠
+        // Improved similarity calculation: check if the text contains or overlaps significantly
         private bool IsTextSimilar(string text1, string text2, double threshold = 0.8)
         {
             if (string.IsNullOrEmpty(text1) || string.IsNullOrEmpty(text2))
                 return false;
 
-            // 1. 完全相同
+            // 1. Completely the same
             if (text1 == text2)
                 return true;
 
-            // 2. 检查是否一个包含另一个（处理前缀/后缀情况）
+            // 2. Check if one contains the other (handle prefix/suffix cases)
             if (text1.Contains(text2) || text2.Contains(text1))
             {
                 return true;
             }
 
-            // 3. 使用编辑距离计算相似度
+            // 3. Use the edit distance to calculate the similarity
             var similarity = CalculateLevenshteinSimilarity(text1, text2);
             return similarity >= threshold;
         }
 
-        // 从VideoProcessor复制的字幕合并逻辑
+        // Subtitle merging logic copied from VideoProcessor
         private SrtEntry AddOrMergeSubtitle(List<SrtEntry> entries, string text, double start, double end)
         {
-            // 过滤：如果字幕既没有英文也没有中文也没有日文，就过滤掉
+            // Filter: if the subtitle does not contain English, Chinese or Japanese, filter it out
             if (!ContainsValidLanguage(text))
             {
-                // 返回null表示被过滤掉，不添加到列表
+                // Return null means it is filtered out, not added to the list
                 return null;
             }
 
@@ -1618,18 +1618,18 @@ namespace GI_Subtitles
             {
                 var last = entries[entries.Count - 1];
 
-                // 1. 文本完全相同，合并
+                // 1. The text is completely the same, merge
                 if (last.Text == text)
                 {
                     last.EndTime = TimeSpan.FromSeconds(end);
                     return last;
                 }
 
-                // 2. 文本相似度高，且时间重叠或紧邻，合并
+                // 2. The text similarity is high, and the time overlaps or is adjacent, merge
                 double gap = start - last.EndTime.TotalSeconds;
                 if (gap < 2.0 && IsTextSimilar(last.Text, text, 0.8))
                 {
-                    // 相似合并，取较长的一个
+                    // Similar merge, take the longer one
                     if (text.Length > last.Text.Length) last.Text = text;
                     last.EndTime = TimeSpan.FromSeconds(end);
                     return last;

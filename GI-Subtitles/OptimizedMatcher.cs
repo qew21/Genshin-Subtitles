@@ -6,7 +6,7 @@ using System.Collections.Concurrent;
 
 namespace GI_Subtitles
 {
-    // 用于返回header和content分开的结果
+    // Used to return the result of header and content separated
     public struct MatchResult
     {
         public string Header;
@@ -15,14 +15,14 @@ namespace GI_Subtitles
 
     public class OptimizedMatcher
     {
-        // 存储原始数据，使用结构体数组以获得最佳内存布局
+        // Store original data, use structure array to get the best memory layout
         private readonly Entry[] _entries;
 
-        // 倒排索引：Bigram (两字片段) -> 包含该片段的所有 Entry ID 列表
-        // 比如: "狂猎" -> [5, 12, 108]
+        // Inverted index: Bigram (two-character fragment) -> list of all Entry IDs containing that fragment
+        // For example: "狂猎" -> [5, 12, 108]
         private readonly Dictionary<string, List<int>> _bigramIndex;
 
-        // 小于2个字的词无法生成 Bigram，单独存一个桶用于兜底
+        // Words with less than 2 characters cannot generate Bigram, store a separate bucket for fallback
         private readonly int[] _shortKeysIndices;
         private readonly Dictionary<string, string> ContentDict;
         public bool Loaded = false;
@@ -39,7 +39,7 @@ namespace GI_Subtitles
             ContentDict = voiceContentDict;
             int count = voiceContentDict.Count;
             _entries = new Entry[count];
-            _bigramIndex = new Dictionary<string, List<int>>(count * 3); // 预估容量
+            _bigramIndex = new Dictionary<string, List<int>>(count * 3); // Estimated capacity
             var shortKeysList = new List<int>();
 
             int index = 0;
@@ -48,7 +48,7 @@ namespace GI_Subtitles
                 string key = kvp.Key;
                 key = NormalizeInput(key);
 
-                // 1. 存入原始数据数组
+                // 1. Store the original data array
                 _entries[index] = new Entry
                 {
                     Key = key,
@@ -56,21 +56,21 @@ namespace GI_Subtitles
                     Length = key.Length
                 };
 
-                // 2. 构建索引 (内存换时间的核心)
+                // 2. Build the index (the core of memory for time)
                 if (key.Length < 2)
                 {
                     shortKeysList.Add(index);
                 }
                 else
                 {
-                    // 生成 Bigrams (每两个相邻字符)
-                    // "狂猎灾祸" -> "狂猎", "猎灾", "灾祸"
-                    // 使用 HashSet 去重，避免同一个词里由重复片段导致重复索引
+                    // Generate Bigrams (each two adjacent characters)
+                    // "狂猎灾祸" -> "狂猎", "猎灾", "灾祸" 
+                    // Use HashSet to deduplicate, avoid duplicate indices caused by duplicate fragments in the same word
                     var uniqueBigrams = new HashSet<string>();
                     for (int i = 0; i < key.Length - 1; i++)
                     {
-                        // 这是一个纯内存操作，为了速度牺牲空间，直接 Substring
-                        // 极致优化可以用 int hash 替代 string key，但容易冲突，这里求稳
+                        // This is a pure memory operation, to sacrifice space for speed, directly Substring
+                        // The extreme optimization can use int hash to replace string key, but it is easy to conflict, here is stable
                         string bigram = key.Substring(i, 2);
                         if (uniqueBigrams.Add(bigram))
                         {
@@ -101,27 +101,27 @@ namespace GI_Subtitles
 
             int inputLen = input.Length;
 
-            // --- 阶段 1: 候选集筛选 (Candidate Selection) ---
+            // --- Stage 1: Candidate Selection ---
 
-            // 使用 HashSet 记录需要进行精确计算的 ID，自动去重
-            // 如果 input 很短 (<2)，无法利用 Bigram 索引，只能退化为遍历所有短词
+            // Use HashSet to record IDs that need to be calculated precisely, automatically deduplicated
+            // If input is very short (<2), Bigram index cannot be used, it can only fall back to scanning all short words
             HashSet<int> candidates;
 
             if (inputLen < 2)
             {
-                // 输入太短，直接匹配所有短词 + 可能的索引
-                // 这里简单起见，如果输入太短，我们只扫描短词表
+                // Input is too short, directly match all short words + possible indices
+                // Here for simplicity, if the input is too short, we only scan the short word table
                 candidates = new HashSet<int>(_shortKeysIndices);
             }
             else
             {
-                // 输入足够长，利用索引
+                // Input is long enough, use the index
                 candidates = new HashSet<int>();
 
-                // 1.1 收集候选者
-                // 策略：只要命中 Input 中的任意一个 Bigram，就将其纳入候选
-                // 优化思路：如果 Input 很长，可以要求至少命中 2 个或 3 个 Bigram 才算候选，
-                // 但为了不漏掉模糊匹配，这里采用最宽松策略：命中 1 个即算。
+                // 1.1 Collect candidates
+                // Strategy: as long as any Bigram in Input is hit, it is included in the candidates
+                // Optimization: If Input is long enough, it can be required to hit at least 2 or 3 Bigrams 
+                // But to avoid missing fuzzy matching, here we use the most relaxed strategy: hit 1 is enough.
                 for (int i = 0; i < inputLen - 1; i++)
                 {
                     string bigram = input.Substring(i, 2);
@@ -134,12 +134,12 @@ namespace GI_Subtitles
                     }
                 }
 
-                // 1.2 极其重要：
-                // 如果是"包含逻辑"（Input是Key的子串），Key一定包含了Input的所有Bigram，所以一定在candidates里。
-                // 如果是"Key是Input的子串"，Key可能很短，所以我们要把 _shortKeysIndices 也加进来兜底。
+                // 1.2 Very important:
+                // If it is "contains logic" (Input is a substring of Key), Key must contain all Bigrams of Input, so it must be in candidates.
+                // If it is "Key is a substring of Input", Key maybe very short, so we need to add _shortKeysIndices to the fallback.
                 foreach (var id in _shortKeysIndices) candidates.Add(id);
 
-                // 如果没有找到任何候选者（说明完全不相关），直接返回空
+                // If no candidates are found (completely unrelated), return empty
                 if (candidates.Count == 0)
                 {
                     Key = "";
@@ -147,20 +147,20 @@ namespace GI_Subtitles
                 }
             }
 
-            // 如果候选集过大（例如超过 2000 个），并行处理；否则直接单线程处理更快
-            // 此时 candidates.Count 通常只有几十到几百个，比之前的 10000 个少两个数量级
+            // If the candidate set is too large (for example, more than 2000), parallel processing; otherwise, direct single-thread processing is faster
+            // At this time, candidates.Count usually only has several tens to hundreds, much less than the previous 10000
             var candidateList = candidates.ToArray();
 
-            // --- 阶段 2: 精确计算 (Exact Calculation) ---
-            // 直接复用之前已经优化到极致的逻辑，只是数据源变了
+            // --- Stage 2: Exact Calculation ---
+            // Directly reuse the logic that has been optimized to the extreme, just the data source has changed
 
-            // 全局最优解
+            // Global best solution
             int globalBestDistance = int.MaxValue;
             string globalBestKey = null;
             object globalLock = new object();
 
-            // 只有当候选数量较多时才开启并行，否则上下文切换开销大于收益
-            // 经验阈值：200
+            // Only when the candidate quantity is large enough is parallel processing enabled, otherwise the context switching overhead is greater than the benefit
+            // Experience threshold: 200
             if (candidateList.Length > 200)
             {
                 Parallel.ForEach(candidateList, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, (id, state) =>
@@ -172,58 +172,51 @@ namespace GI_Subtitles
             {
                 foreach (var id in candidateList)
                 {
-                    // 模拟一个空的 LoopState
+                    // Simulate an empty LoopState
                     ProcessCandidate(id, input, inputLen, ref globalBestDistance, ref globalBestKey, globalLock, null);
                     if (globalBestDistance == 0) break;
                 }
             }
 
-            // 结果验证
+            // Result verification
             if (globalBestDistance < inputLen / 1.5)
             {
                 Key = globalBestKey;
-                // 注意：这里需要根据 Key 再去查 Value，或者直接在 Entry 里存 Value (这里已存)
-                // 为了快速返回，我们需要根据 Key 去原字典查，或者我们在 Entry 里就存了 Value
-                // 这里我们在 Entry 里存了 Value，直接取即可，避免再次查字典
-                // 但 globalBestKey 只是字符串，我们得找回 Value
-                // 简单点：直接返回 Entry 里的 Value。
-                // *为了代码简洁，这里稍作妥协，重新去 _entries 找或者让 ProcessCandidate 记录 bestEntry*
-                // 鉴于已经有 Key，直接从字典取是最安全的
-                // 为了性能，建议在 Entry 结构体里直接存 Value，这里因为 globalBestKey 只是 string，
-                // 我们假设外部还是根据 Key 来取，或者你可以修改 ProcessCandidate 直接返回 Entry。
-
-                // 这里为了维持接口不变，仍返回 Key
+                // Note: here we need to check the Value again based on Key, or directly store the Value in the Entry (it is already stored here)
+                // To return quickly, we need to check the original dictionary based on Key, or we store the Value in the Entry
+                // Here we store the Value in the Entry, directly take it, avoid checking the dictionary again
+                // But globalBestKey is only a string, we need to find the Value back
                 return _entries.First(e => e.Key == globalBestKey).Value;
-                // 优化：上面的 First 是 O(N)，这不行。
-                // 修正：我们应该记录 bestIndex
+                // Optimization: the First is O(N), this is not good.
+                // Correction: we should record bestIndex
             }
 
             Key = "";
             return "";
         }
 
-        // 核心处理逻辑 (提取出来以便复用)
+        // Core processing logic (extracted for reuse)
         private void ProcessCandidate(int id, string input, int inputLen, ref int globalBestDistance, ref string globalBestKey, object lockObj, ParallelLoopState loopState)
         {
-            // 快速检查：如果已有完美匹配
+            // Quick check: if there is a perfect match
             if (globalBestDistance == 0)
             {
                 loopState?.Stop();
                 return;
             }
 
-            // 直接通过数组下标访问，极快 (O(1))
+            // Directly access the array index, extremely fast (O(1))
             ref readonly var entry = ref _entries[id];
             string key = entry.Key;
             int keyLen = entry.Length;
 
-            // 原始业务过滤逻辑
+            // Original business filtering logic
             if (inputLen <= 5 && keyLen >= inputLen * 3) return;
 
             int currentDistance = int.MaxValue;
             bool isSpecialMatch = false;
 
-            // 包含优先逻辑
+            // Contains priority logic
             if (inputLen > 10)
             {
                 if (key.IndexOf(input, StringComparison.Ordinal) >= 0 ||
@@ -236,7 +229,7 @@ namespace GI_Subtitles
 
             if (!isSpecialMatch)
             {
-                // 剪枝
+                // Pruning
                 if (Math.Abs(keyLen - inputLen) >= globalBestDistance * 1.5) return;
 
                 ReadOnlySpan<char> targetSpan = key.AsSpan();
@@ -262,7 +255,7 @@ namespace GI_Subtitles
             }
         }
 
-        // 保持不变的极致优化 Levenshtein
+        // Keep the extreme optimization of Levenshtein unchanged
         private static int CalculateLevenshteinDistance(ReadOnlySpan<char> source, ReadOnlySpan<char> target, int threshold)
         {
             int sourceLen = source.Length;
@@ -375,7 +368,7 @@ namespace GI_Subtitles
             }
         }
 
-        // 新增方法：返回header和content分开的结果
+        // New method: return the result of header and content separated
         public MatchResult FindMatchWithHeaderSeparated(string ocrText, out string key)
         {
             key = "";
@@ -488,7 +481,7 @@ namespace GI_Subtitles
         private static string NormalizeInput(string input)
         {
             if (string.IsNullOrEmpty(input)) return input;
-            // 移除所有空白字符（空格、换行、制表符等）
+            // Remove all whitespace characters (space, newline, tab, etc.)
             return new string(input.Where(c => !char.IsWhiteSpace(c)).ToArray());
         }
     }
