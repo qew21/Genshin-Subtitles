@@ -13,20 +13,20 @@ using System.Linq;
 
 namespace Screenshot
 {
-    // 扩展ScreenScale，增加屏幕边界信息
+    // Extend ScreenScale, add screen boundary information
     public class ScreenScale
     {
         public double ScaleX { get; set; }
         public double ScaleY { get; set; }
-        public Rect PhysicalBounds { get; set; } // 屏幕物理像素边界
-        public Rect LogicalBounds { get; set; }  // 屏幕逻辑像素边界
-        public bool IsPrimary { get; set; }      // 是否为主屏幕
+        public Rect PhysicalBounds { get; set; } // Screen physical pixel boundary
+        public Rect LogicalBounds { get; set; }  // Screen logical pixel boundary
+        public bool IsPrimary { get; set; }      // Whether it is the main screen
     }
 
     public static class Screenshot
     {
         /// <summary>
-        /// 捕获所有屏幕（适配每个屏幕的真实缩放比例，解决多屏幕缩放不一致问题）
+        /// Capture all screens (adapt to the real scale of each screen, solve the problem of inconsistent scaling of multiple screens)
         /// </summary>
         public static BitmapSource CaptureAllScreens()
         {
@@ -35,7 +35,7 @@ namespace Screenshot
             double mainScaleX = 1.0;
             double mainScaleY = 1.0;
 
-            // 计算虚拟屏幕的真实边界（物理像素）
+            // Calculate the real boundary of the virtual screen (physical pixels)
             double minLeft = double.MaxValue;
             double minTop = double.MaxValue;
             double maxRight = double.MinValue;
@@ -43,17 +43,17 @@ namespace Screenshot
 
             foreach (var screen in screens)
             {
-                // 获取屏幕的DPI缩放比例（精准获取当前屏幕DPI）
+                // Get the DPI scale of the screen (accurately get the DPI of the current screen)
                 ScreenScale scale = GetScreenScale(screen);
                 screenScaleList.Add(scale);
 
-                // 记录虚拟屏幕的物理边界
+                // Record the physical boundary of the virtual screen
                 minLeft = Math.Min(minLeft, scale.PhysicalBounds.Left);
                 minTop = Math.Min(minTop, scale.PhysicalBounds.Top);
                 maxRight = Math.Max(maxRight, scale.PhysicalBounds.Right);
                 maxBottom = Math.Max(maxBottom, scale.PhysicalBounds.Bottom);
 
-                // 记录主屏幕缩放
+                // Record the main screen scale
                 if (screen.Primary)
                 {
                     mainScaleX = scale.ScaleX;
@@ -61,20 +61,20 @@ namespace Screenshot
                 }
             }
 
-            // 分屏幕捕获并拼接（核心修复：解决多屏幕缩放不一致）
+            // Capture and stitch by screen (core fix: solve the problem of inconsistent scaling of multiple screens)
             var virtualPhysRect = new Rect(minLeft, minTop, maxRight - minLeft, maxBottom - minTop);
             BitmapSource physicalBitmap = CaptureMultiScreen(virtualPhysRect, screenScaleList);
 
-            // 缩放位图到WPF逻辑尺寸（和屏幕视觉一致）
+            // Scale the bitmap to the WPF logical size (consistent with the screen visual)
             var scaleTransform = new ScaleTransform(1 / mainScaleX, 1 / mainScaleY);
             var scaledBitmap = new TransformedBitmap(physicalBitmap, scaleTransform);
-            scaledBitmap.Freeze(); // 冻结以提升性能
+            scaledBitmap.Freeze(); // Freeze to improve performance
 
             return scaledBitmap;
         }
 
         /// <summary>
-        /// 分屏幕捕获并拼接成完整虚拟屏幕位图（解决多屏幕缩放不一致）
+        /// Capture and stitch by screen to form a complete virtual screen bitmap (solve the problem of inconsistent scaling of multiple screens)
         /// </summary>
         private static BitmapSource CaptureMultiScreen(Rect virtualPhysRect, List<ScreenScale> screenScales)
         {
@@ -85,15 +85,15 @@ namespace Screenshot
             {
                 using (var g = Graphics.FromImage(totalBitmap))
                 {
-                    // 逐个屏幕捕获并绘制到总位图
+                    // Capture and draw to the total bitmap one by one
                     foreach (var scale in screenScales)
                     {
                         var screenPhys = scale.PhysicalBounds;
-                        // 计算当前屏幕在总位图中的偏移
+                        // Calculate the offset of the current screen in the total bitmap
                         int destX = (int)(screenPhys.Left - virtualPhysRect.Left);
                         int destY = (int)(screenPhys.Top - virtualPhysRect.Top);
 
-                        // 捕获当前屏幕的物理像素
+                        // Capture the physical pixels of the current screen
                         using (var screenBitmap = new Bitmap(
                             (int)screenPhys.Width,
                             (int)screenPhys.Height,
@@ -106,13 +106,13 @@ namespace Screenshot
                                     0, 0, screenBitmap.Size,
                                     CopyPixelOperation.SourceCopy);
                             }
-                            // 绘制到总位图对应位置
+                            // Draw to the corresponding position in the total bitmap
                             g.DrawImage(screenBitmap, destX, destY);
                         }
                     }
                 }
 
-                // 转换为WPF BitmapSource
+                // Convert to WPF BitmapSource
                 IntPtr hBitmap = totalBitmap.GetHbitmap();
                 var bitmapSource = Imaging.CreateBitmapSourceFromHBitmap(
                     hBitmap, IntPtr.Zero, Int32Rect.Empty,
@@ -123,7 +123,7 @@ namespace Screenshot
         }
 
         /// <summary>
-        /// 获取指定屏幕的DPI缩放比例（使用 Shcore.dll 精准获取 Per-Monitor DPI）
+        /// Get the DPI scale of the specified screen (accurately get the DPI of the specified screen using Shcore.dll)
         /// </summary>
         private static ScreenScale GetScreenScale(Screen screen)
         {
@@ -133,15 +133,15 @@ namespace Screenshot
 
             try
             {
-                // 1. 获取显示器句柄 (HMONITOR)
-                // 取屏幕中心点来确保获取到正确的显示器句柄
+                // 1. Get the display handle (HMONITOR)
+                // Take the screen center point to ensure that the correct display handle is obtained
                 var centerPoint = new System.Drawing.Point(
                     screen.Bounds.Left + (screen.Bounds.Width / 2),
                     screen.Bounds.Top + (screen.Bounds.Height / 2));
 
                 IntPtr hMonitor = MonitorFromPoint(centerPoint, MONITOR_DEFAULTTONEAREST);
 
-                // 2. 通过 Shcore.dll 获取该显示器的真实 DPI
+                // 2. Get the real DPI of the displayer through Shcore.dll
                 uint dpiX, dpiY;
                 int result = GetDpiForMonitor(hMonitor, MonitorDpiType.MDT_EFFECTIVE_DPI, out dpiX, out dpiY);
 
@@ -152,15 +152,15 @@ namespace Screenshot
                 }
                 else
                 {
-                    // 如果 API 失败（例如系统不支持），回退到通用逻辑
+                    // If the API fails (for example, the system does not support it), fall back to the general logic
                     scale.ScaleX = 1.0;
                     scale.ScaleY = 1.0;
-                    DebugLogger.Log($"获取DPI失败，回退到1.0。Screen: {screen.DeviceName}");
+                    DebugLogger.Log($"Failed to get DPI, falling back to 1.0. Screen: {screen.DeviceName}");
                 }
             }
             catch (Exception ex)
             {
-                DebugLogger.Log($"获取DPI异常: {ex.Message}。回退到1.0");
+                DebugLogger.Log($"Exception getting DPI: {ex.Message}. Falling back to 1.0");
                 scale.ScaleX = 1.0;
                 scale.ScaleY = 1.0;
             }
@@ -169,7 +169,7 @@ namespace Screenshot
         }
 
         // ========================================================================
-        // 下面是必须引入的 Win32 API
+        // The following is the Win32 API that must be imported
         // ========================================================================
 
         private const int MONITOR_DEFAULTTONEAREST = 2;
@@ -187,12 +187,12 @@ namespace Screenshot
             MDT_RAW_DPI = 2,
         }
 
-        // 获取设备DPI的Win32 API（精准获取指定屏幕DPI）
+        // Get the Win32 API for the device DPI (accurately get the DPI of the specified screen)
         [System.Runtime.InteropServices.DllImport("gdi32.dll")]
         private static extern int GetDeviceCaps(IntPtr hdc, int nIndex);
 
         /// <summary>
-        /// 捕获指定区域（物理像素坐标）
+        /// Capture the specified region (physical pixel coordinates)
         /// </summary>
         public static BitmapSource CaptureRegion(Rect region)
         {
@@ -211,29 +211,29 @@ namespace Screenshot
                         System.Drawing.CopyPixelOperation.SourceCopy);
                 }
 
-                // 转换为WPF的BitmapSource
+                // Convert to WPF BitmapSource
                 var hBitmap = bitmap.GetHbitmap();
                 var bitmapSource = Imaging.CreateBitmapSourceFromHBitmap(
                     hBitmap,
                     IntPtr.Zero,
                     Int32Rect.Empty,
                     BitmapSizeOptions.FromEmptyOptions());
-                DeleteObject(hBitmap); // 释放非托管资源
+                DeleteObject(hBitmap); // Release unmanaged resources
                 return bitmapSource;
             }
         }
 
         /// <summary>
-        /// 获取用户选择的区域
+        /// Get the user's selected region
         /// </summary>
         public static Rect GetRegion()
         {
-            DebugLogger.Log("========== 开始新的截图会话 ==========");
+            DebugLogger.Log("========== Start a new screenshot session ==========");
 
             var options = new ScreenshotOptions();
 
-            // 1. 再次遍历屏幕以获取 物理边界起点(minLeft/Top) 和 主屏幕缩放(MainScale)
-            // 必须与 CaptureAllScreens 中的逻辑完全一致
+            // 1. Loop through the screens again to get the physical boundary start point (minLeft/Top) and the main screen scale (MainScale)
+            // Must be completely consistent with the logic in CaptureAllScreens
             var screens = Screen.AllScreens;
             double minLeft = double.MaxValue;
             double minTop = double.MaxValue;
@@ -246,7 +246,7 @@ namespace Screenshot
             {
                 var scale = GetScreenScale(screen);
 
-                DebugLogger.Log($"屏幕: {screen.DeviceName}, 主屏: {screen.Primary}, Bounds: {screen.Bounds}, Scale: {scale.ScaleX:F2},{scale.ScaleY:F2}");
+                DebugLogger.Log($"Screen: {screen.DeviceName}, Main screen: {screen.Primary}, Bounds: {screen.Bounds}, Scale: {scale.ScaleX:F2},{scale.ScaleY:F2}");
 
                 if (screen.Primary)
                 {
@@ -260,20 +260,20 @@ namespace Screenshot
                 maxBottom = Math.Max(maxBottom, screen.Bounds.Bottom);
             }
 
-            DebugLogger.Log($"虚拟屏幕物理边界: Left={minLeft}, Top={minTop}, Right={maxRight}, Bottom={maxBottom}");
-            DebugLogger.Log($"主屏幕缩放比例: X={mainScaleX}, Y={mainScaleY}");
+            DebugLogger.Log($"Virtual screen physical boundary: Left={minLeft}, Top={minTop}, Right={maxRight}, Bottom={maxBottom}");
+            DebugLogger.Log($"Main screen scale: X={mainScaleX}, Y={mainScaleY}");
 
-            // 2. 捕获全屏图像
+            // 2. Capture the full screen image
             var bitmap = CaptureAllScreens();
 
-            // 3. 计算用于显示窗口的逻辑坐标
-            // 窗口的 (0,0) 对应物理像素的 (minLeft, minTop)
+            // 3. Calculate the logical coordinates for the window to display
+            // The (0,0) of the window corresponds to the physical pixels of (minLeft, minTop)
             double windowLeft = minLeft / mainScaleX;
             double windowTop = minTop / mainScaleY;
             double windowWidth = (maxRight - minLeft) / mainScaleX;
             double windowHeight = (maxBottom - minTop) / mainScaleY;
 
-            DebugLogger.Log($"遮罩窗口逻辑坐标(WPF): Left={windowLeft}, Top={windowTop}, Width={windowWidth}, Height={windowHeight}");
+            DebugLogger.Log($"Mask window logical coordinates (WPF): Left={windowLeft}, Top={windowTop}, Width={windowWidth}, Height={windowHeight}");
 
             var window = new RegionSelectionWindow
             {
@@ -288,7 +288,7 @@ namespace Screenshot
                     Opacity = options.BackgroundOpacity
                 },
                 InnerBorder = { BorderBrush = options.SelectionRectangleBorderBrush },
-                // 关键：确保窗口位置覆盖所有屏幕，且坐标系对齐
+                // Important: ensure that the window position covers all screens and the coordinate system is aligned
                 Left = windowLeft,
                 Top = windowTop,
                 Width = windowWidth,
@@ -299,41 +299,41 @@ namespace Screenshot
 
             if (window.SelectedRegion == null)
             {
-                DebugLogger.Log("用户取消了截图");
+                DebugLogger.Log("User cancelled the screenshot");
                 return Rect.Empty;
             }
 
-            // logicalRegion 是相对于 Window (0,0) 的坐标
-            // 或者是相对于 Screen 的坐标？这取决于 RegionSelectionWindow 的实现。
-            // 假设 SelectedRegion 返回的是 **相对于 Window Client Area** 的坐标 (通常是 Canvas.Left/Top)
+            // logicalRegion is the coordinates relative to the Window (0,0)
+            // or is it relative to the Screen coordinates? This depends on the implementation of RegionSelectionWindow.
+            // Assume that SelectedRegion returns the coordinates relative to the Window Client Area (usually Canvas.Left/Top)
             var selectionInWindow = window.SelectedRegion.Value;
 
-            DebugLogger.Log($"用户选区(相对于窗口): X={selectionInWindow.X}, Y={selectionInWindow.Y}, W={selectionInWindow.Width}, H={selectionInWindow.Height}");
+            DebugLogger.Log($"User selected region (relative to the window): X={selectionInWindow.X}, Y={selectionInWindow.Y}, W={selectionInWindow.Width}, H={selectionInWindow.Height}");
 
             // ============================================================
-            // 核心修复逻辑
+            // Core fix logic
             // ============================================================
 
-            // 1. 还原为 "相对于全屏位图" 的物理像素尺寸
-            // 因为背景图是统一按 MainScale 缩小的，所以统一按 MainScale 放大回去
+            // 1. Restore to the physical pixel size of "relative to the full screen bitmap"
+            // Because the background image is uniformly scaled down by MainScale, so uniformly scaled back by MainScale
             double physicalX_Relative = selectionInWindow.X * mainScaleX;
             double physicalY_Relative = selectionInWindow.Y * mainScaleY;
             double physicalW = selectionInWindow.Width * mainScaleX;
             double physicalH = selectionInWindow.Height * mainScaleY;
 
-            // 2. 加上 "全屏位图" 在真实物理世界中的起始偏移量 (minLeft, minTop)
-            // 这样才能得到 CopyFromScreen 需要的绝对物理坐标
+            // 2. Add the starting offset of the "full screen bitmap" in the real physical world (minLeft, minTop)
+            // This is to get the absolute physical coordinates needed by CopyFromScreen
             double finalPhysicalX = minLeft + physicalX_Relative;
             double finalPhysicalY = minTop + physicalY_Relative;
 
             var finalRect = new Rect(finalPhysicalX, finalPhysicalY, physicalW, physicalH);
 
-            DebugLogger.Log($"计算出的物理区域(CopyFromScreen): X={finalRect.X}, Y={finalRect.Y}, W={finalRect.Width}, H={finalRect.Height}");
+            DebugLogger.Log($"Calculated physical region (CopyFromScreen): X={finalRect.X}, Y={finalRect.Y}, W={finalRect.Width}, H={finalRect.Height}");
 
             return finalRect;
         }
 
-        // 释放非托管资源
+        // Release unmanaged resources
         [System.Runtime.InteropServices.DllImport("gdi32.dll")]
         private static extern bool DeleteObject(IntPtr hObject);
     }

@@ -18,8 +18,7 @@ using log4net;
 namespace PaddleOCRSharp
 {
     /// <summary>
-    /// PaddleOCR识别引擎对象 - 使用ONNX Runtime实现
-    /// 兼容.NET Framework 4.8
+    /// Paddle OCR Engine
     /// </summary>
     public class PaddleOCREngine : IDisposable
     {
@@ -28,19 +27,19 @@ namespace PaddleOCRSharp
         private readonly List<string> _labels;
         private readonly OCRParameter _parameter;
 
-        // 检测模型参数
+        // Detection model parameters
         private const int DetMaxSize = 960;
         private const float DetBoxScoreThreshold = 0.7f;
         private const float DetBoxThreshold = 0.3f;
         private const int DetMinSize = 3;
         private const float DetUnclipRatio = 2.0f;
 
-        // 识别模型参数
+        // Recognition model parameters
         private const int RecImgHeight = 48;
         private const int RecImgWidth = 320;
 
         /// <summary>
-        /// Clamp辅助方法 - .NET Framework 4.8不包含Math.Clamp
+        /// Clamp helper method - .NET Framework 4.8 does not contain Math.Clamp
         /// </summary>
         private static T Clamp<T>(T value, T min, T max) where T : IComparable<T>
         {
@@ -50,47 +49,47 @@ namespace PaddleOCRSharp
         }
 
         /// <summary>
-        /// 安全地克隆Mat对象，避免AccessViolationException
-        /// 使用CopyTo作为主要方法，如果失败则尝试Clone
+        /// Safely clone Mat object, avoid AccessViolationException
+        /// Use CopyTo as the main method, if it fails, try Clone
         /// </summary>
         private static Mat SafeClone(Mat src)
         {
             if (src == null)
                 throw new ArgumentNullException(nameof(src));
 
-            // 检查Mat是否已释放
+            // Check if Mat is disposed
             if (src.IsDisposed)
-                throw new ObjectDisposedException(nameof(src), "Mat对象已被释放");
+                throw new ObjectDisposedException(nameof(src), "Mat object has been disposed");
 
             try
             {
-                // 检查Mat是否为空
+                // Check if Mat is empty
                 if (src.Empty())
                 {
-                    // 如果为空，返回一个空的Mat而不是抛出异常
+                    // If empty, return an empty Mat instead of throwing an exception
                     var size = src.Size();
                     var type = src.Type();
                     return new Mat(size, type);
                 }
 
-                // 优先使用CopyTo方法，它通常比Clone更安全
-                // CopyTo会创建新的Mat并复制数据，不依赖原始Mat的底层指针
+                // Use CopyTo method, it is usually safer than Clone
+                // CopyTo will create a new Mat and copy data, without depending on the underlying pointer of the original Mat
                 var result = new Mat();
                 src.CopyTo(result);
                 return result;
             }
             catch (AccessViolationException)
             {
-                // 如果CopyTo失败，尝试使用Clone作为后备方案
+                // If CopyTo fails, try using Clone as a backup solution
                 try
                 {
                     return src.Clone();
                 }
                 catch (AccessViolationException ex)
                 {
-                    // 如果两种方法都失败，提供详细的错误信息
-                    string sizeInfo = "未知";
-                    string typeInfo = "未知";
+                    // If both methods fail, provide detailed error information
+                    string sizeInfo = "Unknown";
+                    string typeInfo = "Unknown";
                     try
                     {
                         if (!src.IsDisposed)
@@ -101,22 +100,22 @@ namespace PaddleOCRSharp
                     }
                     catch
                     {
-                        Logger.Log.Error($"无法克隆Mat对象: Mat可能已损坏或内存已释放。Size={sizeInfo}, Type={typeInfo}, IsDisposed={src.IsDisposed}");
+                        Logger.Log.Error($"Failed to clone Mat object: Mat may be corrupted or memory has been released. Size={sizeInfo}, Type={typeInfo}, IsDisposed={src.IsDisposed}");
                     }
 
                     throw new InvalidOperationException(
-                        $"无法克隆Mat对象: Mat可能已损坏或内存已释放。Size={sizeInfo}, Type={typeInfo}, IsDisposed={src.IsDisposed}", ex);
+                        $"Failed to clone Mat object: Mat may be corrupted or memory has been released. Size={sizeInfo}, Type={typeInfo}, IsDisposed={src.IsDisposed}", ex);
                 }
             }
             catch (Exception ex)
             {
-                // 跳过AccessViolationException，因为它已经在上面处理了
+                // Skip AccessViolationException, it has already been handled above
                 if (ex is AccessViolationException)
                     throw;
 
-                // 处理其他类型的异常（如OutOfMemoryException等）
-                string sizeInfo = "未知";
-                string typeInfo = "未知";
+                // Handle other types of exceptions (e.g. OutOfMemoryException, etc.)
+                string sizeInfo = "Unknown";
+                string typeInfo = "Unknown";
                 try
                 {
                     if (!src.IsDisposed)
@@ -128,16 +127,16 @@ namespace PaddleOCRSharp
                 catch
                 {
                     Logger.Log.Error(
-                        $"无法克隆Mat对象: Mat可能已损坏或内存已释放。Size={sizeInfo}, Type={typeInfo}, IsDisposed={src.IsDisposed} ex = {ex.Message}");
+                        $"Failed to clone Mat object: Mat may be corrupted or memory has been released. Size={sizeInfo}, Type={typeInfo}, IsDisposed={src.IsDisposed} ex = {ex.Message}");
                 }
 
                 throw new InvalidOperationException(
-                    $"无法克隆Mat对象: {ex.GetType().Name} - {ex.Message}。Size={sizeInfo}, Type={typeInfo}, IsDisposed={src.IsDisposed}", ex);
+                    $"Failed to clone Mat object: {ex.GetType().Name} - {ex.Message}. Size={sizeInfo}, Type={typeInfo}, IsDisposed={src.IsDisposed}", ex);
             }
         }
 
         /// <summary>
-        /// 从YAML文件中加载字符字典
+        /// Load character dictionary from YAML file
         /// </summary>
         private static List<string> LoadLabelsFromYaml(string yamlPath)
         {
@@ -156,7 +155,7 @@ namespace PaddleOCRSharp
                 }
                 else if (inCharacterDict)
                 {
-                    // 使用正则表达式匹配列表项
+                    // Use regular expression to match list items
                     var match = regex.Match(line);
                     if (match.Success)
                     {
@@ -165,7 +164,7 @@ namespace PaddleOCRSharp
                     }
                     else if (!string.IsNullOrWhiteSpace(trimmed))
                     {
-                        // 遇到非列表项，结束字符字典
+                        // If not a list item, end character dictionary
                         break;
                     }
                 }
@@ -173,17 +172,17 @@ namespace PaddleOCRSharp
 
             if (labels.Count == 0)
             {
-                throw new InvalidOperationException($"无法从YAML文件中读取字符字典: {yamlPath}");
+                throw new InvalidOperationException($"Failed to read character dictionary from YAML file: {yamlPath}");
             }
 
             return labels;
         }
 
         /// <summary>
-        /// PaddleOCR识别引擎对象初始化
+        /// PaddleOCR Engine initialization
         /// </summary>
-        /// <param name="config">模型配置对象</param>
-        /// <param name="parameter">识别参数</param>
+        /// <param name="config">Model configuration object</param>
+        /// <param name="parameter">Recognition parameters</param>
         public PaddleOCREngine(OCRModelConfig config, OCRParameter parameter = null)
         {
             if (config == null)
@@ -193,13 +192,13 @@ namespace PaddleOCRSharp
                 parameter = new OCRParameter();
             _parameter = parameter;
 
-            // 检查模型文件是否存在
+            // Check if model files exist
             if (!File.Exists(config.det_infer))
-                throw new FileNotFoundException($"检测模型文件不存在: {config.det_infer}");
+                throw new FileNotFoundException($"Detection model file not found: {config.det_infer}");
             if (!File.Exists(config.rec_infer))
-                throw new FileNotFoundException($"识别模型文件不存在: {config.rec_infer}");
+                throw new FileNotFoundException($"Recognition model file not found: {config.rec_infer}");
 
-            // 加载字符字典 - 优先从inference.yml读取，如果没有则从keys文件读取
+            // Load character dictionary - first from inference.yml, if not, from keys file
             var inferenceYmlPath = Path.Combine(Path.GetDirectoryName(config.rec_infer), "inference.yml");
             if (File.Exists(inferenceYmlPath))
             {
@@ -211,10 +210,10 @@ namespace PaddleOCRSharp
             }
             else
             {
-                throw new FileNotFoundException($"字符字典文件不存在: {inferenceYmlPath} 或 {config.keys}");
+                throw new FileNotFoundException($"Character dictionary file not found: {inferenceYmlPath} or {config.keys}");
             }
 
-            // 创建ONNX Runtime会话
+            // Create ONNX Runtime session
             var sessionOptions = new SessionOptions();
             sessionOptions.AppendExecutionProvider_CPU();
             sessionOptions.IntraOpNumThreads = 2;
@@ -225,24 +224,24 @@ namespace PaddleOCRSharp
         }
 
         /// <summary>
-        /// 对图像文件进行文本识别
+        /// Text recognition for image file
         /// </summary>
-        /// <param name="imagefile">图像文件</param>
-        /// <returns>OCR识别结果</returns>
+        /// <param name="imagefile">Image file</param>
+        /// <returns>OCR recognition result</returns>
         public OCRResult DetectText(string imagefile)
         {
             if (!File.Exists(imagefile))
-                throw new FileNotFoundException($"文件不存在: {imagefile}");
+                throw new FileNotFoundException($"File not found: {imagefile}");
 
             using var image = new Bitmap(imagefile);
             return DetectText(image);
         }
 
         /// <summary>
-        /// 对图像对象进行文本识别
+        /// Text recognition for image object
         /// </summary>
-        /// <param name="image">图像</param>
-        /// <returns>OCR识别结果</returns>
+        /// <param name="image">Image</param>
+        /// <returns>OCR recognition result</returns>
         public OCRResult DetectText(Image image)
         {
             if (image == null)
@@ -256,10 +255,10 @@ namespace PaddleOCRSharp
         }
 
         /// <summary>
-        /// 对图像字节数组进行文本识别
+        /// Text recognition for image byte array
         /// </summary>
-        /// <param name="imagebyte">图像字节数组</param>
-        /// <returns>OCR识别结果</returns>
+        /// <param name="imagebyte">Image byte array</param>
+        /// <returns>OCR recognition result</returns>
         public OCRResult DetectText(byte[] imagebyte)
         {
             if (imagebyte == null)
@@ -271,10 +270,10 @@ namespace PaddleOCRSharp
         }
 
         /// <summary>
-        /// 对图像base64字符串进行文本识别
+        /// Text recognition for image base64 string
         /// </summary>
-        /// <param name="imagebase64">图像base64</param>
-        /// <returns>OCR识别结果</returns>
+        /// <param name="imagebase64">Image base64</param>
+        /// <returns>OCR recognition result</returns>
         public OCRResult DetectTextBase64(string imagebase64)
         {
             if (string.IsNullOrEmpty(imagebase64))
@@ -290,17 +289,17 @@ namespace PaddleOCRSharp
         public OCRResult DetectTextFromMat(Mat src)
         {
             if (src == null || src.IsDisposed || src.Empty())
-                throw new ArgumentException("输入的Mat对象无效", nameof(src));
+                throw new ArgumentException("Invalid Mat object", nameof(src));
 
-            // 文本检测
+            // Text detection
             var rects = DetectTextRegions(src);
 
-            // 文本识别
+            // Text recognition
             var textBlocks = new List<TextBlock>();
             if (rects.Length > 0)
             {
                 var croppedMats = new List<Mat>();
-                var validRectIndices = new List<int>(); // 记录有效矩形的索引
+                var validRectIndices = new List<int>(); // Record indices of valid rectangles
                 try
                 {
                     var srcSize = src.Size();
@@ -309,19 +308,19 @@ namespace PaddleOCRSharp
                         var rect = rects[i];
                         var croppedRect = GetCroppedRect(rect.BoundingRect(), srcSize);
 
-                        // 额外的安全检查：确保矩形在Mat边界内
+                        // Additional safety check: ensure rectangle is within Mat boundaries
                         if (croppedRect.X < 0 || croppedRect.Y < 0 ||
                             croppedRect.X + croppedRect.Width > srcSize.Width ||
                             croppedRect.Y + croppedRect.Height > srcSize.Height ||
                             croppedRect.Width <= 0 || croppedRect.Height <= 0)
                         {
-                            // 如果矩形无效，跳过这个区域
+                            // If rectangle is invalid, skip this region
                             continue;
                         }
 
                         var roi = src[croppedRect];
                         croppedMats.Add(roi);
-                        validRectIndices.Add(i); // 记录有效矩形的原始索引
+                        validRectIndices.Add(i); // Record original index of valid rectangles
                     }
 
                     var results = RecognizeText(croppedMats.ToArray());
@@ -352,12 +351,12 @@ namespace PaddleOCRSharp
         }
 
         /// <summary>
-        /// 文本检测
+        /// Text detection
         /// </summary>
         private RotatedRect[] DetectTextRegions(Mat src)
         {
             if (src == null || src.IsDisposed || src.Empty())
-                throw new ArgumentException("输入的Mat对象无效", nameof(src));
+                throw new ArgumentException("Invalid Mat object", nameof(src));
 
             using var padded = src.Channels() switch
             {
@@ -366,16 +365,16 @@ namespace PaddleOCRSharp
                 _ => SafeClone(src)
             };
 
-            // 调整大小
+            // Resize
             using var resized = ResizeImage(padded, DetMaxSize);
             var resizedSize = new CvSize(resized.Width, resized.Height);
             using var padded32 = PadTo32(resized);
 
-            // 归一化
+            // Normalize
             var inputTensor = NormalizeImage(padded32);
             using var _ = padded32;
 
-            // 运行检测模型
+            // Run detection model
             var inputs = new List<NamedOnnxValue>
             {
                 NamedOnnxValue.CreateFromTensor(_detSession.InputNames[0], inputTensor)
@@ -384,10 +383,10 @@ namespace PaddleOCRSharp
             using var outputs = _detSession.Run(inputs);
             var output = outputs.First().AsTensor<float>();
 
-            // 转换为Mat
+            // Convert to Mat
             using var pred = TensorToMat(output);
 
-            // 后处理
+            // Post-processing
             using var cbuf = new Mat();
             using var roi = pred[new Rect(0, 0, resizedSize.Width, resizedSize.Height)];
             roi.ConvertTo(cbuf, MatType.CV_8UC1, 255);
@@ -420,7 +419,7 @@ namespace PaddleOCRSharp
         }
 
         /// <summary>
-        /// 文本识别
+        /// Text recognition
         /// </summary>
         private List<string> RecognizeText(Mat[] srcs)
         {
@@ -443,17 +442,17 @@ namespace PaddleOCRSharp
                     _ => SafeClone(src)
                 };
 
-                // 调整大小并归一化
+                // Resize and normalize
                 var ratio = channel3.Width / (double)channel3.Height;
                 var resizedW = (int)Math.Ceiling(RecImgHeight * ratio);
                 if (resizedW < 16) resizedW = 16;
                 using var resized = new Mat();
                 Cv2.Resize(channel3, resized, new CvSize(resizedW, RecImgHeight));
 
-                // 归一化到[-1, 1]
+                // Normalize to [-1, 1]
                 using var blob = CvDnn.BlobFromImage(resized, 2.0 / 255.0, default, new Scalar(127.5, 127.5, 127.5), false, false);
 
-                // 获取blob数据
+                // Get blob data
                 var blobData = new float[blob.Total()];
                 Marshal.Copy(blob.Data, blobData, 0, blobData.Length);
 
@@ -461,7 +460,7 @@ namespace PaddleOCRSharp
                     blobData,
                     new[] { 1, resized.Channels(), resized.Rows, resized.Cols });
 
-                // 运行识别模型
+                // Run recognition model
                 var inputs = new List<NamedOnnxValue>
                 {
                     NamedOnnxValue.CreateFromTensor(_recSession.InputNames[0], inputTensor)
@@ -470,7 +469,7 @@ namespace PaddleOCRSharp
                 using var outputs = _recSession.Run(inputs);
                 var output = outputs.First().AsTensor<float>();
 
-                // 解码文本
+                // Decode text
                 var text = DecodeText(output);
                 results.Add(text);
             }
@@ -479,7 +478,7 @@ namespace PaddleOCRSharp
         }
 
         /// <summary>
-        /// 解码识别结果
+        /// Decode recognition result
         /// </summary>
         private string DecodeText(Tensor<float> output)
         {
@@ -511,20 +510,20 @@ namespace PaddleOCRSharp
                 {
                     score += maxVal;
                     validChars++;
-                    // 索引映射规则：
-                    // 索引 0 = blank（CTC空白符，跳过）
-                    // 索引 1 到 _labels.Count = 字典中的字符（索引1对应_labels[0]）
-                    // 索引 _labels.Count + 1 = 空格字符
+                    // Index mapping rules:
+                    // Index 0 = blank (CTC blank character, skip)
+                    // Index 1 to _labels.Count = characters in dictionary (index 1 corresponds to _labels[0])
+                    // Index _labels.Count + 1 = space character
                     if (maxIdx <= _labels.Count)
                     {
                         text += _labels[maxIdx - 1];
                     }
                     else if (maxIdx == _labels.Count + 1)
                     {
-                        // 处理空格字符（参考 better-genshin-impact 的实现）
+                        // Handle space character
                         text += " ";
                     }
-                    // 如果索引超出范围，跳过（可能是模型输出异常）
+                    // If index is out of range, skip
                 }
 
                 lastIndex = maxIdx;
@@ -534,7 +533,7 @@ namespace PaddleOCRSharp
         }
 
         /// <summary>
-        /// Bitmap转Mat
+        /// Convert Bitmap to Mat
         /// </summary>
         private Mat BitmapToMat(Bitmap bitmap)
         {
@@ -543,13 +542,13 @@ namespace PaddleOCRSharp
 
             try
             {
-                // 使用FromPixelData创建Mat，然后立即克隆以确保拥有独立的数据副本
-                // 这样可以避免在UnlockBits后内存失效的问题
+                // Use FromPixelData to create Mat, then immediately clone to ensure independent data copy
+                // This can avoid the problem of memory failure after UnlockBits
                 using var tempMat = Mat.FromPixelData(bitmap.Height, bitmap.Width, MatType.CV_8UC3, bmpData.Scan0, bmpData.Stride);
-                // 创建独立的数据副本
+                // Create independent data copy
                 var mat = new Mat();
                 tempMat.CopyTo(mat);
-                // 转换BGR到RGB
+                // Convert BGR to RGB
                 Cv2.CvtColor(mat, mat, ColorConversionCodes.BGR2RGB);
                 return mat;
             }
@@ -560,12 +559,12 @@ namespace PaddleOCRSharp
         }
 
         /// <summary>
-        /// 调整图像大小
+        /// Resize image
         /// </summary>
         private Mat ResizeImage(Mat src, int maxSize)
         {
             if (src == null || src.IsDisposed || src.Empty())
-                throw new ArgumentException("输入的Mat对象无效", nameof(src));
+                throw new ArgumentException("Invalid Mat object", nameof(src));
 
             var size = src.Size();
             var longEdge = Math.Max(size.Width, size.Height);
@@ -574,7 +573,7 @@ namespace PaddleOCRSharp
         }
 
         /// <summary>
-        /// 填充到32的倍数
+        /// Pad to 32's multiple
         /// </summary>
         private Mat PadTo32(Mat src)
         {
@@ -586,7 +585,7 @@ namespace PaddleOCRSharp
         }
 
         /// <summary>
-        /// 归一化图像
+        /// Normalize image
         /// </summary>
         private Tensor<float> NormalizeImage(Mat src)
         {
@@ -617,7 +616,7 @@ namespace PaddleOCRSharp
         }
 
         /// <summary>
-        /// Tensor转Mat
+        /// Convert Tensor to Mat
         /// </summary>
         private Mat TensorToMat(Tensor<float> tensor)
         {
@@ -630,7 +629,7 @@ namespace PaddleOCRSharp
         }
 
         /// <summary>
-        /// 获取轮廓得分
+        /// Get contour score
         /// </summary>
         private float GetScore(CvPoint[] contour, Mat pred)
         {
@@ -653,29 +652,29 @@ namespace PaddleOCRSharp
         }
 
         /// <summary>
-        /// 获取裁剪区域，确保不超出Mat边界
+        /// Get cropped region, ensure it does not exceed Mat boundaries
         /// </summary>
         private Rect GetCroppedRect(Rect rect, CvSize size)
         {
-            // 确保起始坐标在有效范围内
+            // Ensure starting coordinates are within valid range
             var x = Clamp(rect.X, 0, size.Width - 1);
             var y = Clamp(rect.Y, 0, size.Height - 1);
 
-            // 计算最大可用的宽度和高度
+            // Calculate maximum available width and height
             var maxWidth = size.Width - x;
             var maxHeight = size.Height - y;
 
-            // 确保宽度和高度在有效范围内，并且不会超出边界
+            // Ensure width and height are within valid range, and do not exceed boundaries
             var width = Clamp(rect.Width, 1, maxWidth);
             var height = Clamp(rect.Height, 1, maxHeight);
 
-            // 最终验证：确保 X + Width <= size.Width 和 Y + Height <= size.Height
+            // Final validation: ensure X + Width <= size.Width and Y + Height <= size.Height
             if (x + width > size.Width)
                 width = size.Width - x;
             if (y + height > size.Height)
                 height = size.Height - y;
 
-            // 确保宽度和高度至少为1
+            // Ensure width and height are at least 1
             if (width < 1) width = 1;
             if (height < 1) height = 1;
 
@@ -683,7 +682,7 @@ namespace PaddleOCRSharp
         }
 
         /// <summary>
-        /// 获取旋转矩形的四个角点
+        /// Get four corners of rotated rectangle
         /// </summary>
         private PointF[] GetBoxPoints(RotatedRect rect)
         {
@@ -700,7 +699,7 @@ namespace PaddleOCRSharp
         }
 
         /// <summary>
-        /// 释放资源
+        /// Release resources
         /// </summary>
         public void Dispose()
         {

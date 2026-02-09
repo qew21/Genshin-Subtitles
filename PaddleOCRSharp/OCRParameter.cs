@@ -1,107 +1,107 @@
 namespace PaddleOCRSharp
 {
     /// <summary>
-    /// OCR识别参数
+    /// OCR recognition parameters
     /// </summary>
     public class OCRParameter
     {
         /// <summary>
-        /// 是否使用GPU
+        /// Whether to use GPU
         /// </summary>
         public bool use_gpu { get; set; } = false;
 
         /// <summary>
-        /// GPU设备ID
+        /// GPU device ID
         /// </summary>
         public int gpu_id { get; set; } = 0;
 
         /// <summary>
-        /// GPU内存大小
+        /// GPU memory size
         /// </summary>
         public int gpu_mem { get; set; } = 4000;
 
         /// <summary>
-        /// CPU数学库线程数
+        /// CPU math library thread count
         /// </summary>
         public int cpu_math_library_num_threads { get; set; } = 3;
 
         /// <summary>
-        /// 是否启用MKLDNN
+        /// Whether to enable MKLDNN
         /// </summary>
         public bool enable_mkldnn { get; set; } = true;
 
         /// <summary>
-        /// 最大边长
+        /// Maximum side length
         /// </summary>
         public int max_side_len { get; set; } = 960;
 
         /// <summary>
-        /// 检测模型DB阈值
+        /// Detection model DB threshold
         /// </summary>
         public float det_db_thresh { get; set; } = 0.3f;
 
         /// <summary>
-        /// 检测模型DB框阈值
+        /// Detection model DB box threshold
         /// </summary>
         public float det_db_box_thresh { get; set; } = 0.5f;
 
         /// <summary>
-        /// 检测模型DB扩展比例
+        /// Detection model DB expansion ratio
         /// </summary>
         public float det_db_unclip_ratio { get; set; } = 1.6f;
 
         /// <summary>
-        /// 是否使用膨胀
+        /// Whether to use dilation
         /// </summary>
         public bool use_dilation { get; set; } = false;
 
         /// <summary>
-        /// 检测模型DB得分模式
+        /// Detection model DB score mode
         /// </summary>
         public bool det_db_score_mode { get; set; } = true;
 
         /// <summary>
-        /// 是否可视化
+        /// Whether to visualize
         /// </summary>
         public bool visualize { get; set; } = false;
 
         /// <summary>
-        /// 是否使用角度分类器
+        /// Whether to use angle classifier
         /// </summary>
         public bool use_angle_cls { get; set; } = false;
 
         /// <summary>
-        /// 分类器阈值
+        /// Classifier threshold
         /// </summary>
         public float cls_thresh { get; set; } = 0.9f;
 
         /// <summary>
-        /// 分类器批处理大小
+        /// Classifier batch size
         /// </summary>
         public int cls_batch_num { get; set; } = 1;
 
         /// <summary>
-        /// 识别模型批处理大小
+        /// Recognition model batch size
         /// </summary>
         public int rec_batch_num { get; set; } = 6;
 
         /// <summary>
-        /// 识别模型图像高度
+        /// Recognition model image height
         /// </summary>
         public int rec_img_h { get; set; } = 48;
 
         /// <summary>
-        /// 识别模型图像宽度
+        /// Recognition model image width
         /// </summary>
         public int rec_img_w { get; set; } = 320;
 
         /// <summary>
-        /// 是否显示图像可视化结果
+        /// Whether to display image visualization result
         /// </summary>
         public bool show_img_vis { get; set; } = false;
 
         /// <summary>
-        /// 是否使用TensorRT
+        /// Whether to use TensorRT
         /// </summary>
         public bool use_tensorrt { get; set; } = false;
     }

@@ -5,22 +5,22 @@ using System.Drawing;
 namespace PaddleOCRSharp
 {
     /// <summary>
-    /// OCR识别结果
+    /// OCR recognition result
     /// </summary>
     public class OCRResult
     {
         /// <summary>
-        /// 识别的文本块列表
+        /// List of recognized text blocks
         /// </summary>
         public List<TextBlock> TextBlocks { get; set; }
 
         /// <summary>
-        /// 合并后的文本
+        /// Merged text
         /// </summary>
         public string Text { get; set; }
 
         /// <summary>
-        /// JSON格式的结果
+        /// JSON format result
         /// </summary>
         public string JsonText { get; set; }
 
@@ -32,22 +32,22 @@ namespace PaddleOCRSharp
     }
 
     /// <summary>
-    /// 文本块
+    /// Text block
     /// </summary>
     public class TextBlock
     {
         /// <summary>
-        /// 识别的文本
+        /// Recognized text
         /// </summary>
         public string Text { get; set; }
 
         /// <summary>
-        /// 置信度
+        /// Confidence
         /// </summary>
         public float Score { get; set; }
 
         /// <summary>
-        /// 文本框的四个角点
+        /// Four corners of text box
         /// </summary>
         public PointF[] BoxPoints { get; set; }
 

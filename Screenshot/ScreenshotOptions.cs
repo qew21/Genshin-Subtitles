@@ -21,7 +21,7 @@ namespace Screenshot
 
                 File.AppendAllText(filePath, logLine, Encoding.UTF8);
             }
-            catch { /* 忽略日志错误，防止崩溃 */ }
+            catch { /* Ignore log errors to prevent crashes */ }
         }
     }
     public class ScreenshotOptions
