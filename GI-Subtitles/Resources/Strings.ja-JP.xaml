@@ -49,9 +49,17 @@
     <sys:String x:Key="Help_Folder" xmlns:sys="clr-namespace:System;assembly=mscorlib">プログラムフォルダを開く</sys:String>
     <sys:String x:Key="Github_Url_Label" xmlns:sys="clr-namespace:System;assembly=mscorlib">Github</sys:String>
 
+    <!-- ヘルプ タブ -->
+    <sys:String x:Key="App_HelpTitle" xmlns:sys="clr-namespace:System;assembly=mscorlib">GI-Subtitles ヘルプ</sys:String>
+    <sys:String x:Key="Help_Instructions" xmlns:sys="clr-namespace:System;assembly=mscorlib">使用手順</sys:String>
+    <sys:String x:Key="Help_Step1" xmlns:sys="clr-namespace:System;assembly=mscorlib">1. 手順：言語パック管理画面で対応するファイルをダウンロードし、ゲーム内で会話領域の最初の行を選択して、ホットキーで認識と表示を開始します。</sys:String>
+    <sys:String x:Key="Help_Step2" xmlns:sys="clr-namespace:System;assembly=mscorlib">2. Ctrl+Shift+S で開始/一時停止、Ctrl+Shift+R で認識領域を選択（最初の行を囲む）、Ctrl+Shift+H で字幕を非表示にできます。競合する場合は「ホットキー」タブで変更できます。</sys:String>
+    <sys:String x:Key="Help_Step3" xmlns:sys="clr-namespace:System;assembly=mscorlib">3. 字幕上にマウスを置いて手のアイコンになったらドラッグで位置を調整できます（ゲームは排他フルスクリーンではなく「ボーダーレスウィンドウ」モードの使用を推奨）。</sys:String>
+
     <sys:String x:Key="Tab_Config" xmlns:sys="clr-namespace:System;assembly=mscorlib">その他設定</sys:String>
     <sys:String x:Key="Config_Pad_Label" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕のオフセット（Pad）</sys:String>
     <sys:String x:Key="Config_Pad_Hint" xmlns:sys="clr-namespace:System;assembly=mscorlib">認識領域の下に表示される字幕のピクセル数</sys:String>
+    <sys:String x:Key="Config_Pad_Horizontal" xmlns:sys="clr-namespace:System;assembly=mscorlib">水平方向オフセット：</sys:String>
     <sys:String x:Key="Config_Region_Label" xmlns:sys="clr-namespace:System;assembly=mscorlib">認識領域</sys:String>
     <sys:String x:Key="Config_Width" xmlns:sys="clr-namespace:System;assembly=mscorlib">幅</sys:String>
     <sys:String x:Key="Config_Height" xmlns:sys="clr-namespace:System;assembly=mscorlib">高さ</sys:String>
@@ -63,4 +71,15 @@
     <sys:String x:Key="Btn_ResetLocation" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕位置をリセット</sys:String>
     <sys:String x:Key="Btn_SecondRegion" xmlns:sys="clr-namespace:System;assembly=mscorlib">第2認識領域を追加</sys:String>
     <sys:String x:Key="Btn_Voice" xmlns:sys="clr-namespace:System;assembly=mscorlib">音声</sys:String>
+
+    <!-- トレイ メニュー -->
+    <sys:String x:Key="Tray_FontSize" xmlns:sys="clr-namespace:System;assembly=mscorlib">フォントサイズ</sys:String>
+    <sys:String x:Key="Tray_Settings" xmlns:sys="clr-namespace:System;assembly=mscorlib">設定</sys:String>
+    <sys:String x:Key="Tray_Exit" xmlns:sys="clr-namespace:System;assembly=mscorlib">終了</sys:String>
+
+    <!-- ホットキー説明 -->
+    <sys:String x:Key="Hotkey_9000_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕認識の開始 / 停止</sys:String>
+    <sys:String x:Key="Hotkey_9001_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕領域（最初の行）の選択</sys:String>
+    <sys:String x:Key="Hotkey_9002_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">二言語字幕を非表示</sys:String>
+    <sys:String x:Key="Hotkey_9003_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">認識領域を表示</sys:String>
 </ResourceDictionary>

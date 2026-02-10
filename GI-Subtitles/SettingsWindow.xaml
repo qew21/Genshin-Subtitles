@@ -239,7 +239,7 @@
                             <TextBox x:Name="PadTextBox" Width="60" VerticalContentAlignment="Center" Text="86" LostFocus="PadTextBox_LostFocus"/>
                             <Button Content="+" Width="24" Height="24" VerticalAlignment="Center" Margin="2,0,8,0" Click="PadVerticalIncrease_Click"/>
                         </StackPanel>
-                        <TextBlock Text="水平偏移:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                        <TextBlock Text="{DynamicResource Config_Pad_Horizontal}" VerticalAlignment="Center" Margin="0,0,4,0"/>
                         <StackPanel Orientation="Horizontal" Margin="0,0,8,0">
                             <Button Content="−" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,2,0" Click="PadHorizontalDecrease_Click"/>
                             <TextBox x:Name="PadHorizontalTextBox" Width="60" VerticalContentAlignment="Center" Text="0" LostFocus="PadHorizontalTextBox_LostFocus"/>
@@ -336,14 +336,14 @@
 
                         <TextBlock Grid.Row="2" Text="{DynamicResource Help_Instructions}" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,12,0,6"/>
 
-                        <TextBlock Grid.Row="3" Text="1. 使用流程：语言包管理界面下载对应文件，打开游戏选择对话区域的第一行，使用快捷键开始识别和展示。"
-                        TextWrapping="Wrap" Margin="0,0,0,8"/>
+                        <TextBlock Grid.Row="3" Text="{DynamicResource Help_Step1}"
+                                   TextWrapping="Wrap" Margin="0,0,0,8"/>
 
-                        <TextBlock Grid.Row="4" Text="2. 可通过快捷键 Ctrl+Shift+S 启动/暂停；Ctrl+Shift+R 选择识别区域（请框选首行）；Ctrl+Shift+H 隐藏字幕。若冲突，可在「快捷键」标签修改。"
-                        TextWrapping="Wrap" Margin="0,0,0,8"/>
+                        <TextBlock Grid.Row="4" Text="{DynamicResource Help_Step2}"
+                                   TextWrapping="Wrap" Margin="0,0,0,8"/>
 
-                        <TextBlock Grid.Row="5" Text="3. 鼠标悬停字幕变为手形时，可拖动调整位置（建议游戏使用「无边框窗口」模式而非独占全屏）。"
-                        TextWrapping="Wrap" Margin="0,0,0,16"/>
+                        <TextBlock Grid.Row="5" Text="{DynamicResource Help_Step3}"
+                                   TextWrapping="Wrap" Margin="0,0,0,16"/>
 
                         <StackPanel Orientation="Horizontal" Grid.Row="6" HorizontalAlignment="Center">
                             <Image Width="184" Height="155" Source="Resources/qrcode.jpg" Margin="30,0,0,0"/>

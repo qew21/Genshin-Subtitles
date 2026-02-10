@@ -51,10 +51,18 @@
     <sys:String x:Key="Help_Folder" xmlns:sys="clr-namespace:System;assembly=mscorlib">打开程序文件夹</sys:String>
     <sys:String x:Key="Github_Url_Label" xmlns:sys="clr-namespace:System;assembly=mscorlib">仓库地址</sys:String>
 
+    <!-- Help Tab -->
+    <sys:String x:Key="App_HelpTitle" xmlns:sys="clr-namespace:System;assembly=mscorlib">GI-Subtitles 使用说明</sys:String>
+    <sys:String x:Key="Help_Instructions" xmlns:sys="clr-namespace:System;assembly=mscorlib">使用步骤</sys:String>
+    <sys:String x:Key="Help_Step1" xmlns:sys="clr-namespace:System;assembly=mscorlib">1. 使用流程：语言包管理界面下载对应文件，打开游戏选择对话区域的第一行，使用快捷键开始识别和展示。</sys:String>
+    <sys:String x:Key="Help_Step2" xmlns:sys="clr-namespace:System;assembly=mscorlib">2. 可通过快捷键 Ctrl+Shift+S 启动/暂停；Ctrl+Shift+R 选择识别区域（请框选首行）；Ctrl+Shift+H 隐藏字幕。若冲突，可在「快捷键」标签修改。</sys:String>
+    <sys:String x:Key="Help_Step3" xmlns:sys="clr-namespace:System;assembly=mscorlib">3. 鼠标悬停字幕变为手形时，可拖动调整位置（建议游戏使用「无边框窗口」模式而非独占全屏）。</sys:String>
+
     <!-- Config Tab -->
     <sys:String x:Key="Tab_Config" xmlns:sys="clr-namespace:System;assembly=mscorlib">其他配置选项</sys:String>
     <sys:String x:Key="Config_Pad_Label" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕偏移 (Pad)</sys:String>
     <sys:String x:Key="Config_Pad_Hint" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕显示在识别区域下方的像素数</sys:String>
+    <sys:String x:Key="Config_Pad_Horizontal" xmlns:sys="clr-namespace:System;assembly=mscorlib">水平偏移：</sys:String>
     <sys:String x:Key="Config_Region_Label" xmlns:sys="clr-namespace:System;assembly=mscorlib">识别区域</sys:String>
     <sys:String x:Key="Config_Width" xmlns:sys="clr-namespace:System;assembly=mscorlib">宽</sys:String>
     <sys:String x:Key="Config_Height" xmlns:sys="clr-namespace:System;assembly=mscorlib">高</sys:String>
@@ -66,4 +74,15 @@
     <sys:String x:Key="Btn_ResetLocation" xmlns:sys="clr-namespace:System;assembly=mscorlib">重设字幕位置</sys:String>
     <sys:String x:Key="Btn_SecondRegion" xmlns:sys="clr-namespace:System;assembly=mscorlib">添加第二识别区域</sys:String>
     <sys:String x:Key="Btn_Voice" xmlns:sys="clr-namespace:System;assembly=mscorlib">支线配音</sys:String>
+
+    <!-- Notify Icon Menu -->
+    <sys:String x:Key="Tray_FontSize" xmlns:sys="clr-namespace:System;assembly=mscorlib">字号选择</sys:String>
+    <sys:String x:Key="Tray_Settings" xmlns:sys="clr-namespace:System;assembly=mscorlib">程序设定</sys:String>
+    <sys:String x:Key="Tray_Exit" xmlns:sys="clr-namespace:System;assembly=mscorlib">退出程序</sys:String>
+
+    <!-- Hotkey Descriptions -->
+    <sys:String x:Key="Hotkey_9000_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">开始/停止识别字幕</sys:String>
+    <sys:String x:Key="Hotkey_9001_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">选择字幕区域（第一行）</sys:String>
+    <sys:String x:Key="Hotkey_9002_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">隐藏双语字幕</sys:String>
+    <sys:String x:Key="Hotkey_9003_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">展示识别区域</sys:String>
 </ResourceDictionary>

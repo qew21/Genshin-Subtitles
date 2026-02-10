@@ -96,11 +96,35 @@ namespace GI_Subtitles
         private ObservableCollection<HotkeyViewModel> _hotkeys;
         private bool REAL_CLOSE = false;
         public OptimizedMatcher Matcher;
+        // Used to suppress initial UILangSelector SelectionChanged events triggered by XAML default selection
+        private bool _uiLangInitialized = false;
         public SettingsWindow(string version, INotifyIcon notify, double scale = 1)
         {
             InitializeComponent();
             Scale = scale;
-            ApplyLanguage("zh-CN");
+            // Load UI language from config, default to zh-CN
+            string uiLang = Config.Get("UILang", "zh-CN");
+            ApplyLanguage(uiLang);
+
+            // Sync UI language selector without triggering extra logic
+            try
+            {
+                UILangSelector.SelectionChanged -= UILangSelector_SelectionChanged;
+                var uiItem = UILangSelector.Items.Cast<ComboBoxItem>()
+                    .FirstOrDefault(i => i.Tag is string tag && tag == uiLang);
+                if (uiItem != null)
+                {
+                    // This may raise SelectionChanged again, but we will suppress it via _uiLangInitialized flag
+                    UILangSelector.SelectedItem = uiItem;
+                }
+                UILangSelector.SelectionChanged += UILangSelector_SelectionChanged;
+            }
+            catch (Exception ex)
+            {
+                Logger.Log.Error($"Failed to sync UI language selector: {ex.Message}");
+            }
+            // From this point on, UILangSelector_SelectionChanged should start updating config
+            _uiLangInitialized = true;
             this.Title += $"({version})";
             GameSelector.SelectionChanged += OnGameSelectorChanged;
             InputSelector.SelectionChanged += OnInputSelectorChanged;
@@ -182,9 +206,25 @@ namespace GI_Subtitles
 
         private void UILangSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            // Ignore initial SelectionChanged events fired during window construction
+            if (!_uiLangInitialized)
+            {
+                return;
+            }
+
             if (UILangSelector.SelectedItem is ComboBoxItem item && item.Tag is string tag)
             {
                 ApplyLanguage(tag);
+                Config.Set("UILang", tag);
+
+                // Refresh tray menu texts
+                if (notifyIcon != null)
+                {
+                    notifyIcon.RefreshMenuTexts();
+                }
+
+                // Re-initialize hotkeys to update descriptions with new language
+                InitializeHotkeys();
             }
         }
 
@@ -950,20 +990,40 @@ namespace GI_Subtitles
             // Create the available key list (A-Z)
             var availableKeys = Enumerable.Range(65, 26).Select(c => (char)c).ToList();
 
-            // Initialize the hotkey collection
+            // Initialize the hotkey collection, prefer localized descriptions by Id
             _hotkeys = new ObservableCollection<HotkeyViewModel>(
-                settings.Hotkeys.Select(h => new HotkeyViewModel
+                settings.Hotkeys.Select(h =>
                 {
-                    Id = h.Id,
-                    Description = h.Description,
-                    IsCtrl = h.IsCtrl,
-                    IsShift = h.IsShift,
-                    SelectedKey = h.SelectedKey,
-                    AvailableKeys = availableKeys
+                    string localizedDescription = null;
+                    try
+                    {
+                        var key = $"Hotkey_{h.Id}_Description";
+                        localizedDescription = System.Windows.Application.Current?
+                            .TryFindResource(key) as string;
+                    }
+                    catch
+                    {
+                        // ignore and fallback
+                    }
+
+                    return new HotkeyViewModel
+                    {
+                        Id = h.Id,
+                        Description = string.IsNullOrEmpty(localizedDescription) ? h.Description : localizedDescription,
+                        IsCtrl = h.IsCtrl,
+                        IsShift = h.IsShift,
+                        SelectedKey = h.SelectedKey,
+                        AvailableKeys = availableKeys
+                    };
                 })
             );
 
-            hotkeyListView.ItemsSource = _hotkeys;
+            // In some design-time or early-initialization scenarios, the ListView
+            // may not yet be created; guard against null to avoid crashes.
+            if (hotkeyListView != null)
+            {
+                hotkeyListView.ItemsSource = _hotkeys;
+            }
         }
 
         // Modify the SaveButton_Click method, add the function to save to the file
@@ -1258,8 +1318,8 @@ namespace GI_Subtitles
 
         private void VoiceButton_Click(object sender, RoutedEventArgs e)
         {
-            Config.Set("Server",  "https://mp3.2langs.com/download");
-            Config.Set("Token",  "ENGI");
+            Config.Set("Server", "https://mp3.2langs.com/download");
+            Config.Set("Token", "ENGI");
         }
 
         private void PlayVoiceCheckBox_Checked(object sender, RoutedEventArgs e)

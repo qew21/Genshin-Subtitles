@@ -66,16 +66,53 @@ namespace GI_Subtitles
             catch { /* Handle save errors */ }
         }
 
+        private static string GetLocalizedString(string resourceKey, string fallback)
+        {
+            try
+            {
+                var app = System.Windows.Application.Current;
+                if (app != null)
+                {
+                    var value = app.TryFindResource(resourceKey) as string;
+                    if (!string.IsNullOrEmpty(value))
+                    {
+                        return value;
+                    }
+                }
+            }
+            catch
+            {
+                // ignore and fallback
+            }
+            return fallback;
+        }
+
         private static HotkeySettings GetDefaultSettings()
         {
             return new HotkeySettings
             {
                 Hotkeys = new List<HotkeyData>
                 {
-                    new HotkeyData { Id = 9000, IsCtrl = true, IsShift = true, SelectedKey = 'S', Description = "开始/停止识别字幕" },
-                    new HotkeyData { Id = 9001, IsCtrl = true, IsShift = true, SelectedKey = 'R', Description = "选择字幕区域（第一行）" },
-                    new HotkeyData { Id = 9002, IsCtrl = true, IsShift = true, SelectedKey = 'H', Description = "隐藏双语字幕" },
-                    new HotkeyData { Id = 9003, IsCtrl = true, IsShift = true, SelectedKey = 'D', Description = "展示识别区域" }
+                    new HotkeyData
+                    {
+                        Id = 9000, IsCtrl = true, IsShift = true, SelectedKey = 'S',
+                        Description = GetLocalizedString("Hotkey_9000_Description", "开始/停止识别字幕")
+                    },
+                    new HotkeyData
+                    {
+                        Id = 9001, IsCtrl = true, IsShift = true, SelectedKey = 'R',
+                        Description = GetLocalizedString("Hotkey_9001_Description", "选择字幕区域（第一行）")
+                    },
+                    new HotkeyData
+                    {
+                        Id = 9002, IsCtrl = true, IsShift = true, SelectedKey = 'H',
+                        Description = GetLocalizedString("Hotkey_9002_Description", "隐藏双语字幕")
+                    },
+                    new HotkeyData
+                    {
+                        Id = 9003, IsCtrl = true, IsShift = true, SelectedKey = 'D',
+                        Description = GetLocalizedString("Hotkey_9003_Description", "展示识别区域")
+                    }
                 }
             };
         }

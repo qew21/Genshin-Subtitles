@@ -27,6 +27,8 @@ namespace GI_Subtitles
     {
         System.Windows.Forms.ContextMenuStrip contextMenuStrip;
         ToolStripMenuItem fontSizeSelector;
+        ToolStripMenuItem settingItem;
+        ToolStripMenuItem exitItem;
         private int Size = Config.Get<int>("Size");
         private bool AutoStart = Config.Get("AutoStart", false);
         public string[] Region = Config.Get<string>("Region").Split(',');
@@ -42,7 +44,12 @@ namespace GI_Subtitles
             Scale = scale;
             NotifyIcon notifyIcon;
             contextMenuStrip = new ContextMenuStrip();
-            fontSizeSelector = new ToolStripMenuItem("字号选择");
+            // Localized tray menu texts (fallback to Chinese)
+            string trayFontSize = GetLocalizedString("Tray_FontSize", "字号选择");
+            string traySettings = GetLocalizedString("Tray_Settings", "程序设定");
+            string trayExit = GetLocalizedString("Tray_Exit", "退出程序");
+
+            fontSizeSelector = new ToolStripMenuItem(trayFontSize);
             fontSizeSelector.DropDownItems.Add(CreateSizeItem("14"));
             fontSizeSelector.DropDownItems.Add(CreateSizeItem("16"));
             fontSizeSelector.DropDownItems.Add(CreateSizeItem("18"));
@@ -50,8 +57,8 @@ namespace GI_Subtitles
             fontSizeSelector.DropDownItems.Add(CreateSizeItem("22"));
             fontSizeSelector.DropDownItems.Add(CreateSizeItem("24"));
 
-            ToolStripMenuItem settingItem = new ToolStripMenuItem("程序设定");
-            ToolStripMenuItem exitItem = new ToolStripMenuItem("退出程序");
+            settingItem = new ToolStripMenuItem(traySettings);
+            exitItem = new ToolStripMenuItem(trayExit);
             ToolStripMenuItem versionItem = new ToolStripMenuItem(version)
             {
                 Enabled = false
@@ -82,9 +89,59 @@ namespace GI_Subtitles
             return notifyIcon;
         }
 
+        private string GetLocalizedString(string resourceKey, string fallback)
+        {
+            try
+            {
+                var app = System.Windows.Application.Current;
+                if (app != null)
+                {
+                    var value = app.TryFindResource(resourceKey) as string;
+                    if (!string.IsNullOrEmpty(value))
+                    {
+                        return value;
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                // ignore and fallback
+                Logger.Log.Error($"Failed {e} to find localized string for {resourceKey}. Falling back to {fallback}.");
+            }
+            return fallback;
+        }
+
         public void SetData(SettingsWindow data)
         {
             this.data = data;
+        }
+
+        /// <summary>
+        /// Refresh tray menu texts based on current language resources
+        /// </summary>
+        public void RefreshMenuTexts()
+        {
+            if (contextMenuStrip == null || fontSizeSelector == null || settingItem == null || exitItem == null)
+                return;
+
+            try
+            {
+                // Update font size selector text
+                string trayFontSize = GetLocalizedString("Tray_FontSize", "字号选择");
+                fontSizeSelector.Text = trayFontSize;
+
+                // Update settings menu item text
+                string traySettings = GetLocalizedString("Tray_Settings", "程序设定");
+                settingItem.Text = traySettings;
+
+                // Update exit menu item text
+                string trayExit = GetLocalizedString("Tray_Exit", "退出程序");
+                exitItem.Text = trayExit;
+            }
+            catch (Exception ex)
+            {
+                Logger.Log.Error($"Error refreshing tray menu texts: {ex.Message}");
+            }
         }
 
         private void DateUpdate()
