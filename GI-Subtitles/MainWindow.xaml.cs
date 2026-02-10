@@ -307,20 +307,108 @@ namespace GI_Subtitles
 
         public void UpdateWindowPosition()
         {
-            double top = Convert.ToInt16(notify.Region[1]) / Scale + Config.GetPad();
+            // Base vertical position near the OCR region; precise Top/Height will be adjusted later
+            double baseTop = Convert.ToInt16(notify.Region[1]) / Scale + Config.GetPad();
+
             foreach (var screen in Screen.AllScreens)
             {
-                if (screen.WorkingArea.Contains(new System.Drawing.Point(Convert.ToInt16(notify.Region[0]), Convert.ToInt16(notify.Region[1]))))
+                if (screen.WorkingArea.Contains(
+                        new System.Drawing.Point(
+                            Convert.ToInt16(notify.Region[0]),
+                            Convert.ToInt16(notify.Region[1]))))
                 {
                     double scale = GetScaleForScreen(screen);
                     double left = screen.Bounds.Left / scale;
-                    this.Top = top;
+
+                    // Width based on OCR region width with extra padding
                     double width = Convert.ToInt16(notify.Region[2]) / scale + 200;
+
                     this.Left = left + (screen.Bounds.Width / scale - width) / 2 + Config.GetPadHorizontal();
                     this.Width = width;
+                    this.Top = baseTop;
                 }
             }
-            this.Height = 100;
+            // Height is now content-driven; do not hard-code here
+        }
+
+        /// <summary>
+        /// Adjust window Height and Top based on actual subtitle content size.
+        /// Keeps window within screen bounds.
+        /// </summary>
+        private void UpdateWindowHeightAndTop()
+        {
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                try
+                {
+                    // 1. Measure content height (subtitle + optional header)
+                    SubtitleText.UpdateLayout();
+                    double contentHeight = SubtitleText.ActualHeight;
+
+                    if (HeaderText.Visibility == Visibility.Visible && !string.IsNullOrEmpty(HeaderText.Text))
+                    {
+                        HeaderText.UpdateLayout();
+                        contentHeight += HeaderText.ActualHeight + 4; // small spacing between header and content
+                    }
+
+                    if (contentHeight <= 0)
+                    {
+                        // Fallback estimation when layout is not ready
+                        int fontSize = Config.Get<int>("Size");
+                        contentHeight = fontSize * (HeaderText.Visibility == Visibility.Visible ? 2 : 1);
+                    }
+
+                    // 2. Desired window height with margin, clamped to a percentage of screen height
+                    double margin = 20;
+                    double desiredHeight = contentHeight + margin;
+
+                    Screen targetScreen = null;
+                    foreach (var screen in Screen.AllScreens)
+                    {
+                        if (screen.WorkingArea.Contains(
+                                new System.Drawing.Point(
+                                    Convert.ToInt16(notify.Region[0]),
+                                    Convert.ToInt16(notify.Region[1]))))
+                        {
+                            targetScreen = screen;
+                            break;
+                        }
+                    }
+                    if (targetScreen == null)
+                    {
+                        targetScreen = Screen.PrimaryScreen;
+                    }
+
+                    double screenScale = GetScaleForScreen(targetScreen);
+                    double screenHeight = targetScreen.Bounds.Height / screenScale;
+                    double screenTop = targetScreen.Bounds.Top / screenScale;
+                    double screenBottom = targetScreen.Bounds.Bottom / screenScale;
+
+                    // Limit window height to 30% of the screen height to avoid covering too much
+                    double maxHeight = screenHeight * 0.3;
+                    this.Height = Math.Min(desiredHeight, maxHeight);
+
+                    // 3. Compute Top so that content stays near the OCR region, growing mainly upwards
+                    double regionTop = Convert.ToInt16(notify.Region[1]) / Scale + Config.GetPad();
+                    double newTop = regionTop - (this.Height - contentHeight) / 2.0;
+
+                    // 4. Clamp Top to keep window fully on screen
+                    if (newTop < screenTop)
+                    {
+                        newTop = screenTop;
+                    }
+                    if (newTop + this.Height > screenBottom)
+                    {
+                        newTop = screenBottom - this.Height;
+                    }
+
+                    this.Top = newTop;
+                }
+                catch (Exception ex)
+                {
+                    Logger.Log.Error($"Error updating window height/top: {ex}");
+                }
+            }), System.Windows.Threading.DispatcherPriority.Loaded);
         }
 
         public void UpdateText(object sender, EventArgs e)
@@ -438,6 +526,9 @@ namespace GI_Subtitles
                             PlayAudioFromUrl($"{server}?md5={audioKey}&token={token}");
                             AudioList.Add(key);
                         }
+
+                        // Adapt window height and position when text changes
+                        UpdateWindowHeightAndTop();
                     }
                 }
                 catch (Exception ex)
