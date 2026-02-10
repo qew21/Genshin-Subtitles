@@ -290,7 +290,6 @@
                         <Button Content="{DynamicResource Btn_ResetLocation}" Margin="0,0,20,0" Click="ResetLocation_Click"/>
                         <Button Content="{DynamicResource Btn_SecondRegion}" Margin="0,0,20,0" Click="SecondRegion_Click"/>
                         <Button Content="{DynamicResource Btn_OpenFolder}" Margin="0,0,20,0" Click="OpenAppDataFolder_Click"/>
-                        <Button Content="{DynamicResource Btn_Voice}" Margin="0,0,20,0" Click="VoiceButton_Click"/>
                     </StackPanel>
 
                 </Grid>

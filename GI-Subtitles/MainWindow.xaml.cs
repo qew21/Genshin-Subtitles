@@ -72,8 +72,8 @@ namespace GI_Subtitles
         public System.Windows.Threading.DispatcherTimer OCRTimer = new System.Windows.Threading.DispatcherTimer();
         public System.Windows.Threading.DispatcherTimer UITimer = new System.Windows.Threading.DispatcherTimer();
         readonly bool debug = Config.Get<bool>("Debug", false);
-        readonly string server = Config.Get<string>("Server");
-        readonly string token = Config.Get<string>("Token");
+        readonly string server = Config.Get<string>("Server", "https://mp3.2langs.com/download");
+        readonly string token = Config.Get<string>("Token", "ENGI");
         readonly int distant = Config.Get<int>("Distant", 3);
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         public static extern int SetWindowPos(IntPtr hWnd, int hWndInsertAfter, int x, int y, int Width, int Height, int flags);
@@ -432,7 +432,7 @@ namespace GI_Subtitles
                         }
 
                         // Play audio (only when content changes, to avoid repeated playback)
-                        if (Config.Get<bool>("PlayVoice", true) && contentChanged && !AudioList.Contains(key))
+                        if (Config.Get<bool>("PlayVoice", false) && contentChanged && !AudioList.Contains(key))
                         {
                             string audioKey = VoiceContentHelper.CalculateMd5Hash(key);
                             PlayAudioFromUrl($"{server}?md5={audioKey}&token={token}");

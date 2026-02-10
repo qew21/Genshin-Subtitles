@@ -1316,14 +1316,12 @@ namespace GI_Subtitles
             this.Close();
         }
 
-        private void VoiceButton_Click(object sender, RoutedEventArgs e)
-        {
-            Config.Set("Server", "https://mp3.2langs.com/download");
-            Config.Set("Token", "ENGI");
-        }
-
         private void PlayVoiceCheckBox_Checked(object sender, RoutedEventArgs e)
         {
+            if (!_uiLangInitialized)
+            {
+                return;
+            }
             Config.Set("PlayVoice", PlayVoiceCheckBox.IsChecked == true);
         }
     }
