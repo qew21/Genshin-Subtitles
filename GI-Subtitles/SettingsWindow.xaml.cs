@@ -534,7 +534,7 @@ namespace GI_Subtitles
                 if (Matcher == null)
                 {
                     Logger.Log.Debug("Loading OptimizedMatcher...");
-                    Matcher = new OptimizedMatcher(contentDict);
+                    Matcher = new OptimizedMatcher(contentDict, InputLanguage);
                 }
             });
             DisplayLocalFileDates();

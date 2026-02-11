@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
+using System.Windows.Input;
 
 namespace GI_Subtitles
 {
@@ -26,6 +28,7 @@ namespace GI_Subtitles
         private readonly int[] _shortKeysIndices;
         private readonly Dictionary<string, string> ContentDict;
         public bool Loaded = false;
+        public bool isEng = false;
 
         private struct Entry
         {
@@ -34,8 +37,9 @@ namespace GI_Subtitles
             public int Length;
         }
 
-        public OptimizedMatcher(Dictionary<string, string> voiceContentDict)
+        public OptimizedMatcher(Dictionary<string, string> voiceContentDict, string inputLanguage)
         {
+            isEng = inputLanguage == "EN";
             ContentDict = voiceContentDict;
             int count = voiceContentDict.Count;
             _entries = new Entry[count];
@@ -46,7 +50,10 @@ namespace GI_Subtitles
             foreach (var kvp in voiceContentDict)
             {
                 string key = kvp.Key;
-                key = NormalizeInput(key);
+                if (!isEng)
+                {
+                    key = NormalizeInput(key);
+                }
 
                 // 1. Store the original data array
                 _entries[index] = new Entry
@@ -92,7 +99,10 @@ namespace GI_Subtitles
 
         public string FindClosestMatch(string input, out string Key)
         {
-            input = NormalizeInput(input);
+            if (!isEng)
+            {
+                input = NormalizeInput(input);
+            }
             if (string.IsNullOrEmpty(input))
             {
                 Key = "";
@@ -198,6 +208,7 @@ namespace GI_Subtitles
         // Core processing logic (extracted for reuse)
         private void ProcessCandidate(int id, string input, int inputLen, ref int globalBestDistance, ref string globalBestKey, object lockObj, ParallelLoopState loopState)
         {
+            int CheckLength = isEng ? 40 : 10;
             // Quick check: if there is a perfect match
             if (globalBestDistance == 0)
             {
@@ -211,16 +222,16 @@ namespace GI_Subtitles
             int keyLen = entry.Length;
 
             // Original business filtering logic
-            if (inputLen <= 5 && keyLen >= inputLen * 3) return;
+            if (inputLen <= CheckLength / 2 && keyLen >= inputLen * 3) return;
 
             int currentDistance = int.MaxValue;
             bool isSpecialMatch = false;
 
             // Contains priority logic
-            if (inputLen > 10)
+            if (inputLen > CheckLength)
             {
                 if (key.IndexOf(input, StringComparison.Ordinal) >= 0 ||
-                   (keyLen > 10 && input.IndexOf(key, StringComparison.Ordinal) >= 0))
+                   (keyLen > CheckLength && keyLen > CheckLength && input.IndexOf(key, StringComparison.Ordinal) >= 0))
                 {
                     isSpecialMatch = true;
                     currentDistance = 0;
@@ -230,10 +241,10 @@ namespace GI_Subtitles
             if (!isSpecialMatch)
             {
                 // Pruning
-                if (Math.Abs(keyLen - inputLen) >= globalBestDistance * 1.5) return;
+                if (Math.Abs(keyLen - inputLen) >= globalBestDistance * 3) return;
 
                 ReadOnlySpan<char> targetSpan = key.AsSpan();
-                if (inputLen > 5 && keyLen > inputLen)
+                if (inputLen > CheckLength / 2 && keyLen > inputLen)
                 {
                     targetSpan = targetSpan.Slice(0, inputLen);
                 }
@@ -295,77 +306,6 @@ namespace GI_Subtitles
                 var tempRow = prev; prev = curr; curr = tempRow;
             }
             return prev[sourceLen];
-        }
-
-        public string FindMatchWithHeader(string ocrText, out string key)
-        {
-            key = "";
-
-            if (string.IsNullOrEmpty(ocrText))
-                return "";
-
-            string[] lines = ocrText.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
-            if (lines.Length == 1)
-            {
-                return FindClosestMatch(lines[0], out key);
-            }
-
-            // Find the longest line (body text starts from here)
-            int maxLength = 0;
-            int maxIndex = 0;
-            for (int i = 0; i < lines.Length; i++)
-            {
-                if (lines[i].Length > maxLength)
-                {
-                    maxLength = lines[i].Length;
-                    maxIndex = i;
-                }
-            }
-
-            // Headers are lines above the longest line (1-2 lines)
-            List<string> headers = new List<string>();
-            // If the longest line is title case and English, and there's content after it, use the next line
-            if (IsTitleCase(lines[maxIndex]) && IsEnglish(lines[maxIndex]) && maxIndex < lines.Length - 1)
-            {
-                maxIndex = maxIndex + 1;
-            }
-
-
-            for (int i = 0; i < maxIndex; i++)
-            {
-                headers.Add(lines[i]);
-            }
-
-            // Body text is the longest line and all lines after it
-            string bodyText = string.Join(" ", lines.Skip(maxIndex));
-
-            // Exact match for headers (no fuzzy matching)
-            string headerMatch = "";
-            foreach (string header in headers)
-            {
-                if (ContentDict.ContainsKey(header))
-                {
-                    if (!string.IsNullOrEmpty(headerMatch))
-                        headerMatch += " ";
-                    headerMatch += ContentDict[header];
-                }
-            }
-
-            string bodyMatch = FindClosestMatch(bodyText, out string bodyKey);
-            if (string.IsNullOrEmpty(bodyMatch))
-            {
-                return headerMatch;
-            }
-
-            key = bodyKey;
-            if (!string.IsNullOrEmpty(headerMatch))
-            {
-                return headerMatch + " " + bodyMatch;
-            }
-            else
-            {
-                return bodyMatch;
-            }
         }
 
         // New method: return the result of header and content separated

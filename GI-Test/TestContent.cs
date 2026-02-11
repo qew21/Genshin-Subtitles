@@ -142,10 +142,10 @@ namespace GI_Test
 
             // Read JSON in the normal way
             string dataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GI-Subtitles");
-            string game = Config.Get<string>("Game", "Genshin");
-            string inputLanguage = Config.Get<string>("Input", "CHS");
-            string outputLanguage = Config.Get<string>("Output", "EN");
-            string userName = (outputLanguage == "CHS") ? "旅行者" : "Traveler";
+            string game = "Genshin";
+            string inputLanguage = "CHS";
+            string outputLanguage = "EN";
+            string userName = "旅行者";
 
             string inputFilePath = Path.Combine(dataDir, game, $"TextMap{inputLanguage}.json");
             string outputFilePath = Path.Combine(dataDir, game, $"TextMap{outputLanguage}.json");
@@ -174,7 +174,7 @@ namespace GI_Test
 
             // Test result list
             var testResults = new List<TestResult>();
-            var matcher = new OptimizedMatcher(voiceContentDict);
+            var matcher = new OptimizedMatcher(voiceContentDict, inputLanguage);
 
             // Test each sentence
             foreach (var sentence in testSentences)
@@ -246,10 +246,10 @@ namespace GI_Test
 
             // Read JSON in the normal way
             string dataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GI-Subtitles");
-            string game = Config.Get<string>("Game", "StarRail");
-            string inputLanguage = Config.Get<string>("Input", "EN");
-            string outputLanguage = Config.Get<string>("Output", "CHS");
-            string userName = (outputLanguage == "CHS") ? "旅行者" : "Traveler";
+            string game = "StarRail";
+            string inputLanguage = "EN";
+            string outputLanguage = "CHS";
+            string userName = "Traveler";
 
             string inputFilePath = Path.Combine(dataDir, game, $"TextMap{inputLanguage}.json");
             string outputFilePath = Path.Combine(dataDir, game, $"TextMap{outputLanguage}.json");
@@ -278,7 +278,7 @@ namespace GI_Test
 
             // Test result list
             var testResults = new List<TestResult>();
-            var matcher = new OptimizedMatcher(voiceContentDict);
+            var matcher = new OptimizedMatcher(voiceContentDict, inputLanguage);
 
             // Test each sentence
             foreach (var sentence in testSentences)
