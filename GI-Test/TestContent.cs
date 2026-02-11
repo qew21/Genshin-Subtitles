@@ -241,7 +241,7 @@ namespace GI_Test
             // Test sentence list
             var testSentences = new[]
             {
-                "..Look! The title of this game is Hanu's Adventure. According to the plot synopsis, you have been shrunken"
+                "..Lok! The title of this game is Hanu's Adventure. According to the plot synopsis, you have been shrunken"
             };
 
             // Read JSON in the normal way
