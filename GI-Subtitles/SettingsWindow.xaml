@@ -95,21 +95,34 @@
                             </ComboBox>
 
                             <TextBlock Text="{DynamicResource Output_Lang}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                            <ComboBox Name="OutputSelector" Width="100" VerticalAlignment="Center">
-                                <ComboBoxItem Content="{DynamicResource Lang_ZH_Simplified}"/>
-                                <ComboBoxItem Content="English" IsSelected="True"/>
-                                <ComboBoxItem Content="日本語"/>
-                                <ComboBoxItem Content="{DynamicResource Lang_ZH_Traditional}"/>
-                                <ComboBoxItem Content="Deutsch"/>
-                                <ComboBoxItem Content="Español"/>
-                                <ComboBoxItem Content="Français"/>
-                                <ComboBoxItem Content="Bahasa Indonesia"/>
-                                <ComboBoxItem Content="한국어"/>
-                                <ComboBoxItem Content="Português"/>
-                                <ComboBoxItem Content="Русский"/>
-                                <ComboBoxItem Content="ไทย"/>
-                                <ComboBoxItem Content="Tiếng Việt"/>
-                            </ComboBox>
+                            <!-- Multi-select output languages (max 2), apply by confirm button -->
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <ListBox Name="OutputSelector"
+                                         Width="150"
+                                         Height="80"
+                                         SelectionMode="Multiple">
+                                    <ListBoxItem Content="{DynamicResource Lang_ZH_Simplified}"/>
+                                    <ListBoxItem Content="English"/>
+                                    <ListBoxItem Content="日本語"/>
+                                    <ListBoxItem Content="{DynamicResource Lang_ZH_Traditional}"/>
+                                    <ListBoxItem Content="Deutsch"/>
+                                    <ListBoxItem Content="Español"/>
+                                    <ListBoxItem Content="Français"/>
+                                    <ListBoxItem Content="Bahasa Indonesia"/>
+                                    <ListBoxItem Content="한국어"/>
+                                    <ListBoxItem Content="Português"/>
+                                    <ListBoxItem Content="Русский"/>
+                                    <ListBoxItem Content="ไทย"/>
+                                    <ListBoxItem Content="Tiếng Việt"/>
+                                </ListBox>
+                                <Button x:Name="OutputConfirmButton"
+                                        Content="Apply"
+                                        Width="70"
+                                        Height="30"
+                                        Margin="8,0,0,0"
+                                        Click="OutputConfirmButton_Click"
+                                        IsEnabled="False"/>
+                            </StackPanel>
                         </StackPanel>
 
                         <!-- Data information area -->
@@ -123,6 +136,11 @@
                                     <TextBlock Margin="0,4,0,0">
                                         <Run Text="{DynamicResource Output_Lang}"/>
                                         <TextBlock Name="outputFilePathDate" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                                    </TextBlock>
+                                    <!-- Optional second output language local file info -->
+                                    <TextBlock Margin="0,4,0,0">
+                                        <Run Text="{DynamicResource Output_Lang}"/>
+                                        <TextBlock Name="outputFilePathDate2" Margin="6,0,0,0" VerticalAlignment="Center"/>
                                     </TextBlock>
                                 </StackPanel>
                             </GroupBox>
@@ -140,6 +158,11 @@
                                     <TextBlock Margin="0,4,0,0">
                                         <Run Text="{DynamicResource Download_Output_Lang}"/>
                                         <TextBox x:Name="OutputLangDownloadUrl" Style="{StaticResource LinkTextBox}" Text=""/>
+                                    </TextBlock>
+                                    <!-- Optional second output language download link (when multi-output is enabled) -->
+                                    <TextBlock Margin="0,4,0,0">
+                                        <Run Text="{DynamicResource Download_Output_Lang}"/>
+                                        <TextBox x:Name="OutputLangDownloadUrl2" Style="{StaticResource LinkTextBox}" Text=""/>
                                     </TextBlock>
                                 </StackPanel>
                             </GroupBox>

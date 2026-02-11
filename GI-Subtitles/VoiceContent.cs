@@ -57,6 +57,53 @@ public static class VoiceContentHelper
         return voiceContentDict;
     }
 
+    /// <summary>
+    /// Build a merged output json where each key maps to two-language content joined by '\n'.
+    /// Returns the merged json path (cached on disk).
+    /// </summary>
+    public static string BuildMultiOutputJson(string inputFilePath, string outputFilePath1, string outputFilePath2)
+    {
+        var dir = Path.GetDirectoryName(inputFilePath);
+        var name1 = Path.GetFileNameWithoutExtension(outputFilePath1);
+        var name2 = Path.GetFileNameWithoutExtension(outputFilePath2);
+        var mergedName = $"{name1}_{name2}.json";
+        var mergedPath = Path.Combine(dir, mergedName);
+
+        if (File.Exists(mergedPath))
+        {
+            return mergedPath;
+        }
+
+        var lang1 = JsonConvert.DeserializeObject<Dictionary<string, string>>(File.ReadAllText(outputFilePath1));
+        var lang2 = JsonConvert.DeserializeObject<Dictionary<string, string>>(File.ReadAllText(outputFilePath2));
+        var merged = new Dictionary<string, string>();
+
+        foreach (var kv in lang1)
+        {
+            if (lang2.TryGetValue(kv.Key, out var v2))
+            {
+                // Two target languages stacked vertically
+                merged[kv.Key] = kv.Value + "\n" + v2;
+            }
+            else
+            {
+                merged[kv.Key] = kv.Value;
+            }
+        }
+
+        // Optional: include entries that exist only in lang2
+        foreach (var kv in lang2)
+        {
+            if (!merged.ContainsKey(kv.Key))
+            {
+                merged[kv.Key] = kv.Value;
+            }
+        }
+
+        File.WriteAllText(mergedPath, JsonConvert.SerializeObject(merged, Formatting.Indented));
+        return mergedPath;
+    }
+
 
     public static string FindMatchWithHeader(string ocrText, Dictionary<string, string> voiceContentDict, out string key)
     {

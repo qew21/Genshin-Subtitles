@@ -48,6 +48,7 @@ namespace GI_Subtitles
         string Game = Config.Get<string>("Game");
         string InputLanguage = Config.Get<string>("Input");
         string OutputLanguage = Config.Get<string>("Output");
+        string OutputLanguage2 = Config.Get<string>("Output2");
         private const int MaxRetries = 1; // Maximum number of retries
         private static readonly HttpClient client = new HttpClient();
         public Dictionary<string, string> contentDict = new Dictionary<string, string>();
@@ -128,7 +129,8 @@ namespace GI_Subtitles
             this.Title += $"({version})";
             GameSelector.SelectionChanged += OnGameSelectorChanged;
             InputSelector.SelectionChanged += OnInputSelectorChanged;
-            OutputSelector.SelectionChanged += OnOutputSelectorChanged;
+            // OutputSelector uses multi-select with explicit confirm, handled by OutputSelector_SelectionChanged + OutputConfirmButton_Click
+            OutputSelector.SelectionChanged += OutputSelector_SelectionChanged;
             Dictionary<string, string> GameNames = GameDict.ToDictionary(x => x.Value, x => x.Key);
             Dictionary<string, string> InputNames = InputLanguages.ToDictionary(x => x.Value, x => x.Key);
             Dictionary<string, string> OutputNames = OutputLanguages.ToDictionary(x => x.Value, x => x.Key);
@@ -142,10 +144,23 @@ namespace GI_Subtitles
             {
                 InputSelector.SelectedItem = item;
             }
-            item = OutputSelector.Items.Cast<ComboBoxItem>().FirstOrDefault(i => i.Content.ToString() == OutputNames[OutputLanguage]);
-            if (item != null)
+            // Initialize output language selection (support up to 2 outputs)
+            var outputItems = OutputSelector.Items.Cast<ListBoxItem>().ToList();
+            if (OutputNames.TryGetValue(OutputLanguage, out var primaryName))
             {
-                OutputSelector.SelectedItem = item;
+                var primaryItem = outputItems.FirstOrDefault(i => i.Content.ToString() == primaryName);
+                if (primaryItem != null)
+                {
+                    primaryItem.IsSelected = true;
+                }
+            }
+            if (!string.IsNullOrEmpty(OutputLanguage2) && OutputNames.TryGetValue(OutputLanguage2, out var secondName))
+            {
+                var secondItem = outputItems.FirstOrDefault(i => i.Content.ToString() == secondName);
+                if (secondItem != null)
+                {
+                    secondItem.IsSelected = true;
+                }
             }
             DisplayLocalFileDates();
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
@@ -275,29 +290,70 @@ namespace GI_Subtitles
         {
             InputLangDownloadUrl.Text = $"https://gitlab.com/Dimbreath/AnimeGameData/-/raw/master/TextMap/TextMap{InputLanguage}.json?inline=false";
             OutputLangDownloadUrl.Text = $"https://gitlab.com/Dimbreath/AnimeGameData/-/raw/master/TextMap/TextMap{OutputLanguage}.json?inline=false";
+            // Second output language download url (if configured)
+            if (!string.IsNullOrEmpty(OutputLanguage2))
+            {
+                OutputLangDownloadUrl2.Text = $"https://gitlab.com/Dimbreath/AnimeGameData/-/raw/master/TextMap/TextMap{OutputLanguage2}.json?inline=false";
+            }
+            else
+            {
+                OutputLangDownloadUrl2.Text = string.Empty;
+            }
             if (Game == "StarRail")
             {
                 repoUrl = "https://gitlab.com/Dimbreath/turnbasedgamedata/-/refs/main/logs_tree/?format=json&offset=0&ref_type=HEADS";
                 InputLangDownloadUrl.Text = $"https://gitlab.com/Dimbreath/turnbasedgamedata/-/raw/main/TextMap/TextMap{InputLanguage}.json?inline=false";
                 OutputLangDownloadUrl.Text = $"https://gitlab.com/Dimbreath/turnbasedgamedata/-/raw/main/TextMap/TextMap{OutputLanguage}.json?inline=false";
+                if (!string.IsNullOrEmpty(OutputLanguage2))
+                {
+                    OutputLangDownloadUrl2.Text = $"https://gitlab.com/Dimbreath/turnbasedgamedata/-/raw/main/TextMap/TextMap{OutputLanguage2}.json?inline=false";
+                }
+                else
+                {
+                    OutputLangDownloadUrl2.Text = string.Empty;
+                }
             }
             else if (Game == "Zenless")
             {
                 repoUrl = "https://git.mero.moe/dimbreath/ZenlessData";
                 InputLangDownloadUrl.Text = ZenlessUrl(InputLanguage);
                 OutputLangDownloadUrl.Text = ZenlessUrl(OutputLanguage);
+                if (!string.IsNullOrEmpty(OutputLanguage2))
+                {
+                    OutputLangDownloadUrl2.Text = ZenlessUrl(OutputLanguage2);
+                }
+                else
+                {
+                    OutputLangDownloadUrl2.Text = string.Empty;
+                }
             }
             else if (Game == "Wuthering")
             {
                 repoUrl = "https://github.com/Dimbreath/WutheringData/commits/master.atom";
                 InputLangDownloadUrl.Text = WutheringUrl(InputLanguage);
                 OutputLangDownloadUrl.Text = WutheringUrl(OutputLanguage);
+                if (!string.IsNullOrEmpty(OutputLanguage2))
+                {
+                    OutputLangDownloadUrl2.Text = WutheringUrl(OutputLanguage2);
+                }
+                else
+                {
+                    OutputLangDownloadUrl2.Text = string.Empty;
+                }
             }
             else if (Game == "Endfield")
             {
                 repoUrl = "https://github.com/XiaBei-cy/EndfieldData/commits/master.atom";
                 InputLangDownloadUrl.Text = EndfieldUrl(InputLanguage);
                 OutputLangDownloadUrl.Text = EndfieldUrl(OutputLanguage);
+                if (!string.IsNullOrEmpty(OutputLanguage2))
+                {
+                    OutputLangDownloadUrl2.Text = EndfieldUrl(OutputLanguage2);
+                }
+                else
+                {
+                    OutputLangDownloadUrl2.Text = string.Empty;
+                }
             }
         }
 
@@ -383,29 +439,53 @@ namespace GI_Subtitles
             }
         }
 
-        private async void OnOutputSelectorChanged(object sender, SelectionChangedEventArgs e)
+        private void OutputSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (!(sender is System.Windows.Controls.ComboBox comboBox))
+            // Enable confirm button when selection changes
+            if (OutputConfirmButton != null)
+            {
+                OutputConfirmButton.IsEnabled = true;
+            }
+
+            // Enforce max 2 selected languages
+            var listBox = sender as System.Windows.Controls.ListBox;
+            if (listBox == null)
             {
                 return;
             }
 
-            if (comboBox.SelectedItem is ComboBoxItem selectedItem)
+            if (listBox.SelectedItems.Count > 2)
             {
-                string newValue = OutputLanguages[selectedItem.Content.ToString()];
-                if (OutputLanguage != newValue)
+                // Deselect the last added item to keep max 2
+                if (e.AddedItems != null && e.AddedItems.Count > 0)
                 {
-                    OutputLanguage = newValue;
-                    DisplayLocalFileDates();
-                    Config.Set("Output", OutputLanguage);
-                    await CheckDataAsync(true);
+                    foreach (var added in e.AddedItems)
+                    {
+                        listBox.SelectedItems.Remove(added);
+                        break;
+                    }
                 }
             }
         }
         public bool FileExists()
         {
-            return File.Exists($"{Path.Combine(dataDir, Game)}\\TextMap{InputLanguage}_TextMap{OutputLanguage}.json") || (File.Exists($"{Path.Combine(dataDir, Game)}\\TextMap{InputLanguage}.json") &&
-                              File.Exists($"{Path.Combine(dataDir, Game)}\\TextMap{OutputLanguage}.json"));
+            // Check single-output or merged-output cache first
+            string inputFilePath = $"{Path.Combine(dataDir, Game)}\\TextMap{InputLanguage}.json";
+            string outputFilePath1 = $"{Path.Combine(dataDir, Game)}\\TextMap{OutputLanguage}.json";
+            string mergedCachePath = $"{Path.Combine(dataDir, Game)}\\TextMap{InputLanguage}_TextMap{OutputLanguage}.json";
+
+            if (!string.IsNullOrEmpty(OutputLanguage2))
+            {
+                string outputFilePath2 = $"{Path.Combine(dataDir, Game)}\\TextMap{OutputLanguage2}.json";
+                string mergedMulti = Path.Combine(Path.GetDirectoryName(outputFilePath1),
+                    $"{Path.GetFileNameWithoutExtension(outputFilePath1)}_{Path.GetFileNameWithoutExtension(outputFilePath2)}.json");
+
+                return (File.Exists(inputFilePath) && File.Exists(outputFilePath1) && File.Exists(outputFilePath2)) ||
+                       File.Exists(mergedMulti);
+            }
+
+            return File.Exists(mergedCachePath) ||
+                   (File.Exists(inputFilePath) && File.Exists(outputFilePath1));
         }
 
         public async Task CheckDataAsync(bool renew = false)
@@ -421,19 +501,35 @@ namespace GI_Subtitles
             if (FileExists())
             {
                 string inputFilePath = $"{Path.Combine(dataDir, Game)}\\TextMap{InputLanguage}.json";
-                string outputFilePath = $"{Path.Combine(dataDir, Game)}\\TextMap{OutputLanguage}.json";
+                string outputFilePath1 = $"{Path.Combine(dataDir, Game)}\\TextMap{OutputLanguage}.json";
+
+                string effectiveOutputPath = outputFilePath1;
+                // When two outputs are selected, build a merged json so each key maps to two-language content
+                if (!string.IsNullOrEmpty(OutputLanguage2))
+                {
+                    string outputFilePath2 = $"{Path.Combine(dataDir, Game)}\\TextMap{OutputLanguage2}.json";
+                    effectiveOutputPath = VoiceContentHelper.BuildMultiOutputJson(inputFilePath, outputFilePath1, outputFilePath2);
+                }
+
                 var jsonFilePath = Path.Combine(Path.GetDirectoryName(inputFilePath),
-                    $"{Path.GetFileNameWithoutExtension(inputFilePath)}_{Path.GetFileNameWithoutExtension(outputFilePath)}.json");
+                    $"{Path.GetFileNameWithoutExtension(inputFilePath)}_{Path.GetFileNameWithoutExtension(effectiveOutputPath)}.json");
                 if (renew && File.Exists(jsonFilePath))
                 {
                     File.Delete(jsonFilePath);
                 }
                 contentDict = await Task.Run(() =>
-                    VoiceContentHelper.CreateVoiceContentDictionary(inputFilePath, outputFilePath, userName));
+                    VoiceContentHelper.CreateVoiceContentDictionary(inputFilePath, effectiveOutputPath, userName));
             }
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
-                Status.Content = $"Loaded {contentDict.Count} key-values，{InputLanguage} -> {OutputLanguage}";
+                if (string.IsNullOrEmpty(OutputLanguage2))
+                {
+                    Status.Content = $"Loaded {contentDict.Count} key-values，{InputLanguage} -> {OutputLanguage}";
+                }
+                else
+                {
+                    Status.Content = $"Loaded {contentDict.Count} key-values，{InputLanguage} -> {OutputLanguage}+{OutputLanguage2}";
+                }
                 Logger.Log.Debug(Status.Content);
                 if (Matcher == null)
                 {
@@ -467,6 +563,25 @@ namespace GI_Subtitles
             else
             {
                 outputFilePathDate.Text = $"{outputFilePath} not found";
+            }
+
+            // Second output language (if configured)
+            if (!string.IsNullOrEmpty(OutputLanguage2))
+            {
+                string outputFilePath2 = $"{Path.Combine(dataDir, Game)}\\TextMap{OutputLanguage2}.json";
+                if (File.Exists(outputFilePath2))
+                {
+                    DateTime modDate3 = File.GetLastWriteTime(outputFilePath2);
+                    outputFilePathDate2.Text = $"{outputFilePath2} file date {modDate3}";
+                }
+                else
+                {
+                    outputFilePathDate2.Text = $"{outputFilePath2} not found";
+                }
+            }
+            else
+            {
+                outputFilePathDate2.Text = "Second output language not selected";
             }
         }
 
@@ -629,7 +744,57 @@ namespace GI_Subtitles
         {
             string outputFilePath = $"{Path.Combine(dataDir, Game)}\\TextMap{OutputLanguage}.json";
             await DownloadFileAsync(OutputLangDownloadUrl.Text, outputFilePath);
+            string outputFilePath2 = $"{Path.Combine(dataDir, Game)}\\TextMap{OutputLanguage2}.json";
+            await DownloadFileAsync(OutputLangDownloadUrl2.Text, outputFilePath2);
             await CheckDataAsync(true);
+        }
+
+        private async void OutputConfirmButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Commit selected output languages (max 2) and reload data
+            var selectedItems = OutputSelector.SelectedItems.Cast<ListBoxItem>().ToList();
+            if (selectedItems.Count == 0)
+            {
+                System.Windows.MessageBox.Show("Please select at least one output language.");
+                return;
+            }
+
+            // Map UI text back to language codes
+            var uiToCode = OutputLanguages;
+
+            // Primary output
+            string primaryName = selectedItems[0].Content.ToString();
+            if (!uiToCode.TryGetValue(primaryName, out var primaryCode))
+            {
+                System.Windows.MessageBox.Show("Invalid primary output language.");
+                return;
+            }
+
+            string secondCode = null;
+            if (selectedItems.Count > 1)
+            {
+                string secondName = selectedItems[1].Content.ToString();
+                if (!uiToCode.TryGetValue(secondName, out secondCode))
+                {
+                    System.Windows.MessageBox.Show("Invalid secondary output language.");
+                    return;
+                }
+            }
+
+            OutputLanguage = primaryCode;
+            OutputLanguage2 = secondCode;
+
+            // Persist config
+            Config.Set("Output", OutputLanguage);
+            Config.Set("Output2", OutputLanguage2 ?? "");
+
+            DisplayLocalFileDates();
+
+            // Reload data with new output configuration
+            await CheckDataAsync(true);
+
+            // Disable button until next selection change
+            OutputConfirmButton.IsEnabled = false;
         }
 
         private async Task DownloadFileAsync(string url, string fileName)
