@@ -70,9 +70,12 @@
 
                         <!-- Control panel: language & game selection -->
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,16">
-                            <TextBlock Text="{DynamicResource UI_Language}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <!-- UI language control is now moved to tray Language menu, keep hidden here for compatibility -->
+                            <TextBlock Text="{DynamicResource UI_Language}" VerticalAlignment="Center" Margin="0,0,6,0"
+                                       Visibility="Collapsed"/>
                             <ComboBox Name="UILangSelector" Width="100" VerticalAlignment="Center" Margin="0,0,16,0"
-                                      SelectionChanged="UILangSelector_SelectionChanged">
+                                      SelectionChanged="UILangSelector_SelectionChanged"
+                                      Visibility="Collapsed">
                                 <ComboBoxItem Content="简体中文" Tag="zh-CN" IsSelected="True"/>
                                 <ComboBoxItem Content="English" Tag="en-US"/>
                                 <ComboBoxItem Content="日本語" Tag="ja-JP"/>

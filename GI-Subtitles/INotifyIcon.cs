@@ -27,6 +27,7 @@ namespace GI_Subtitles
     {
         System.Windows.Forms.ContextMenuStrip contextMenuStrip;
         ToolStripMenuItem fontSizeSelector;
+        ToolStripMenuItem languageSelector;
         ToolStripMenuItem settingItem;
         ToolStripMenuItem exitItem;
         private int Size = Config.Get<int>("Size");
@@ -46,6 +47,7 @@ namespace GI_Subtitles
             contextMenuStrip = new ContextMenuStrip();
             // Localized tray menu texts (fallback to Chinese)
             string trayFontSize = GetLocalizedString("Tray_FontSize", "字号选择");
+            string trayLanguage = GetLocalizedString("Tray_Language", "Language");
             string traySettings = GetLocalizedString("Tray_Settings", "程序设定");
             string trayExit = GetLocalizedString("Tray_Exit", "退出程序");
 
@@ -56,6 +58,12 @@ namespace GI_Subtitles
             fontSizeSelector.DropDownItems.Add(CreateSizeItem("20"));
             fontSizeSelector.DropDownItems.Add(CreateSizeItem("22"));
             fontSizeSelector.DropDownItems.Add(CreateSizeItem("24"));
+
+            // Language selector submenu in tray area
+            languageSelector = new ToolStripMenuItem(trayLanguage);
+            languageSelector.DropDownItems.Add(CreateLanguageItem("简体中文", "zh-CN"));
+            languageSelector.DropDownItems.Add(CreateLanguageItem("English", "en-US"));
+            languageSelector.DropDownItems.Add(CreateLanguageItem("日本語", "ja-JP"));
 
             settingItem = new ToolStripMenuItem(traySettings);
             exitItem = new ToolStripMenuItem(trayExit);
@@ -72,6 +80,7 @@ namespace GI_Subtitles
             exitItem.Click += (sender, e) => { System.Windows.Application.Current.Shutdown(); };
             contextMenuStrip.Items.Add(versionItem);
             contextMenuStrip.Items.Add(new ToolStripSeparator());
+            contextMenuStrip.Items.Add(languageSelector);
             contextMenuStrip.Items.Add(fontSizeSelector);
             contextMenuStrip.Items.Add(settingItem);
             contextMenuStrip.Items.Add(exitItem);
@@ -130,6 +139,13 @@ namespace GI_Subtitles
                 string trayFontSize = GetLocalizedString("Tray_FontSize", "字号选择");
                 fontSizeSelector.Text = trayFontSize;
 
+                // Update language selector text
+                if (languageSelector != null)
+                {
+                    string trayLanguage = GetLocalizedString("Tray_Language", "Language");
+                    languageSelector.Text = trayLanguage;
+                }
+
                 // Update settings menu item text
                 string traySettings = GetLocalizedString("Tray_Settings", "程序设定");
                 settingItem.Text = traySettings;
@@ -183,7 +199,6 @@ namespace GI_Subtitles
             }
         }
 
-
         private ToolStripMenuItem CreateSizeItem(string code)
         {
             ToolStripMenuItem item = new ToolStripMenuItem(code)
@@ -197,6 +212,65 @@ namespace GI_Subtitles
                 item.Checked = true;
             }
             return item;
+        }
+
+        /// <summary>
+        /// Create a language menu item for the tray language selector.
+        /// </summary>
+        /// <param name="displayName">Display text of the language.</param>
+        /// <param name="cultureTag">Culture tag such as zh-CN / en-US / ja-JP.</param>
+        /// <returns>Configured ToolStripMenuItem.</returns>
+        private ToolStripMenuItem CreateLanguageItem(string displayName, string cultureTag)
+        {
+            ToolStripMenuItem item = new ToolStripMenuItem(displayName)
+            {
+                Tag = cultureTag,
+                CheckOnClick = true
+            };
+            item.CheckedChanged += LanguageItem_CheckedChanged;
+
+            // Initialize checked state from config
+            string currentLang = Config.Get("UILang", "zh-CN");
+            if (string.Equals(currentLang, cultureTag, StringComparison.OrdinalIgnoreCase))
+            {
+                item.Checked = true;
+            }
+
+            return item;
+        }
+
+        /// <summary>
+        /// Handle language selection from the tray submenu.
+        /// Ensures only one language is selected and propagates change to SettingsWindow.
+        /// </summary>
+        private void LanguageItem_CheckedChanged(object sender, EventArgs e)
+        {
+            if (sender is ToolStripMenuItem selectedItem && selectedItem.Checked)
+            {
+                string cultureTag = selectedItem.Tag as string;
+                if (string.IsNullOrEmpty(cultureTag))
+                {
+                    return;
+                }
+
+                // Uncheck other language items in the same submenu
+                foreach (ToolStripMenuItem langItem in languageSelector.DropDownItems)
+                {
+                    if (!ReferenceEquals(langItem, selectedItem))
+                    {
+                        langItem.Checked = false;
+                    }
+                }
+
+                // Persist to config
+                Config.Set("UILang", cultureTag);
+
+                // Apply to settings window (which will update resources, tray texts, hotkeys, etc.)
+                if (data != null)
+                {
+                    data.SetUILanguage(cultureTag);
+                }
+            }
         }
 
         private void SizeItem_CheckedChanged(object sender, EventArgs e)

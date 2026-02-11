@@ -75,6 +75,7 @@ namespace GI_Subtitles
         private Bitmap bitmap;
         double Scale = 1;
         INotifyIcon notifyIcon;
+        private readonly string _version;
         // Windows API functions for registering and unregistering hotkeys
         [DllImport("user32.dll")]
         private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
@@ -101,6 +102,7 @@ namespace GI_Subtitles
         private bool _uiLangInitialized = false;
         public SettingsWindow(string version, INotifyIcon notify, double scale = 1)
         {
+            _version = version;
             InitializeComponent();
             Scale = scale;
             // Load UI language from config, default to zh-CN
@@ -126,7 +128,9 @@ namespace GI_Subtitles
             }
             // From this point on, UILangSelector_SelectionChanged should start updating config
             _uiLangInitialized = true;
-            this.Title += $"({version})";
+
+            // Initialize window title with current language and version
+            UpdateWindowTitle();
             GameSelector.SelectionChanged += OnGameSelectorChanged;
             InputSelector.SelectionChanged += OnInputSelectorChanged;
             // OutputSelector uses multi-select with explicit confirm, handled by OutputSelector_SelectionChanged + OutputConfirmButton_Click
@@ -229,8 +233,39 @@ namespace GI_Subtitles
 
             if (UILangSelector.SelectedItem is ComboBoxItem item && item.Tag is string tag)
             {
-                ApplyLanguage(tag);
-                Config.Set("UILang", tag);
+                // Delegate to unified language setter so that tray and config stay in sync
+                SetUILanguage(tag);
+            }
+        }
+
+        /// <summary>
+        /// Set UI language from any caller (tray menu or settings window).
+        /// Keeps Config, resources, tray text, hotkeys and selector in sync.
+        /// </summary>
+        /// <param name="cultureTag">Culture tag such as zh-CN / en-US / ja-JP.</param>
+        public void SetUILanguage(string cultureTag)
+        {
+            try
+            {
+                // Temporarily suppress SelectionChanged side effects
+                _uiLangInitialized = false;
+
+                // Apply language resources and persist configuration
+                ApplyLanguage(cultureTag);
+                Config.Set("UILang", cultureTag);
+
+                // Sync combo box selection if it exists (even if hidden)
+                if (UILangSelector != null)
+                {
+                    UILangSelector.SelectionChanged -= UILangSelector_SelectionChanged;
+                    var uiItem = UILangSelector.Items.Cast<ComboBoxItem>()
+                        .FirstOrDefault(i => i.Tag is string tag && tag == cultureTag);
+                    if (uiItem != null)
+                    {
+                        UILangSelector.SelectedItem = uiItem;
+                    }
+                    UILangSelector.SelectionChanged += UILangSelector_SelectionChanged;
+                }
 
                 // Refresh tray menu texts
                 if (notifyIcon != null)
@@ -240,6 +275,45 @@ namespace GI_Subtitles
 
                 // Re-initialize hotkeys to update descriptions with new language
                 InitializeHotkeys();
+
+                // Update window title so that it reflects the new language
+                UpdateWindowTitle();
+            }
+            finally
+            {
+                // Re-enable SelectionChanged handling
+                _uiLangInitialized = true;
+            }
+        }
+
+        /// <summary>
+        /// Update the Settings window title based on current language resources and version.
+        /// </summary>
+        private void UpdateWindowTitle()
+        {
+            try
+            {
+                string baseTitle = System.Windows.Application.Current?
+                    .TryFindResource("App_Settings") as string;
+
+                if (string.IsNullOrWhiteSpace(baseTitle))
+                {
+                    // Fallback to existing title if resource is missing
+                    baseTitle = this.Title;
+                }
+
+                if (!string.IsNullOrEmpty(_version))
+                {
+                    this.Title = $"{baseTitle} ({_version})";
+                }
+                else
+                {
+                    this.Title = baseTitle;
+                }
+            }
+            catch
+            {
+                // In case of any unexpected error, keep the current title
             }
         }
 
@@ -531,11 +605,8 @@ namespace GI_Subtitles
                     Status.Content = $"Loaded {contentDict.Count} key-values，{InputLanguage} -> {OutputLanguage}+{OutputLanguage2}";
                 }
                 Logger.Log.Debug(Status.Content);
-                if (Matcher == null)
-                {
-                    Logger.Log.Debug("Loading OptimizedMatcher...");
-                    Matcher = new OptimizedMatcher(contentDict, InputLanguage);
-                }
+                Logger.Log.Debug("Loading OptimizedMatcher...");
+                Matcher = new OptimizedMatcher(contentDict, InputLanguage);
             });
             DisplayLocalFileDates();
         }

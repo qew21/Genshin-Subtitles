@@ -348,7 +348,7 @@ namespace GI_Subtitles
                 }
             }
 
-            if (IsTitleCase(lines[maxIndex]) && IsEnglish(lines[maxIndex]) && maxIndex < lines.Length - 1)
+            if (!isEng && IsTitleCase(lines[maxIndex]) && IsEnglishLine(lines[maxIndex]) && maxIndex < lines.Length - 1)
             {
                 maxIndex++;
             }
@@ -383,7 +383,7 @@ namespace GI_Subtitles
             return true;
         }
 
-        private static bool IsEnglish(string text)
+        private static bool IsEnglishLine(string text)
         {
             int engCount = 0;
             int len = 0;
