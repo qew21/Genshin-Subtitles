@@ -123,6 +123,9 @@ namespace GI_Subtitles
         {
             Logger.Log.Debug("Start App");
             InitializeComponent();
+            // Start with the main window fully transparent to avoid showing incomplete UI during heavy startup work.
+            // Using Opacity instead of Visibility to ensure Loaded is still raised and initialization runs as usual.
+            this.Opacity = 0;
             Loaded += MainWindow_Loaded;
             CheckAndUpdate(Update);
         }
@@ -197,6 +200,9 @@ namespace GI_Subtitles
             this.Top = screenBounds.Bottom / Scale - this.Height;
             this.Left = screenBounds.Left / Scale;
             this.LocationChanged += MainWindow_LocationChanged;
+
+            // Show the main window only after initialization is complete, so users don't see a half‑rendered UI.
+            this.Opacity = 1;
         }
 
         public void GetOCR(object sender, EventArgs e)
@@ -341,25 +347,19 @@ namespace GI_Subtitles
             {
                 try
                 {
-                    // 1. Measure content height (subtitle + optional header)
+                    // 1. Measure content height based only on subtitle text
                     SubtitleText.UpdateLayout();
                     double contentHeight = SubtitleText.ActualHeight;
-
-                    if (HeaderText.Visibility == Visibility.Visible && !string.IsNullOrEmpty(HeaderText.Text))
-                    {
-                        HeaderText.UpdateLayout();
-                        contentHeight += HeaderText.ActualHeight + 4; // small spacing between header and content
-                    }
 
                     if (contentHeight <= 0)
                     {
                         // Fallback estimation when layout is not ready
                         int fontSize = Config.Get<int>("Size");
-                        contentHeight = fontSize * (HeaderText.Visibility == Visibility.Visible ? 2 : 1);
+                        contentHeight = fontSize;
                     }
 
                     // 2. Desired window height with margin, clamped to a percentage of screen height
-                    double margin = 20;
+                    double margin = 50;
                     double desiredHeight = contentHeight + margin;
 
                     Screen targetScreen = null;
@@ -384,25 +384,20 @@ namespace GI_Subtitles
                     double screenTop = targetScreen.Bounds.Top / screenScale;
                     double screenBottom = targetScreen.Bounds.Bottom / screenScale;
 
-                    // Limit window height to 30% of the screen height to avoid covering too much
-                    double maxHeight = screenHeight * 0.3;
-                    this.Height = Math.Min(desiredHeight, maxHeight);
-
-                    // 3. Compute Top so that content stays near the OCR region, growing mainly upwards
-                    double regionTop = Convert.ToInt16(notify.Region[1]) / Scale + Config.GetPad();
-                    double newTop = regionTop - (this.Height - contentHeight) / 2.0;
-
-                    // 4. Clamp Top to keep window fully on screen
+                    // Keep the window vertically stable: only clamp Top to keep inside the screen
+                    // instead of recomputing it from the OCR region each time (which caused drift).
+                    double newTop = this.Top;
                     if (newTop < screenTop)
                     {
                         newTop = screenTop;
                     }
-                    if (newTop + this.Height > screenBottom)
+                    if (newTop + desiredHeight > screenBottom)
                     {
-                        newTop = screenBottom - this.Height;
+                        newTop = screenBottom - desiredHeight;
                     }
 
                     this.Top = newTop;
+                    this.Height = desiredHeight;
                 }
                 catch (Exception ex)
                 {
