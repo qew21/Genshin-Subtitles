@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Web.UI.WebControls;
 using GI_Subtitles;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Newtonsoft.Json;
@@ -236,7 +237,7 @@ namespace GI_Test
 
 
         [TestMethod]
-        public void TestStarRail()
+        public void TestStarRailEnglish()
         {
             // Test sentence list
             var testSentences = new[]
@@ -324,6 +325,109 @@ namespace GI_Test
             Console.WriteLine("=====================================");
 
             string resultFilePath = "PerformanceTestStarRail.json";
+            try
+            {
+                File.WriteAllText(resultFilePath, jsonResult, System.Text.Encoding.UTF8);
+                Logger.Log.Debug($"Result saved to: {resultFilePath}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Log.Warn($"Failed to save result file: {ex.Message}, but the test result has been output to the console");
+            }
+
+            // Assert: ensure that all tests have been completed (do not verify performance, only verify functionality)
+            Assert.IsTrue(testResults.Count == testSentences.Length, "All test sentences should be processed");
+        }
+
+        [TestMethod]
+        public void TestGenshinEnglish()
+        {
+            // Test sentence list
+            var testSentences = new[]
+            {
+                "In Nod-Krai, it's common knowledge that the\r\nCuratorium has a nose for profit and opportunity.\r\nthe same way aphids flit from flower to flower in a", "Lauma\r\nIn Nod-Krai, it's common knowledge that the\r\nCuratorium has a nose for profit and opportunity.\r\nthe same way aphids flit from flower to flower in a"
+            };
+
+            // Read JSON in the normal way
+            string dataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GI-Subtitles");
+            string game = "Genshin";
+            string inputLanguage = "EN";
+            string outputLanguage = "CHS";
+            string userName = "Traveler";
+
+            string inputFilePath = Path.Combine(dataDir, game, $"TextMap{inputLanguage}.json");
+            string outputFilePath = Path.Combine(dataDir, game, $"TextMap{outputLanguage}.json");
+
+            // Check if the files exist
+            if (!File.Exists(inputFilePath) || !File.Exists(outputFilePath))
+            {
+                Logger.Log.Debug($"JSON file does not exist, skipping performance test. Input: {inputFilePath}, Output: {outputFilePath}");
+                Assert.Inconclusive($"JSON file does not exist. Please ensure the files exist:\nInput: {inputFilePath}\nOutput: {outputFilePath}");
+                return;
+            }
+
+            // Load the dictionary (in the normal way)
+            Dictionary<string, string> voiceContentDict;
+            try
+            {
+                voiceContentDict = VoiceContentHelper.CreateVoiceContentDictionary(inputFilePath, outputFilePath, userName);
+                Logger.Log.Debug($"Successfully loaded dictionary, containing {voiceContentDict.Count} records");
+            }
+            catch (Exception ex)
+            {
+                Logger.Log.Error($"Failed to load dictionary: {ex}");
+                Assert.Fail($"Failed to load dictionary: {ex.Message}");
+                return;
+            }
+
+            // Test result list
+            var testResults = new List<TestResult>();
+            var matcher = new OptimizedMatcher(voiceContentDict, inputLanguage);
+
+            // Test each sentence
+            foreach (var sentence in testSentences)
+            {
+                var stopwatch = Stopwatch.StartNew();
+                string matchedKey;
+                var matchResult = matcher.FindMatchWithHeaderSeparated(sentence, out matchedKey);
+                stopwatch.Stop();
+
+                var result = new TestResult
+                {
+                    Input = sentence,
+                    MatchedKey = matchedKey ?? "",
+                    MatchedResult = matchResult.Content ?? "",
+                    ElapsedMilliseconds = stopwatch.Elapsed.TotalMilliseconds
+                };
+
+                testResults.Add(result);
+                Logger.Log.Debug($"Sentence: {sentence.Substring(0, Math.Min(30, sentence.Length))}... | Time: {result.ElapsedMilliseconds:F2}ms | Matched key: {matchedKey?.Substring(0, Math.Min(30, matchedKey?.Length ?? 0))}...");
+            }
+
+            // Calculate the average time
+            double averageTime = testResults.Average(r => r.ElapsedMilliseconds);
+            double totalTime = testResults.Sum(r => r.ElapsedMilliseconds);
+
+            // Build the result object
+            var performanceResult = new PerformanceTestResult
+            {
+                DictionarySize = voiceContentDict.Count,
+                TestCount = testResults.Count,
+                TotalElapsedMilliseconds = totalTime,
+                AverageElapsedMilliseconds = averageTime,
+                TestResults = testResults
+            };
+
+            // Output JSON format result
+            string jsonResult = JsonConvert.SerializeObject(performanceResult, Formatting.Indented);
+            Logger.Log.Debug($"Performance test result (JSON):\n{jsonResult}");
+
+            // Output to the console (visible in the test output)
+            Console.WriteLine("=== FindClosestMatch Performance Test Result ===");
+            Console.WriteLine(jsonResult);
+            Console.WriteLine("=====================================");
+
+            string resultFilePath = "PerformanceTestGenshin.json";
             try
             {
                 File.WriteAllText(resultFilePath, jsonResult, System.Text.Encoding.UTF8);

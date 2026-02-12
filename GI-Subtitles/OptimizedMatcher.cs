@@ -339,12 +339,15 @@ namespace GI_Subtitles
 
             int maxLength = 0;
             int maxIndex = 0;
-            for (int i = 0; i < lines.Length; i++)
+            if (!isEng)
             {
-                if (lines[i].Length > maxLength)
+                for (int i = 0; i < lines.Length; i++)
                 {
-                    maxLength = lines[i].Length;
-                    maxIndex = i;
+                    if (lines[i].Length > maxLength)
+                    {
+                        maxLength = lines[i].Length;
+                        maxIndex = i;
+                    }
                 }
             }
 
