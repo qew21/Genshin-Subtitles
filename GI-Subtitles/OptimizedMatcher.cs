@@ -349,11 +349,17 @@ namespace GI_Subtitles
                         maxIndex = i;
                     }
                 }
+                if (IsTitleCase(lines[maxIndex]) && IsEnglishLine(lines[maxIndex]) && maxIndex < lines.Length - 1)
+                {
+                    maxIndex++;
+                }
             }
-
-            if (!isEng && IsTitleCase(lines[maxIndex]) && IsEnglishLine(lines[maxIndex]) && maxIndex < lines.Length - 1)
+            else
             {
-                maxIndex++;
+                if (lines[1].Length > lines[0].Length * 2)
+                {
+                    maxIndex = 1;
+                }
             }
 
             List<string> headers = new List<string>();
@@ -364,13 +370,12 @@ namespace GI_Subtitles
             string headerMatch = "";
             foreach (string header in headers)
             {
-                if (ContentDict.ContainsKey(header))
+                if (ContentDict.ContainsKey(header) && !ContentDict[header].Contains("test"))
                 {
                     if (!string.IsNullOrEmpty(headerMatch)) headerMatch += " ";
                     headerMatch += ContentDict[header];
                 }
             }
-
             string bodyMatch = FindClosestMatch(bodyText, out string bodyKey);
 
             key = bodyKey;

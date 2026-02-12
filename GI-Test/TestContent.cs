@@ -345,7 +345,9 @@ namespace GI_Test
             // Test sentence list
             var testSentences = new[]
             {
-                "In Nod-Krai, it's common knowledge that the\r\nCuratorium has a nose for profit and opportunity.\r\nthe same way aphids flit from flower to flower in a", "Lauma\r\nIn Nod-Krai, it's common knowledge that the\r\nCuratorium has a nose for profit and opportunity.\r\nthe same way aphids flit from flower to flower in a"
+                "Lauma\r\nIn Nod-Krai, it's common knowledge that the\r\nCuratorium has a nose for profit and opportunity.\r\nthe same way aphids flit from flower to flower in a",
+                "Ineffa\r\nCorrect. At some point, you may come across some\r\nstatues of their goddess — the Frostmoon Scions\r\ncarved these as well.",
+                "？？？"
             };
 
             // Read JSON in the normal way

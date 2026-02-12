@@ -318,38 +318,38 @@ public static class VoiceContentHelper
         Span<int> prev = stackalloc int[sourceLen + 1];
         Span<int> curr = stackalloc int[sourceLen + 1];
 
-            for (int i = 0; i <= sourceLen; i++) prev[i] = i;
+        for (int i = 0; i <= sourceLen; i++) prev[i] = i;
 
-            for (int j = 1; j <= targetLen; j++)
+        for (int j = 1; j <= targetLen; j++)
+        {
+            curr[0] = j;
+            int minDistanceInRow = j;
+
+            for (int i = 1; i <= sourceLen; i++)
             {
-                curr[0] = j;
-                int minDistanceInRow = j;
+                int cost = (source[i - 1] == target[j - 1]) ? 0 : 1;
 
-                for (int i = 1; i <= sourceLen; i++)
-            {
-                    int cost = (source[i - 1] == target[j - 1]) ? 0 : 1;
+                // Core state transition equation
+                int d1 = curr[i - 1] + 1;
+                int d2 = prev[i] + 1;
+                int d3 = prev[i - 1] + cost;
 
-                    // Core state transition equation
-                    int d1 = curr[i - 1] + 1;
-                    int d2 = prev[i] + 1;
-                    int d3 = prev[i - 1] + cost;
+                int dist = d1 < d2 ? d1 : d2;
+                dist = dist < d3 ? dist : d3;
 
-                    int dist = d1 < d2 ? d1 : d2;
-                    dist = dist < d3 ? dist : d3;
+                curr[i] = dist;
 
-                    curr[i] = dist;
+                if (dist < minDistanceInRow) minDistanceInRow = dist;
+            }
 
-                    if (dist < minDistanceInRow) minDistanceInRow = dist;
-                }
+            // Row-level pruning: if the minimum value in this row already exceeds the threshold,
+            // then it is impossible for later matches to have a distance below the threshold; exit early
+            if (minDistanceInRow >= threshold) return threshold + 1;
 
-                // Row-level pruning: if the minimum value in this row already exceeds the threshold,
-                // then it is impossible for later matches to have a distance below the threshold; exit early
-                if (minDistanceInRow >= threshold) return threshold + 1;
-
-                // Swap buffers to avoid reinitializing arrays
-                var tempRow = prev;
-                prev = curr;
-                curr = tempRow;
+            // Swap buffers to avoid reinitializing arrays
+            var tempRow = prev;
+            prev = curr;
+            curr = tempRow;
         }
 
         return prev[sourceLen];
