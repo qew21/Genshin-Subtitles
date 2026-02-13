@@ -68,7 +68,6 @@ namespace GI_Subtitles
             ["终末地"] = "Endfield",
         };
         readonly Stopwatch sw = new Stopwatch();
-        readonly bool mtuliline = Config.Get<bool>("Multiline", false);
         readonly static string dataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GI-Subtitles");
         readonly string outpath = Path.Combine(dataDir, "out");
         public PaddleOCREngine engine;
@@ -205,7 +204,6 @@ namespace GI_Subtitles
             }
 
             // Boolean flags
-            MultilineCheckBox.IsChecked = Config.Get("Multiline", false);
             AutoStartCheckBox.IsChecked = Config.Get("AutoStart", false);
             PlayVoiceCheckBox.IsChecked = Config.Get("PlayVoice", true);
         }
@@ -980,16 +978,16 @@ namespace GI_Subtitles
             Environment.Exit(0);
         }
 
-        public void LoadEngine(bool enableMultiLine = true)
+        public void LoadEngine()
         {
             if (engine != null)
             {
                 engine.Dispose();
             }
-            engine = LoadEngine(InputLanguage, enableMultiLine);
+            engine = LoadEngine(InputLanguage);
         }
 
-        public static PaddleOCREngine LoadEngine(string input, bool enableMultiLine = true)
+        public static PaddleOCREngine LoadEngine(string input)
         {
             OCRModelConfig config = null;
             OCRParameter oCRParameter = new OCRParameter
@@ -1091,7 +1089,7 @@ namespace GI_Subtitles
 
         private void RegionButton_Click(object sender, RoutedEventArgs e)
         {
-            LoadEngine(true);
+            LoadEngine();
 
             int idx = 0;
             string configRegion = Config.Get<string>("Region");
@@ -1502,11 +1500,6 @@ namespace GI_Subtitles
                 string region = $"{RegionX.Text},{RegionY.Text},{RegionWidth.Text},{RegionHeight.Text}";
                 Config.Set("Region", region);
             }
-        }
-
-        private void MultilineCheckBox_Checked(object sender, RoutedEventArgs e)
-        {
-            Config.Set("Multiline", MultilineCheckBox.IsChecked == true);
         }
 
         private void AutoStartCheckBox_Checked(object sender, RoutedEventArgs e)

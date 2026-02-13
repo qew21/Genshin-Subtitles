@@ -306,7 +306,6 @@
 
                     <!-- Boolean Flags -->
                     <StackPanel Grid.Row="2" Margin="0,0,0,12">
-                        <CheckBox x:Name="MultilineCheckBox" Checked="MultilineCheckBox_Checked" Unchecked="MultilineCheckBox_Checked" Content="{DynamicResource Config_Multiline}" Margin="0,0,0,6"/>
                         <CheckBox x:Name="AutoStartCheckBox" Checked="AutoStartCheckBox_Checked" Unchecked="AutoStartCheckBox_Checked" Content="{DynamicResource Config_AutoStart}" Margin="0,0,0,6"/>
                         <CheckBox x:Name="PlayVoiceCheckBox" Checked="PlayVoiceCheckBox_Checked" Unchecked="PlayVoiceCheckBox_Checked" Content="{DynamicResource Config_PlayVoice}" Margin="0,0,0,6"/>
                     </StackPanel>

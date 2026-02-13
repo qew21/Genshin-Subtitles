@@ -101,7 +101,6 @@ namespace GI_Subtitles
         List<string> AudioList = new List<string>();
         string InputLanguage = Config.Get<string>("Input");
         string OutputLanguage = Config.Get<string>("Output");
-        bool Multi = Config.Get<bool>("Multiline", false);
         string Game = Config.Get<string>("Game");
         string Update = Config.Get<string>("Update");
         string version = Assembly.GetExecutingAssembly().GetName().Version.ToString();
@@ -420,9 +419,7 @@ namespace GI_Subtitles
 
                     if (ocrText.Length > 1)
                     {
-                        if (Multi)
-                        {
-                            // Use the new separation method
+                        // Use the new separation method
                             var matchResult = data.Matcher.FindMatchWithHeaderSeparated(ocrText, out key);
                             header = matchResult.Header ?? "";
                             content = matchResult.Content ?? "";
@@ -436,30 +433,6 @@ namespace GI_Subtitles
                                 resDict[ocrText] = res;
                                 resDict[res] = key;
                             }
-                        }
-                        else
-                        {
-                            // Use LRU cache lookup
-                            if (resDict.TryGetValue(ocrText, out string cachedRes))
-                            {
-                                res = cachedRes;
-                                // Look up the corresponding key
-                                if (resDict.TryGetValue(res, out string cachedKey))
-                                {
-                                    key = cachedKey;
-                                }
-                            }
-                            else
-                            {
-                                res = data.Matcher.FindClosestMatch(ocrText, out key);
-                                Logger.Log.Debug($"Convert ocrResult for {ocrText}: {res},{key}");
-                                // LRU cache automatically manages its size, no manual checks needed
-                                resDict[ocrText] = res;
-                                resDict[res] = key;
-                            }
-                            content = res;
-                            header = "";
-                        }
                     }
 
                     // Check whether the content has changed (mainly check content, which is the main text)
@@ -468,9 +441,7 @@ namespace GI_Subtitles
 
                     if (contentChanged || headerChanged)
                     {
-                        if (Multi)
-                        {
-                            // Set header and content separately
+                        // Set header and content separately
                             if (headerChanged)
                             {
                                 lastHeader = header;
@@ -499,20 +470,6 @@ namespace GI_Subtitles
                                     UpdateHeaderPosition();
                                 }
                             }
-                        }
-                        else
-                        {
-                            // In non-Multi mode, keep the original logic
-                            if (res != lastRes)
-                            {
-                                lastRes = res;
-                                lastContent = content;
-                                SubtitleText.Text = res;
-                                SubtitleText.FontSize = Config.Get<int>("Size");
-                                // Ensure the header is always hidden in non-Multi mode
-                                HeaderText.Visibility = Visibility.Collapsed;
-                            }
-                        }
 
                         // Play audio (only when content changes, to avoid repeated playback)
                         if (Config.Get<bool>("PlayVoice", false) && contentChanged && !AudioList.Contains(key))
