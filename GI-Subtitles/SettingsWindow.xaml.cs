@@ -1212,7 +1212,14 @@ namespace GI_Subtitles
             {
                 LoadEngine();
             }
-            var video = new Video(engine);
+            if (Matcher == null)
+            {
+                // Ensure dictionary is loaded before opening video window
+                System.Windows.MessageBox.Show("Please load/check data in the current window first, so that the translation dictionary can be built before opening the video extraction window.", "Note",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            var video = new Video(engine, Matcher);
             this.Close();
             video.ShowDialog();
         }

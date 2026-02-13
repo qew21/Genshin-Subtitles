@@ -191,7 +191,57 @@
             </Grid.RowDefinitions>
             
             <Border Grid.Row="0" Background="#E0E0E0" Padding="10">
-                <TextBlock Text="字幕列表" FontWeight="Bold" FontSize="14"/>
+                <StackPanel>
+                    <TextBlock Text="字幕列表" FontWeight="Bold" FontSize="14" Margin="0,0,0,4"/>
+
+                    <!-- Manual dictionary matching helper (auto-fit to right panel width) -->
+                    <StackPanel Orientation="Vertical" Margin="0,4,0,0">
+                        <!-- Input area -->
+                        <TextBlock Text="输入原文：" Margin="0,0,0,2"/>
+                        <TextBox x:Name="ManualInputTextBox"
+                                 TextWrapping="Wrap"
+                                 AcceptsReturn="True"
+                                 Height="48"
+                                 VerticalScrollBarVisibility="Auto"/>
+                        <Button x:Name="ManualMatchButton"
+                                Content="匹配"
+                                Margin="0,4,0,4"
+                                Padding="8,4"
+                                HorizontalAlignment="Right"
+                                Click="ManualMatchButton_Click"
+                                ToolTip="使用当前词典根据输入语言原文查找输出语言内容"/>
+
+                        <!-- Output area -->
+                        <TextBlock Text="匹配结果：" Margin="0,0,0,2"/>
+                        <TextBox x:Name="ManualMatchResultTextBox"
+                                 TextWrapping="Wrap"
+                                 AcceptsReturn="True"
+                                 Height="48"
+                                 IsReadOnly="True"
+                                 VerticalScrollBarVisibility="Auto"/>
+                        <TextBlock Text="输出结果：" Margin="0,0,0,2"/>
+                        <TextBox x:Name="ManualOutputTextBox"
+                                 TextWrapping="Wrap"
+                                 AcceptsReturn="True"
+                                 Height="48"
+                                 IsReadOnly="True"
+                                 VerticalScrollBarVisibility="Auto"/>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                            <Button x:Name="AddToSubtitleButton"
+                                    Content="添加到字幕（双语）"
+                                    Padding="8,4"
+                                    Click="AddToSubtitleButton_Click"
+                                    ToolTip="将当前输入语言和输出语言分别作为两条字幕添加，使用当前视频播放时间作为时间轴"/>
+                        </StackPanel>
+
+                        <TextBlock x:Name="ManualMatchTimeInfo" 
+                                   FontSize="10" 
+                                   Foreground="Gray" 
+                                   Margin="0,4,0,0"
+                                   Text="时间轴：使用当前视频播放时间（默认3秒）"/>
+                    </StackPanel>
+                </StackPanel>
             </Border>
             
             <ListBox x:Name="SubtitleListBox" Grid.Row="1" 

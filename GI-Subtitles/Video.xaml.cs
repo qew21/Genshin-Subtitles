@@ -44,6 +44,7 @@ namespace GI_Subtitles
         private bool _keepSelectionVisible = false; // Whether to keep the selection visible
         private bool _isEditingSubtitle = false; // Whether to mark whether the subtitle is being edited
         private VideoCapture videoCapture;
+        private OptimizedMatcher _matcher;
         PaddleOCREngine engine;
 
         // Store the user-selected region (GDI Rectangle)
@@ -68,9 +69,10 @@ namespace GI_Subtitles
             Right
         }
 
-        public Video(PaddleOCREngine _engine)
+        public Video(PaddleOCREngine _engine, OptimizedMatcher matcher = null)
         {
             engine = _engine;
+            _matcher = matcher;
             InitializeComponent();
 
             // Calculate the image boundaries
@@ -250,6 +252,17 @@ namespace GI_Subtitles
             else
             {
                 CurrentTimeText.Text = $"{timeSpan.Minutes:D2}:{timeSpan.Seconds:D2}";
+            }
+
+            // Update the time axis information display (if initialized)
+            if (ManualMatchTimeInfo != null && !string.IsNullOrEmpty(_videoPath))
+            {
+                double defaultEndTime = _currentTimeSeconds + 3.0;
+                if (_totalDurationSeconds > 0 && defaultEndTime > _totalDurationSeconds)
+                {
+                    defaultEndTime = _totalDurationSeconds;
+                }
+                ManualMatchTimeInfo.Text = $"Time axis: {FormatTimeString(_currentTimeSeconds)} --> {FormatTimeString(defaultEndTime)} (default 3s)";
             }
         }
 
@@ -1664,6 +1677,165 @@ namespace GI_Subtitles
                 }
             }
             return 1.0 - (double)d[len1, len2] / Math.Max(len1, len2);
+        }
+
+        private void ManualMatchButton_Click(object sender, RoutedEventArgs e)
+        {
+            string input = ManualInputTextBox.Text?.Trim();
+            ManualOutputTextBox.Text = string.Empty;
+
+            if (string.IsNullOrEmpty(input))
+            {
+                return;
+            }
+
+            if (_matcher == null || !_matcher.Loaded)
+            {
+                MessageBox.Show("The translation dictionary is not loaded, please load the data in the main settings window first, then open the video extraction window.", "Note",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            try
+            {
+                string key;
+                string result = _matcher.FindClosestMatch(input, out key);
+
+                if (string.IsNullOrEmpty(result))
+                {
+                    ManualOutputTextBox.Text = "No matching result found.";
+                    ManualOutputTextBox.ToolTip = null;
+                }
+                else
+                {
+                    ManualOutputTextBox.Text = result;
+                    ManualMatchResultTextBox.Text = key;
+                    ManualOutputTextBox.ToolTip = string.IsNullOrEmpty(key) ? null : $"匹配键：{key}";
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Matching failed: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void AddToSubtitleButton_Click(object sender, RoutedEventArgs e)
+        {
+            string inputText = ManualMatchResultTextBox.Text?.Trim();
+            string outputText = ManualOutputTextBox.Text?.Trim();
+
+            if (string.IsNullOrEmpty(outputText) || outputText == "No matching result found.")
+            {
+                MessageBox.Show("Please match first, ensure there is a valid output result before adding to the subtitle.", "Note",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            if (string.IsNullOrEmpty(_videoPath))
+            {
+                MessageBox.Show("Please open the video file first.", "Note",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            // Use the current video playback time as the start time
+            double startTime = _currentTimeSeconds;
+            // Default duration set to 3 seconds (can be adjusted as needed)
+            double duration = 3.0;
+            double endTime = startTime + duration;
+
+            // Ensure the time does not exceed the total duration of the video
+            if (endTime > _totalDurationSeconds && _totalDurationSeconds > 0)
+            {
+                endTime = _totalDurationSeconds;
+            }
+
+            try
+            {
+                // Build bilingual subtitles: input language + output language
+                var entriesToAdd = new List<SrtEntry>();
+
+                if (!string.IsNullOrWhiteSpace(inputText))
+                {
+                    entriesToAdd.Add(new SrtEntry
+                    {
+                        StartTime = TimeSpan.FromSeconds(startTime),
+                        EndTime = TimeSpan.FromSeconds(endTime),
+                        Text = inputText
+                    });
+                }
+
+                entriesToAdd.Add(new SrtEntry
+                {
+                    StartTime = TimeSpan.FromSeconds(startTime),
+                    EndTime = TimeSpan.FromSeconds(endTime),
+                    Text = outputText
+                });
+
+                // Find insert position based on time so list stays sorted
+                foreach (var entry in entriesToAdd)
+                {
+                    int insertIndex = _currentSrtEntries.FindIndex(e =>
+                        e.StartTime > entry.StartTime ||
+                        (Math.Abs(e.StartTime.TotalSeconds - entry.StartTime.TotalSeconds) < 0.0001 &&
+                         e.EndTime > entry.EndTime));
+
+                    if (insertIndex < 0)
+                    {
+                        // Append at end
+                        _currentSrtEntries.Add(entry);
+                    }
+                    else
+                    {
+                        _currentSrtEntries.Insert(insertIndex, entry);
+                    }
+                }
+
+                // Reassign indices for all entries (index is only used when exporting)
+                for (int i = 0; i < _currentSrtEntries.Count; i++)
+                {
+                    _currentSrtEntries[i].Index = i + 1;
+                }
+
+                // Sync UI list with new Srt entries (sorted by time)
+                Subtitles.Clear();
+                foreach (var item in _currentSrtEntries)
+                {
+                    var lines = item.Text.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries).ToList();
+                    if (lines.Count == 0) lines.Add(item.Text);
+
+                    Subtitles.Add(new SubtitleItem
+                    {
+                        TimeRange = $"{FormatTimeSpan(item.StartTime)} --> {FormatTimeSpan(item.EndTime)}",
+                        Lines = lines,
+                        StartTimeSeconds = item.StartTime.TotalSeconds,
+                        EndTimeSeconds = item.EndTime.TotalSeconds
+                    });
+                }
+
+                // Automatically scroll to the last added subtitle
+                if (SubtitleListBox.Items.Count > 0)
+                {
+                    SubtitleListBox.ScrollIntoView(SubtitleListBox.Items[SubtitleListBox.Items.Count - 1]);
+                    SubtitleListBox.SelectedIndex = SubtitleListBox.Items.Count - 1;
+                }
+
+                // Show the export button (if there are subtitles)
+                if (_currentSrtEntries.Count > 0)
+                {
+                    ExportSrtButton.Visibility = Visibility.Visible;
+                }
+
+                // Update the time information display
+                ManualMatchTimeInfo.Text = $"Time axis: {FormatTimeString(startTime)} --> {FormatTimeString(endTime)} (Added, bilingual)";
+
+                MessageBox.Show($"Subtitle added to the time axis: {FormatTimeString(startTime)} --> {FormatTimeString(endTime)}", "Success",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to add subtitle: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
     }
 }
