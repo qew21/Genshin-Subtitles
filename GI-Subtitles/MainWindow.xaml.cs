@@ -420,19 +420,19 @@ namespace GI_Subtitles
                     if (ocrText.Length > 1)
                     {
                         // Use the new separation method
-                            var matchResult = data.Matcher.FindMatchWithHeaderSeparated(ocrText, out key);
-                            header = matchResult.Header ?? "";
-                            content = matchResult.Content ?? "";
-                            res = string.IsNullOrEmpty(header) ? content : (header + " " + content);
+                        var matchResult = data.Matcher.FindMatchWithHeaderSeparated(ocrText, out key);
+                        header = matchResult.Header ?? "";
+                        content = matchResult.Content ?? "";
+                        res = string.IsNullOrEmpty(header) ? content : (header + " " + content);
 
-                            Logger.Log.Debug($"Convert ocrResult for {ocrText}: header={header}, content={content}, key={key}");
+                        Logger.Log.Debug($"Convert ocrResult for {ocrText}: header={header}, content={content}, key={key}");
 
-                            // Cache still uses the concatenated result for compatibility
-                            if (!resDict.ContainsKey(ocrText))
-                            {
-                                resDict[ocrText] = res;
-                                resDict[res] = key;
-                            }
+                        // Cache still uses the concatenated result for compatibility
+                        if (!resDict.ContainsKey(ocrText))
+                        {
+                            resDict[ocrText] = res;
+                            resDict[res] = key;
+                        }
                     }
 
                     // Check whether the content has changed (mainly check content, which is the main text)
@@ -442,34 +442,34 @@ namespace GI_Subtitles
                     if (contentChanged || headerChanged)
                     {
                         // Set header and content separately
-                            if (headerChanged)
+                        if (headerChanged)
+                        {
+                            lastHeader = header;
+                            if (!string.IsNullOrEmpty(header))
                             {
-                                lastHeader = header;
-                                if (!string.IsNullOrEmpty(header))
-                                {
-                                    HeaderText.Text = header;
-                                    HeaderText.Visibility = Visibility.Visible;
-                                    // Delay updating header position until content layout is completed
-                                    UpdateHeaderPosition();
-                                }
-                                else
-                                {
-                                    HeaderText.Visibility = Visibility.Collapsed;
-                                }
-                            }
-
-                            if (contentChanged)
-                            {
-                                lastContent = content;
-                                SubtitleText.Text = content;
-                                int fontSize = Config.Get<int>("Size");
-                                SubtitleText.FontSize = fontSize;
+                                HeaderText.Text = header;
+                                HeaderText.Visibility = Visibility.Visible;
                                 // Delay updating header position until content layout is completed
-                                if (HeaderText.Visibility == Visibility.Visible && !string.IsNullOrEmpty(lastHeader))
-                                {
-                                    UpdateHeaderPosition();
-                                }
+                                UpdateHeaderPosition();
                             }
+                            else
+                            {
+                                HeaderText.Visibility = Visibility.Collapsed;
+                            }
+                        }
+
+                        if (contentChanged)
+                        {
+                            lastContent = content;
+                            SubtitleText.Text = content;
+                            int fontSize = Config.Get<int>("Size");
+                            SubtitleText.FontSize = fontSize;
+                            // Delay updating header position until content layout is completed
+                            if (HeaderText.Visibility == Visibility.Visible && !string.IsNullOrEmpty(lastHeader))
+                            {
+                                UpdateHeaderPosition();
+                            }
+                        }
 
                         // Play audio (only when content changes, to avoid repeated playback)
                         if (Config.Get<bool>("PlayVoice", false) && contentChanged && !AudioList.Contains(key))

@@ -92,7 +92,7 @@ namespace GI_Subtitles
 
             // 2. Key step: binarization (thresholding)
             using var bin = new OpenCvSharp.Mat();
-            Cv2.Threshold(gray, bin, 200, 255, ThresholdTypes.Binary);
+            Cv2.Threshold(gray, bin, 245, 255, ThresholdTypes.Binary);
 
             using var points = new OpenCvSharp.Mat();
             Cv2.FindNonZero(bin, points);
