@@ -8,7 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Reflection;
 using System.Runtime.InteropServices;
-using GI_Subtitles;
+using GI_Subtitles.Common;
 
 namespace GI_Test
 {

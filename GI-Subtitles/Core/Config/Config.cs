@@ -1,16 +1,15 @@
-﻿using Newtonsoft.Json;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Reflection;
-using System.Runtime.InteropServices;
+using GI_Subtitles.Common;
 
-namespace GI_Subtitles
+namespace GI_Subtitles.Core.Config
 {
+    /// <summary>
+    /// Configuration management class
+    /// </summary>
     public static class Config
     {
         private static readonly string SettingsFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GI-Subtitles");
@@ -19,7 +18,7 @@ namespace GI_Subtitles
 
         static Config()
         {
-            Load(("Config.json"));
+            Load("Config.json");
             Load(SettingsFile);
         }
 
@@ -128,3 +127,4 @@ namespace GI_Subtitles
         }
     }
 }
+

@@ -1,16 +1,13 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
+using GI_Subtitles.Models;
 
-namespace GI_Subtitles
+namespace GI_Subtitles.Services.Translation
 {
-    public struct MatchResult
-    {
-        public string Header;
-        public string Content;
-    }
-
+    /// <summary>
+    /// Optimized text matcher for translation lookup
+    /// </summary>
     public class OptimizedMatcher
     {
         private readonly Entry[] _entries;
@@ -179,6 +176,10 @@ namespace GI_Subtitles
                     // If the Key starts EXACTLY with the Input (after normalization), distance is 0.
                     // This is O(1) compared to Levenshtein and covers 80% of perfect OCR cases.
                     if (entry.NormalizedKey.StartsWith(normInput, StringComparison.Ordinal))
+                    {
+                        currentDistance = 0;
+                    }
+                    else if (!isEng && inputLen > 10 && entry.NormalizedKey.Contains(normInput))
                     {
                         currentDistance = 0;
                     }
@@ -407,3 +408,4 @@ namespace GI_Subtitles
         }
     }
 }
+

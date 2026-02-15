@@ -36,8 +36,16 @@ using System.Xml;
 using System.ServiceModel.Syndication;
 using System.Runtime.InteropServices;
 using Microsoft.Win32;
+using GI_Subtitles.Core.Config;
+using GI_Subtitles.Core.Input;
+using GI_Subtitles.Core.UI;
+using GI_Subtitles.Models;
+using GI_Subtitles.Services.Translation;
+using GI_Subtitles.Services.Video;
+using GI_Subtitles.Common;
+using static GI_Subtitles.Core.Config.Config;
 
-namespace GI_Subtitles
+namespace GI_Subtitles.Views
 {
     /// <summary>
     /// SettingsWindow.xaml interaction logic
@@ -338,13 +346,13 @@ namespace GI_Subtitles
             switch (cultureTag)
             {
                 case "en-US":
-                    rd.Source = new Uri("Resources/Strings.en-US.xaml", UriKind.Relative);
+                    rd.Source = new Uri("pack://application:,,,/Resources/Strings.en-US.xaml", UriKind.Absolute);
                     break;
                 case "ja-JP":
-                    rd.Source = new Uri("Resources/Strings.ja-JP.xaml", UriKind.Relative);
+                    rd.Source = new Uri("pack://application:,,,/Resources/Strings.ja-JP.xaml", UriKind.Absolute);
                     break;
                 default:
-                    rd.Source = new Uri("Resources/Strings.zh-CN.xaml", UriKind.Relative);
+                    rd.Source = new Uri("pack://application:,,,/Resources/Strings.zh-CN.xaml", UriKind.Absolute);
                     break;
             }
             System.Windows.Application.Current.Resources.MergedDictionaries.Add(rd);

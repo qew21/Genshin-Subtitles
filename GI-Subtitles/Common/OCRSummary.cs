@@ -1,33 +1,20 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
-using Emgu.CV.Dnn;
 using Newtonsoft.Json;
 using PaddleOCRSharp;
+using GI_Subtitles.Models;
 
-namespace GI_Subtitles
+namespace GI_Subtitles.Common
 {
-
-
-    public class OCRTestResult
-    {
-        public string FileName { get; set; }
-        public string OCRText { get; set; }
-        public double DurationMs { get; set; }
-    }
-
-    public class Summary
-    {
-        public List<OCRTestResult> Results { get; set; } = new List<OCRTestResult>();
-        public double AverageDurationMs { get; set; }
-    }
-
+    /// <summary>
+    /// OCR test summary utility
+    /// </summary>
     public class OCRSummary
     {
-
         public static void ProcessFolder(string testOcrFolderPath, PaddleOCREngine engine)
         {
             if (!Directory.Exists(testOcrFolderPath))
@@ -100,7 +87,5 @@ namespace GI_Subtitles
             File.WriteAllText("result.json", contentJson);
         }
     }
-
-
-
 }
+

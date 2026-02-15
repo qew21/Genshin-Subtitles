@@ -1,13 +1,17 @@
-﻿// HotkeySettings.cs
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Windows.Input;
 using System.Xml.Serialization;
+using GI_Subtitles.Common;
+using GI_Subtitles.Models;
 
-namespace GI_Subtitles
+namespace GI_Subtitles.Core.Input
 {
+    /// <summary>
+    /// Hotkey settings configuration
+    /// </summary>
     [XmlRoot("HotkeySettings")]
     public class HotkeySettings
     {
@@ -16,15 +20,9 @@ namespace GI_Subtitles
         public List<HotkeyData> Hotkeys { get; set; } = new List<HotkeyData>();
     }
 
-    public class HotkeyData
-    {
-        public int Id { get; set; }
-        public bool IsCtrl { get; set; }
-        public bool IsShift { get; set; }
-        public char SelectedKey { get; set; }
-        public string Description { get; set; }
-    }
-
+    /// <summary>
+    /// Hotkey settings manager
+    /// </summary>
     public static class HotkeySettingsManager
     {
         private static string _settingsPath = Path.Combine(
@@ -118,6 +116,9 @@ namespace GI_Subtitles
         }
     }
 
+    /// <summary>
+    /// Hotkey view model for UI binding
+    /// </summary>
     public class HotkeyViewModel : INotifyPropertyChanged
     {
         private int _id;
@@ -227,27 +228,5 @@ namespace GI_Subtitles
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
     }
-
-    public class RelayCommand : ICommand
-    {
-        private readonly Action _execute;
-        private readonly Func<bool> _canExecute;
-
-        public event EventHandler CanExecuteChanged;
-
-        public RelayCommand(Action execute, Func<bool> canExecute = null)
-        {
-            _execute = execute ?? throw new ArgumentNullException(nameof(execute));
-            _canExecute = canExecute;
-        }
-
-        public bool CanExecute(object parameter) => _canExecute?.Invoke() ?? true;
-
-        public void Execute(object parameter) => _execute();
-
-        public void RaiseCanExecuteChanged()
-        {
-            CanExecuteChanged?.Invoke(this, EventArgs.Empty);
-        }
-    }
 }
+

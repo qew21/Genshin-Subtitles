@@ -8,6 +8,9 @@ using System.Linq;
 using System.Threading;
 using System.Windows;
 using System.Globalization;
+using GI_Subtitles.Core.Config;
+using GI_Subtitles.Common;
+using static GI_Subtitles.Core.Config.Config;
 
 namespace GI_Subtitles
 {
@@ -54,18 +57,26 @@ namespace GI_Subtitles
                 CultureInfo.DefaultThreadCurrentCulture = culture;
                 CultureInfo.DefaultThreadCurrentUICulture = culture;
 
+                // Remove the default resource dictionary from App.xaml if it exists
+                var defaultRd = this.Resources.MergedDictionaries
+                    .FirstOrDefault(d => d.Source != null && d.Source.OriginalString.Contains("Strings.zh-CN.xaml"));
+                if (defaultRd != null)
+                {
+                    this.Resources.MergedDictionaries.Remove(defaultRd);
+                }
+
                 // Load the language resource dictionary
                 var rd = new ResourceDictionary();
                 switch (uiLang)
                 {
                     case "en-US":
-                        rd.Source = new Uri("Resources/Strings.en-US.xaml", UriKind.Relative);
+                        rd.Source = new Uri("pack://application:,,,/Resources/Strings.en-US.xaml", UriKind.Absolute);
                         break;
                     case "ja-JP":
-                        rd.Source = new Uri("Resources/Strings.ja-JP.xaml", UriKind.Relative);
+                        rd.Source = new Uri("pack://application:,,,/Resources/Strings.ja-JP.xaml", UriKind.Absolute);
                         break;
                     default:
-                        rd.Source = new Uri("Resources/Strings.zh-CN.xaml", UriKind.Relative);
+                        rd.Source = new Uri("pack://application:,,,/Resources/Strings.zh-CN.xaml", UriKind.Absolute);
                         break;
                 }
                 this.Resources.MergedDictionaries.Add(rd);
@@ -76,7 +87,7 @@ namespace GI_Subtitles
                 try
                 {
                     var rd = new ResourceDictionary();
-                    rd.Source = new Uri("Resources/Strings.zh-CN.xaml", UriKind.Relative);
+                    rd.Source = new Uri("pack://application:,,,/Resources/Strings.zh-CN.xaml", UriKind.Absolute);
                     this.Resources.MergedDictionaries.Add(rd);
                 }
                 catch

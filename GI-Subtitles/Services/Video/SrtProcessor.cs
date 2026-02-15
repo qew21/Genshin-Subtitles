@@ -1,30 +1,16 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Runtime.Remoting.Contexts;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-using System.Windows.Input;
-using System.Windows.Markup;
+using GI_Subtitles.Models;
+using GI_Subtitles.Services.Translation;
+using GI_Subtitles.Common;
 
-namespace GI_Subtitles
+namespace GI_Subtitles.Services.Video
 {
-    public class SubtitleItem
-    {
-        public int Index { get; set; }
-        public string TimeRange { get; set; }
-        public List<string> Lines { get; set; } = new List<string>();
-        public double StartTimeSeconds { get; set; }
-        public double EndTimeSeconds { get; set; }
-
-        public override string ToString()
-        {
-            return $"{Index}\r\n{TimeRange}\r\n{string.Join("\r\n", Lines)}\r\n";
-        }
-    }
-
+    /// <summary>
+    /// SRT file processor for subtitle conversion
+    /// </summary>
     public class SrtProcessor
     {
         Dictionary<string, string> contentDict;
@@ -156,3 +142,4 @@ namespace GI_Subtitles
         }
     }
 }
+

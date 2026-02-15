@@ -1,4 +1,4 @@
-﻿using OpenCvSharp;
+using OpenCvSharp;
 using PaddleOCRSharp;
 using System;
 using System.Collections.Generic;
@@ -6,21 +6,15 @@ using System.Diagnostics;
 using System.IO;
 using System.Text;
 using Newtonsoft.Json;
+using GI_Subtitles.Models;
+using GI_Subtitles.Common;
+using GI_Subtitles.Core.Config;
 
-namespace GI_Subtitles
+namespace GI_Subtitles.Services.Video
 {
     /// <summary>
-    /// Progress information class
+    /// Video processor for extracting subtitles from video files
     /// </summary>
-    public class ProgressInfo
-    {
-        public double CurrentTime { get; set; }
-        public double TotalTime { get; set; }
-        public double SpeedRatio { get; set; }
-        public SrtEntry LatestSubtitle { get; set; }
-        public bool IsFinished { get; set; }
-    }
-
     internal class VideoProcessor : IDisposable
     {
         private readonly string _videoPath;
@@ -213,9 +207,9 @@ namespace GI_Subtitles
                                 {
                                     Console.Write("."); // OCR result empty (may be a misdetected stable segment)
                                 }
-                        }
+                            }
 
-                        // Reset state
+                            // Reset state
                             stableStartTime = -1;
                             stableFrameCount = 0;
                             pendingStableFrame?.Dispose();
@@ -416,29 +410,6 @@ namespace GI_Subtitles
         }
     }
 
-    public class SrtEntry
-    {
-        public int Index { get; set; }
-        public TimeSpan StartTime { get; set; }
-        public TimeSpan EndTime { get; set; }
-        public string Text { get; set; }
-    }
-
-    /// <summary>
-    /// Region information class (for JSON serialization/deserialization)
-    /// </summary>
-    public class RegionInfo
-    {
-        public string VideoPath { get; set; }
-        public string TimeCode { get; set; } // Format: HH:MM:SS or MM:SS
-        public int X { get; set; }
-        public int Y { get; set; }
-        public int Width { get; set; }
-        public int Height { get; set; }
-        public int VideoWidth { get; set; }
-        public int VideoHeight { get; set; }
-    }
-
     /// <summary>
     /// Video processing tool class
     /// </summary>
@@ -573,9 +544,10 @@ namespace GI_Subtitles
             {
                 Console.WriteLine($"\nError: {ex.Message}");
                 Console.WriteLine($"Stack trace: {ex.StackTrace}");
-                Logger.Log.Error(ex);
+                Common.Logger.Log.Error(ex);
                 throw; // Rethrow the exception, let the caller handle it
             }
         }
     }
 }
+

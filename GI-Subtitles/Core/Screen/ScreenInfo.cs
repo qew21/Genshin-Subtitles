@@ -1,12 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+using System;
 using System.Runtime.InteropServices;
-using System.Text;
 using System.Windows.Forms;
 
-namespace GI_Subtitles
+namespace GI_Subtitles.Core.Screen
 {
+    /// <summary>
+    /// Screen information utility class
+    /// </summary>
     public class ScreenInfo
     {
         [DllImport("user32.dll")]
@@ -20,13 +20,12 @@ namespace GI_Subtitles
         [DllImport("gdi32.dll", CharSet = CharSet.Auto)]
         public static extern bool DeleteDC(IntPtr hdc);
 
-
         public static float GetScaleFactorX(int screenIndex)
         {
-            if (screenIndex < 0 || screenIndex >= Screen.AllScreens.Length)
+            if (screenIndex < 0 || screenIndex >= System.Windows.Forms.Screen.AllScreens.Length)
                 throw new ArgumentOutOfRangeException(nameof(screenIndex), "Invalid screen index.");
 
-            Screen screen = Screen.AllScreens[screenIndex];
+            System.Windows.Forms.Screen screen = System.Windows.Forms.Screen.AllScreens[screenIndex];
             IntPtr hdc = CreateDC(screen.DeviceName, null, null, IntPtr.Zero);
 
             try
@@ -48,10 +47,10 @@ namespace GI_Subtitles
 
         public static float GetScaleFactorY(int screenIndex)
         {
-            if (screenIndex < 0 || screenIndex >= Screen.AllScreens.Length)
+            if (screenIndex < 0 || screenIndex >= System.Windows.Forms.Screen.AllScreens.Length)
                 throw new ArgumentOutOfRangeException(nameof(screenIndex), "Invalid screen index.");
 
-            Screen screen = Screen.AllScreens[screenIndex];
+            System.Windows.Forms.Screen screen = System.Windows.Forms.Screen.AllScreens[screenIndex];
             IntPtr hdc = CreateDC(screen.DeviceName, null, null, IntPtr.Zero);
 
             try
@@ -75,3 +74,4 @@ namespace GI_Subtitles
         public static extern int ReleaseDC(IntPtr hWnd, IntPtr hDC);
     }
 }
+

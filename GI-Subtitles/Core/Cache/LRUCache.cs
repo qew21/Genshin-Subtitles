@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace GI_Subtitles
+namespace GI_Subtitles.Core.Cache
 {
     /// <summary>
     /// LRU (Least Recently Used) cache implementation

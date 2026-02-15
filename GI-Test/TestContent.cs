@@ -6,7 +6,9 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web.UI.WebControls;
-using GI_Subtitles;
+using GI_Subtitles.Common;
+using GI_Subtitles.Services;
+using GI_Subtitles.Services.Translation;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Newtonsoft.Json;
 
@@ -138,7 +140,8 @@ namespace GI_Test
                 "这灯…·感觉怪怪的",
                 "于哥伦比娅要怎么才能回来关于这一点，我一直在努力",
                 "但好像没看到阿帽·他不是说让我和",
-                "原来是同深渊对抗的工作啊···那一定很辛苦吧？"
+                "原来是同深渊对抗的工作啊···那一定很辛苦吧？",
+                "所以哥伦比娅刚才是怎么跟它们玩的呢"
             };
 
             // Read JSON in the normal way
