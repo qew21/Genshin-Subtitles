@@ -20,8 +20,14 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using Newtonsoft.Json;
+using GI_Subtitles.Models;
+using GI_Subtitles.Services.Video;
+using GI_Subtitles.Services.Translation;
+using GI_Subtitles.Core.Config;
+using GI_Subtitles.Common;
+using static GI_Subtitles.Core.Config.Config;
 
-namespace GI_Subtitles
+namespace GI_Subtitles.Views
 {
     /// <summary>
     /// Video.xaml interaction logic

@@ -1,28 +1,21 @@
-﻿using Emgu.CV.Ocl;
 using GI_Subtitles.Properties;
 using Microsoft.Win32;
 using Screenshot;
 using System;
-using System.Collections.Generic;
-using System.Configuration;
 using System.Diagnostics;
-using System.Drawing;
 using System.IO;
-using System.Linq;
 using System.Reflection;
-using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Forms;
-using System.Windows.Media.Animation;
-using ZedGraph;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
+using GI_Subtitles.Common;
+using System.Drawing;
 
-namespace GI_Subtitles
+namespace GI_Subtitles.Core.UI
 {
-
+    /// <summary>
+    /// System tray notification icon management
+    /// </summary>
     public class INotifyIcon
     {
         System.Windows.Forms.ContextMenuStrip contextMenuStrip;
@@ -30,15 +23,14 @@ namespace GI_Subtitles
         ToolStripMenuItem languageSelector;
         ToolStripMenuItem settingItem;
         ToolStripMenuItem exitItem;
-        private int Size = Config.Get<int>("Size");
-        private bool AutoStart = Config.Get("AutoStart", false);
-        public string[] Region = Config.Get<string>("Region").Split(',');
-        public string[] Region2 = Config.Get<string>("Region2", "").Split(',');
+        private int Size = Config.Config.Get<int>("Size");
+        private bool AutoStart = Config.Config.Get("AutoStart", false);
+        public string[] Region = Config.Config.Get<string>("Region", "").Split(',');
+        public string[] Region2 = Config.Config.Get<string>("Region2", "").Split(',');
         string version = Assembly.GetExecutingAssembly().GetName().Version.ToString();
         double Scale = 1;
         public bool isContextMenuOpen = false;
-        private SettingsWindow data;
-
+        private Views.SettingsWindow data;
 
         public NotifyIcon InitializeNotifyIcon(double scale)
         {
@@ -120,7 +112,7 @@ namespace GI_Subtitles
             return fallback;
         }
 
-        public void SetData(SettingsWindow data)
+        public void SetData(Views.SettingsWindow data)
         {
             this.data = data;
         }
@@ -172,8 +164,8 @@ namespace GI_Subtitles
                 var rect = Screenshot.Screenshot.GetRegion();
                 if (Convert.ToInt32(rect.Width) > 0 && Convert.ToInt32(rect.Height) > 0)
                 {
-                    Config.Set("Region", $"{Convert.ToInt32(rect.TopLeft.X)},{Convert.ToInt32(rect.TopLeft.Y)},{Convert.ToInt32(rect.Width)},{Convert.ToInt32(rect.Height)}");
-                    Region = Config.Get<string>("Region").ToString().Split(',');
+                    Config.Config.Set("Region", $"{Convert.ToInt32(rect.TopLeft.X)},{Convert.ToInt32(rect.TopLeft.Y)},{Convert.ToInt32(rect.Width)},{Convert.ToInt32(rect.Height)}");
+                    Region = Config.Config.Get<string>("Region").ToString().Split(',');
                 }
             }
             catch (Exception ex)
@@ -189,8 +181,8 @@ namespace GI_Subtitles
                 var rect = Screenshot.Screenshot.GetRegion();
                 if (Convert.ToInt32(rect.Width) > 0 && Convert.ToInt32(rect.Height) > 0)
                 {
-                    Config.Set("Region2", $"{Convert.ToInt32(rect.TopLeft.X)},{Convert.ToInt32(rect.TopLeft.Y)},{Convert.ToInt32(rect.Width)},{Convert.ToInt32(rect.Height)}");
-                    Region2 = Config.Get<string>("Region2").ToString().Split(',');
+                    Config.Config.Set("Region2", $"{Convert.ToInt32(rect.TopLeft.X)},{Convert.ToInt32(rect.TopLeft.Y)},{Convert.ToInt32(rect.Width)},{Convert.ToInt32(rect.Height)}");
+                    Region2 = Config.Config.Get<string>("Region2").ToString().Split(',');
                 }
             }
             catch (Exception ex)
@@ -230,7 +222,7 @@ namespace GI_Subtitles
             item.CheckedChanged += LanguageItem_CheckedChanged;
 
             // Initialize checked state from config
-            string currentLang = Config.Get("UILang", "zh-CN");
+            string currentLang = Config.Config.Get("UILang", "zh-CN");
             if (string.Equals(currentLang, cultureTag, StringComparison.OrdinalIgnoreCase))
             {
                 item.Checked = true;
@@ -263,7 +255,7 @@ namespace GI_Subtitles
                 }
 
                 // Persist to config
-                Config.Set("UILang", cultureTag);
+                Config.Config.Set("UILang", cultureTag);
 
                 // Apply to settings window (which will update resources, tray texts, hotkeys, etc.)
                 if (data != null)
@@ -289,7 +281,7 @@ namespace GI_Subtitles
                             langItem.Checked = false;
                         }
                     }
-                    Config.Set("Size", Size);
+                    Config.Config.Set("Size", Size);
                 }
             }
         }
@@ -383,3 +375,4 @@ namespace GI_Subtitles
         }
     }
 }
+

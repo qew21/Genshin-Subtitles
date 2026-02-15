@@ -1,21 +1,17 @@
-﻿using Emgu.CV.Structure;
-using Emgu.CV;
-using System.Drawing;
-using Emgu.CV.CvEnum;
-using Emgu.CV.Util;
-using System.Text;
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Drawing.Imaging;
-using System.Linq;
 using System.Runtime.InteropServices;
-using PaddleOCRSharp;
+using System.Text;
 using OpenCvSharp;
-using System.Windows.Input;
-using System.Diagnostics;
+using GI_Subtitles.Core.Cache;
 
-namespace GI_Subtitles
+namespace GI_Subtitles.Services.OCR
 {
+    /// <summary>
+    /// Image processing utilities for OCR
+    /// </summary>
     public class ImageProcessor
     {
         /// <summary>
@@ -92,7 +88,7 @@ namespace GI_Subtitles
 
             // 2. Key step: binarization (thresholding)
             using var bin = new OpenCvSharp.Mat();
-            Cv2.Threshold(gray, bin, 245, 255, ThresholdTypes.Binary);
+            Cv2.Threshold(gray, bin, 200, 255, ThresholdTypes.Binary);
 
             using var points = new OpenCvSharp.Mat();
             Cv2.FindNonZero(bin, points);
@@ -201,9 +197,6 @@ namespace GI_Subtitles
 
             return bestMatch;
         }
-
     }
-
 }
-
 

@@ -44,14 +44,21 @@ using Newtonsoft.Json;
 using System.Security.Policy;
 using System.ServiceModel.PeerResolvers;
 using System.Net.Http;
-
+using GI_Subtitles.Core.Cache;
+using GI_Subtitles.Core.Config;
+using GI_Subtitles.Core.UI;
+using GI_Subtitles.Models;
+using GI_Subtitles.Services.OCR;
+using GI_Subtitles.Services.Translation;
+using GI_Subtitles.Common;
+using GI_Subtitles.Core.Screen;
+using static GI_Subtitles.Core.Config.Config;
 
 [assembly: log4net.Config.XmlConfigurator(Watch = true)]
-namespace GI_Subtitles
+namespace GI_Subtitles.Views
 {
     public static class Logger
     {
-
         public static log4net.ILog Log = log4net.LogManager.GetLogger("LogFileAppender");
     }
 
@@ -64,7 +71,6 @@ namespace GI_Subtitles
         private static int UI_TIMER = 0;
         string ocrText = null;
         private NotifyIcon notifyIcon;
-        string lastRes = null;
         string lastHeader = null;
         string lastContent = null;
         // Use an LRU cache to limit memory usage to 100 entries

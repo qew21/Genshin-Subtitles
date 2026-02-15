@@ -119,24 +119,33 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
-    <Compile Include="Config.cs" />
-    <Compile Include="LRUCache.cs" />
-    <Compile Include="OCRSummary.cs" />
-    <Compile Include="HotkeySettings.cs" />
-    <Compile Include="ImageProcessor.cs" />
-    <Compile Include="INotifyIcon.cs" />
-    <Compile Include="OptimizedMatcher.cs" />
-    <Compile Include="ScreenInfo.cs" />
-    <Compile Include="SettingsWindow.xaml.cs">
-      <DependentUpon>SettingsWindow.xaml</DependentUpon>
+    <Compile Include="Core\Config\Config.cs" />
+    <Compile Include="Core\Cache\LRUCache.cs" />
+    <Compile Include="Common\OCRSummary.cs" />
+    <Compile Include="Core\Input\HotkeySettings.cs" />
+    <Compile Include="Services\OCR\ImageProcessor.cs" />
+    <Compile Include="Core\UI\INotifyIcon.cs" />
+    <Compile Include="Services\Translation\OptimizedMatcher.cs" />
+    <Compile Include="Core\Screen\ScreenInfo.cs" />
+    <Compile Include="Views\SettingsWindow.xaml.cs">
+      <DependentUpon>Views\SettingsWindow.xaml</DependentUpon>
     </Compile>
-    <Compile Include="SrtProcessor.cs" />
-    <Compile Include="Video.xaml.cs">
-      <DependentUpon>Video.xaml</DependentUpon>
+    <Compile Include="Services\Video\SrtProcessor.cs" />
+    <Compile Include="Views\Video.xaml.cs">
+      <DependentUpon>Views\Video.xaml</DependentUpon>
     </Compile>
-    <Compile Include="VideoProcessor.cs" />
-    <Compile Include="VoiceContent.cs" />
-    <Page Include="MainWindow.xaml">
+    <Compile Include="Services\Video\VideoProcessor.cs" />
+    <Compile Include="Common\VoiceContentHelper.cs" />
+    <Compile Include="Common\RelayCommand.cs" />
+    <Compile Include="Common\Logger.cs" />
+    <Compile Include="Models\SubtitleItem.cs" />
+    <Compile Include="Models\MatchResult.cs" />
+    <Compile Include="Models\ProgressInfo.cs" />
+    <Compile Include="Models\SrtEntry.cs" />
+    <Compile Include="Models\RegionInfo.cs" />
+    <Compile Include="Models\HotkeyData.cs" />
+    <Compile Include="Models\OCRTestResult.cs" />
+    <Page Include="Views\MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
@@ -144,8 +153,8 @@
       <DependentUpon>App.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="MainWindow.xaml.cs">
-      <DependentUpon>MainWindow.xaml</DependentUpon>
+    <Compile Include="Views\MainWindow.xaml.cs">
+      <DependentUpon>Views\MainWindow.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
     <Page Include="Resources\Strings.en-US.xaml">
@@ -160,11 +169,11 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="SettingsWindow.xaml">
+    <Page Include="Views\SettingsWindow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Video.xaml">
+    <Page Include="Views\Video.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
