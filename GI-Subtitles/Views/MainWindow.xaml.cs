@@ -69,7 +69,7 @@ namespace GI_Subtitles.Views
     {
         private static int OCR_TIMER = 0;
         private static int UI_TIMER = 0;
-        string ocrText = null;
+        string ocrText = "";
         private NotifyIcon notifyIcon;
         string lastHeader = null;
         string lastContent = null;

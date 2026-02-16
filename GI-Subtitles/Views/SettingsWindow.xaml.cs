@@ -74,6 +74,7 @@ namespace GI_Subtitles.Views
             ["绝区零"] = "Zenless",
             ["鸣潮"] = "Wuthering",
             ["终末地"] = "Endfield",
+            ["崩坏三"] = "BH3",
         };
         readonly Stopwatch sw = new Stopwatch();
         readonly static string dataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GI-Subtitles");
@@ -491,6 +492,10 @@ namespace GI_Subtitles.Views
                     if (!Directory.Exists(Path.Combine(dataDir, Game)))
                     {
                         Directory.CreateDirectory(Path.Combine(dataDir, Game));
+                    }
+                    if (Game == "BH3")
+                    {
+                        System.Windows.MessageBox.Show("注意：崩坏三需要从群文件下载整理的数据，不像其他游戏一样有完全匹配的文本，暂时没有高质量仓库");
                     }
                     DisplayLocalFileDates();
                     Config.Set("Game", newValue);
