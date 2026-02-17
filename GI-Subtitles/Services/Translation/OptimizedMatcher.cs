@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using GI_Subtitles.Common;
 using GI_Subtitles.Models;
 
 namespace GI_Subtitles.Services.Translation
@@ -362,7 +363,7 @@ namespace GI_Subtitles.Services.Translation
             {
                 for (int i = 0; i < lines.Length; i++)
                 {
-                    if (lines[i].Length > maxLength)
+                    if (lines[i].Length > maxLength * 1.3)
                     {
                         maxLength = lines[i].Length;
                         maxIndex = i;
@@ -380,7 +381,6 @@ namespace GI_Subtitles.Services.Translation
                     maxIndex = 1;
                 }
             }
-
             List<string> headers = new List<string>();
             for (int i = 0; i < maxIndex; i++) headers.Add(lines[i]);
 
@@ -396,6 +396,10 @@ namespace GI_Subtitles.Services.Translation
                 }
             }
             string bodyMatch = FindClosestMatch(bodyText, out string bodyKey);
+            if (string.IsNullOrEmpty(bodyMatch) && maxIndex > 1)
+            {
+                bodyMatch = FindClosestMatch(string.Join(" ", lines.Skip(1)), out bodyKey);
+            }
 
             key = bodyKey;
             result.Content = bodyMatch;

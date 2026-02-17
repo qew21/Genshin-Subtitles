@@ -141,7 +141,9 @@ namespace GI_Test
                 "于哥伦比娅要怎么才能回来关于这一点，我一直在努力",
                 "但好像没看到阿帽·他不是说让我和",
                 "原来是同深渊对抗的工作啊···那一定很辛苦吧？",
-                "所以哥伦比娅刚才是怎么跟它们玩的呢"
+                "所以哥伦比娅刚才是怎么跟它们玩的呢",
+                "菲林斯\r\n但若是您听说过「狂猎」灾祸，天\r\n那便能理解它时常裹挟着被深渊污染的灵魂而来。也不难理解\r\n我们为何会驻守于坟劳旁了",
+                "菲林斯\r\n不过很遗憾，我仅在这边留宿一晚。\r\n哦，我也希望自己能够拥有旅行的闲暇。"
             };
 
             // Read JSON in the normal way
@@ -185,14 +187,14 @@ namespace GI_Test
             {
                 var stopwatch = Stopwatch.StartNew();
                 string matchedKey;
-                string matchedResult = matcher.FindClosestMatch(sentence, out matchedKey);
+                var matchedResult = matcher.FindMatchWithHeaderSeparated(sentence, out matchedKey);
                 stopwatch.Stop();
 
                 var result = new TestResult
                 {
                     Input = sentence,
                     MatchedKey = matchedKey ?? "",
-                    MatchedResult = matchedResult ?? "",
+                    MatchedResult = matchedResult.Content ?? "",
                     ElapsedMilliseconds = stopwatch.Elapsed.TotalMilliseconds
                 };
 

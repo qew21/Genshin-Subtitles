@@ -69,6 +69,12 @@ namespace GI_Subtitles.Views
     {
         private static int OCR_TIMER = 0;
         private static int UI_TIMER = 0;
+        private Mat _lastBinaryFrame = null;       // last frame for stability check
+        private Mat _lastOcrBinaryFrame = null;    // frame at last OCR for subtitle-change check
+        private bool _isOcrRunning = false;
+        private const double ChangeThreshold = 0.01;
+        private DateTime _lastOcrTime = DateTime.MinValue;
+        private static readonly TimeSpan MinOcrInterval = TimeSpan.FromMilliseconds(400);
         string ocrText = "";
         private NotifyIcon notifyIcon;
         string lastHeader = null;
@@ -193,7 +199,7 @@ namespace GI_Subtitles.Views
 
             data.LoadEngine();
 
-            OCRTimer.Interval = new TimeSpan(0, 0, 0, 0, 500);
+            OCRTimer.Interval = new TimeSpan(0, 0, 0, 0, 100);
             OCRTimer.Tick += GetOCR;    // Delegate: method to execute
 
 
@@ -218,8 +224,6 @@ namespace GI_Subtitles.Views
             }
             if (Interlocked.Exchange(ref OCR_TIMER, 1) == 0)
             {
-                Logger.Log.Debug("Start OCR");
-                SetWindowPos(new WindowInteropHelper(this).Handle, -1, 0, 0, 0, 0, 1 | 2);
                 try
                 {
                     Bitmap target;
@@ -256,57 +260,121 @@ namespace GI_Subtitles.Views
                             target = CaptureRegion(notify.Region);
                         }
                     }
-                    Mat enhanced = target.ToMat();
-                    string bitStr = ImageProcessor.ComputeRobustHash(enhanced);
 
-                    // Use LRU cache lookup
-                    if (BitmapDict.TryGetValue(bitStr, out string cachedOcrText))
+                    bool passedToOcr = false;
+                    Mat frameMat = null;
+                    Mat currentBinary = null;
+                    Mat diffFrame = null;
+                    try
                     {
-                        ocrText = cachedOcrText;
-                    }
-                    else
-                    {
-                        string matchedImageHash = ImageProcessor.FindSimilarImageHash(bitStr, BitmapDict, maxDistance: distant);
-                        if (matchedImageHash != null)
+                        frameMat = target.ToMat();
+                        currentBinary = PreprocessToBinary(frameMat);
+
+                        if (currentBinary == null || currentBinary.Empty())
                         {
-                            ocrText = BitmapDict[matchedImageHash];
-                            BitmapDict[bitStr] = ocrText; // LRU cache automatically manages its size, no manual checks needed
+                            if (!_isOcrRunning)
+                            {
+                                if (IsOcrIntervalReady())
+                                {
+                                    SetWindowPos(new WindowInteropHelper(this).Handle, -1, 0, 0, 0, 0, 1 | 2);
+                                    TriggerOcrAsync(frameMat.Clone(), target);
+                                    passedToOcr = true;
+                                }
+                                else
+                                {
+                                    Logger.Log.Debug("Skip OCR (fallback) due to min interval limit");
+                                }
+                            }
                         }
                         else
                         {
-                            OCRResult ocrResult = data.engine.DetectTextFromMat(enhanced);
-                            ocrText = ocrResult.Text;
-
-                            if (debug)
+                            // Check stability vs previous frame
+                            bool isStableVsPrev = true;
+                            if (_lastBinaryFrame != null)
                             {
-                                Logger.Log.Debug(DateTime.Now.ToString("yyyy-MM-dd_HH_mm_ss_ffffff") + ".png");
-                                target.Save(Path.Combine(dataDir, DateTime.Now.ToString("yyyy-MM-dd_HH_mm_ss_ffffff") + ".png"));
-                                Logger.Log.Debug($"OCR Text: {ocrText}");
+                                diffFrame = new Mat();
+                                Cv2.Absdiff(currentBinary, _lastBinaryFrame, diffFrame);
+                                int nonZeroPrev = Cv2.CountNonZero(diffFrame);
+                                double changePrev = (double)nonZeroPrev / (diffFrame.Rows * diffFrame.Cols);
+                                if (debug)
+                                {
+                                    Logger.Log.Debug($"Subtitle changeRatio(prev)={changePrev:F4}");
+                                }
+                                isStableVsPrev = changePrev <= ChangeThreshold;
                             }
 
-                            UpdateWindowPosition();
-                            BitmapDict[bitStr] = ocrText; // LRU cache automatically manages its size, no manual checks needed
+                            // Check change vs last OCR frame
+                            bool changedVsOcr = false;
+                            if (_lastOcrBinaryFrame != null)
+                            {
+                                using (Mat diffToOcr = new Mat())
+                                {
+                                    Cv2.Absdiff(currentBinary, _lastOcrBinaryFrame, diffToOcr);
+                                    int nonZeroOcr = Cv2.CountNonZero(diffToOcr);
+                                    double changeOcr = (double)nonZeroOcr / (diffToOcr.Rows * diffToOcr.Cols);
+                                    if (debug)
+                                    {
+                                        Logger.Log.Debug($"Subtitle changeRatio(ocr)={changeOcr:F4}");
+                                    }
+                                    changedVsOcr = changeOcr > ChangeThreshold;
+                                }
+                            }
+                            else
+                            {
+                                // No OCR baseline yet, force initial OCR when frame is stable
+                                changedVsOcr = true;
+                            }
+
+                            // Update previous-frame baseline for next cycle
+                            if (_lastBinaryFrame != null)
+                            {
+                                _lastBinaryFrame.Dispose();
+                            }
+                            _lastBinaryFrame = currentBinary.Clone();
+
+                            // Decide whether to run OCR:
+                            // 1) subtitle changed vs last OCR frame
+                            // 2) current frame is stable vs previous frame
+                            if (changedVsOcr && isStableVsPrev)
+                            {
+                                if (!_isOcrRunning && IsOcrIntervalReady())
+                                {
+                                    if (_lastOcrBinaryFrame != null)
+                                    {
+                                        _lastOcrBinaryFrame.Dispose();
+                                    }
+                                    _lastOcrBinaryFrame = currentBinary.Clone();
+
+                                    Logger.Log.Debug("Subtitle changed vs OCR and stabilized vs previous, start OCR");
+                                    SetWindowPos(new WindowInteropHelper(this).Handle, -1, 0, 0, 0, 0, 1 | 2);
+                                    TriggerOcrAsync(frameMat.Clone(), target);
+                                    passedToOcr = true;
+                                }
+                                else
+                                {
+                                    Logger.Log.Debug("Subtitle changed/stable but skip OCR due to running or min interval limit");
+                                }
+                            }
+                            else
+                            {
+                                if (debug)
+                                {
+                                    Logger.Log.Debug("Subtitle considered unstable vs previous or unchanged vs OCR, skip OCR");
+                                }
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        if (!passedToOcr)
+                        {
+                            target?.Dispose();
                         }
 
+                        frameMat?.Dispose();
+                        currentBinary?.Dispose();
+                        diffFrame?.Dispose();
                     }
-
-                    // Set image before calling SetImage (SetImage keeps a reference, so we don't dispose here)
-                    if (data.IsVisible)
-                    {
-                        data.SetImage(target);
-                    }
-                    else
-                    {
-                        // If it does not need to be displayed, release resources immediately
-                        target?.Dispose();
-                    }
-                    Logger.Log.Debug($"OCR Content: {ocrText}");
-                    if (ocrText.Length < 2)
-                    {
-                        failedCount++;
-                    }
-
-
                 }
                 catch (Exception ex)
                 {
@@ -425,19 +493,37 @@ namespace GI_Subtitles.Views
 
                     if (ocrText.Length > 1)
                     {
-                        // Use the new separation method
-                        var matchResult = data.Matcher.FindMatchWithHeaderSeparated(ocrText, out key);
-                        header = matchResult.Header ?? "";
-                        content = matchResult.Content ?? "";
-                        res = string.IsNullOrEmpty(header) ? content : (header + " " + content);
-
-                        Logger.Log.Debug($"Convert ocrResult for {ocrText}: header={header}, content={content}, key={key}");
-
-                        // Cache still uses the concatenated result for compatibility
-                        if (!resDict.ContainsKey(ocrText))
+                        if (resDict.TryGetValue(ocrText, out string cachedRes))
                         {
-                            resDict[ocrText] = res;
-                            resDict[res] = key;
+                            res = cachedRes;
+                            key = resDict[res];
+                            string[] parts = res.Split(new[] { "\n\n" }, StringSplitOptions.None);
+                            if (parts.Length >= 2)
+                            {
+                                header = parts[0];
+                                content = parts[1];
+                            }
+                            else
+                            {
+                                content = res;
+                            }
+                        }
+                        else
+                        {
+                            // Use the new separation method
+                            var matchResult = data.Matcher.FindMatchWithHeaderSeparated(ocrText, out key);
+                            header = matchResult.Header ?? "";
+                            content = matchResult.Content ?? "";
+                            res = string.IsNullOrEmpty(header) ? content : (header + "\n\n" + content);
+
+                            Logger.Log.Debug($"Convert ocrResult for {ocrText}: header={header}, content={content}, key={key}");
+
+                            // Cache still uses the concatenated result for compatibility
+                            if (!resDict.ContainsKey(ocrText))
+                            {
+                                resDict[ocrText] = res;
+                                resDict[res] = key;
+                            }
                         }
                     }
 
@@ -601,6 +687,156 @@ namespace GI_Subtitles.Views
                 bitmap?.Dispose();
                 Logger.Log.Error($"Failed to capture region: x={x}, y={y}, width={width}, height={height}, error={ex.Message}");
                 throw;
+            }
+        }
+
+        /// <summary>
+        /// Check whether OCR can be executed according to the minimum interval.
+        /// If allowed, this method will also update the last OCR time.
+        /// </summary>
+        /// <returns>true if OCR is allowed now; otherwise false.</returns>
+        private bool IsOcrIntervalReady()
+        {
+            var now = DateTime.UtcNow;
+            if (now - _lastOcrTime < MinOcrInterval)
+            {
+                return false;
+            }
+
+            _lastOcrTime = now;
+            return true;
+        }
+
+        /// <summary>
+        /// Async trigger OCR: execute the time-consuming OCR and hash matching logic in the background thread, only call when the subtitle pixel changes significantly.
+        /// </summary>
+        /// <param name="frameToProcess">Image Mat for OCR (caller has already Clone)</param>
+        /// <param name="target">Original screenshot Bitmap, used for debugging and setting preview image</param>
+        private async void TriggerOcrAsync(Mat frameToProcess, Bitmap target)
+        {
+            _isOcrRunning = true;
+            try
+            {
+                await Task.Run(() =>
+                {
+                    try
+                    {
+                        if (frameToProcess == null || frameToProcess.Empty())
+                        {
+                            return;
+                        }
+
+                        string bitStr = ImageProcessor.ComputeRobustHash(frameToProcess);
+
+                        if (BitmapDict.TryGetValue(bitStr, out string cachedOcrText))
+                        {
+                            ocrText = cachedOcrText;
+                        }
+                        else
+                        {
+                            string matchedImageHash = ImageProcessor.FindSimilarImageHash(bitStr, BitmapDict, maxDistance: distant);
+                            if (matchedImageHash != null)
+                            {
+                                ocrText = BitmapDict[matchedImageHash];
+                                BitmapDict[bitStr] = ocrText; // LRU cache automatically manages size
+                            }
+                            else
+                            {
+                                OCRResult ocrResult = data.engine.DetectTextFromMat(frameToProcess);
+                                ocrText = ocrResult.Text;
+
+                                if (debug)
+                                {
+                                    try
+                                    {
+                                        string fileName = DateTime.Now.ToString("yyyy-MM-dd_HH_mm_ss_ffffff") + ".png";
+                                        Logger.Log.Debug(fileName);
+                                        target.Save(Path.Combine(dataDir, fileName));
+                                        Logger.Log.Debug($"OCR Text: {ocrText}");
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Logger.Log.Error($"Failed to save debug image: {ex}");
+                                    }
+                                }
+
+                                BitmapDict[bitStr] = ocrText;
+                            }
+                        }
+
+                        Logger.Log.Debug($"OCR Content: {ocrText}");
+
+                        if (ocrText.Length < 2)
+                        {
+                            failedCount++;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Log.Error(ex);
+                    }
+                });
+
+                // After OCR, update the window position and debug preview in the UI thread
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    try
+                    {
+                        UpdateWindowPosition();
+
+                        // Set image before calling SetImage (SetImage keeps a reference, so we don't dispose here)
+                        if (data.IsVisible)
+                        {
+                            data.SetImage(target);
+                        }
+                        else
+                        {
+                            // If not needed, release the screenshot resource immediately
+                            target?.Dispose();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Log.Error(ex);
+                    }
+                });
+            }
+            finally
+            {
+                _isOcrRunning = false;
+                frameToProcess?.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Preprocess the subtitle region image to binary image (only retain high-light/white pixels), used for stable pixel difference detection.
+        /// </summary>
+        /// <param name="src">Original Mat (BGR)</param>
+        /// <returns>Binary Mat; if failed, return null</returns>
+        private Mat PreprocessToBinary(Mat src)
+        {
+            if (src == null || src.Empty())
+            {
+                return null;
+            }
+
+            Mat gray = new Mat();
+            Mat binary = new Mat();
+            try
+            {
+                Cv2.CvtColor(src, gray, ColorConversionCodes.BGR2GRAY);
+                Cv2.Threshold(gray, binary, 220, 255, ThresholdTypes.Binary);
+                return binary;
+            }
+            catch (Exception ex)
+            {
+                Logger.Log.Error($"PreprocessToBinary failed: {ex}");
+                binary?.Dispose();
+                return null;
+            }
+            finally
+            {
+                gray?.Dispose();
             }
         }
 
