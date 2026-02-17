@@ -8,7 +8,7 @@
         WindowStyle="None" Height="20"  ShowInTaskbar="False" Topmost="True" Background="Transparent" AllowsTransparency="True" MouseDown="Window_MouseDown" Cursor="Hand">
     <Grid>
         <!-- Content always fixed at the center position,不受header影响 -->
-        <TextBlock x:Name="SubtitleText" TextWrapping="Wrap" Foreground="#E9E9E9" 
+        <TextBlock x:Name="SubtitleText" TextWrapping="Wrap" Foreground="White" 
                    TextAlignment="Center" FontWeight="Bold" 
                    VerticalAlignment="Center" HorizontalAlignment="Center"/>
         

@@ -616,8 +616,8 @@ namespace GI_Subtitles.Views
                     Status.Content = $"Loaded {contentDict.Count} key-values，{InputLanguage} -> {OutputLanguage}+{OutputLanguage2}";
                 }
                 Logger.Log.Debug(Status.Content);
-                Logger.Log.Debug("Loading OptimizedMatcher...");
                 Matcher = new OptimizedMatcher(contentDict, InputLanguage);
+                Logger.Log.Debug("Loaded OptimizedMatcher...");
             });
             DisplayLocalFileDates();
         }

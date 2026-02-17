@@ -11,7 +11,8 @@ namespace GI_Subtitles.Services.Translation
     public class OptimizedMatcher
     {
         private readonly Entry[] _entries;
-        private readonly Dictionary<string, List<int>> _ngramIndex;
+        // Use long hash as key to avoid creating millions of string objects
+        private readonly Dictionary<long, List<int>> _ngramIndex;
         private readonly int[] _shortKeysIndices;
         private readonly Dictionary<string, string> ContentDict;
 
@@ -20,12 +21,28 @@ namespace GI_Subtitles.Services.Translation
 
         private readonly int _ngramSize;
 
+        // FNV-1a hash constants for fast n-gram hashing
+        private const ulong FNV_OFFSET_BASIS = 14695981039346656037UL;
+        private const ulong FNV_PRIME = 1099511628211UL;
+
         private struct Entry
         {
             public string NormalizedKey;
             public string OriginalKey;
             public string Value;
             public int Length;
+        }
+
+        // Fast hash for n-gram to avoid Substring allocation
+        private static long GetNgramHash(string s, int start, int length)
+        {
+            ulong hash = FNV_OFFSET_BASIS;
+            for (int i = 0; i < length; i++)
+            {
+                hash ^= s[start + i];
+                hash *= FNV_PRIME;
+            }
+            return (long)hash;
         }
 
         public OptimizedMatcher(Dictionary<string, string> voiceContentDict, string inputLanguage)
@@ -39,7 +56,7 @@ namespace GI_Subtitles.Services.Translation
 
             int count = voiceContentDict.Count;
             _entries = new Entry[count];
-            _ngramIndex = new Dictionary<string, List<int>>(count * (isEng ? 4 : 2));
+            _ngramIndex = new Dictionary<long, List<int>>(count * (isEng ? 4 : 2));
             var shortKeysList = new List<int>();
 
             int index = 0;
@@ -61,16 +78,17 @@ namespace GI_Subtitles.Services.Translation
                 }
                 else
                 {
-                    var distinctGrams = new HashSet<string>();
+                    // Use hash to deduplicate, avoid creating string objects
+                    var distinctHashes = new HashSet<long>();
                     for (int i = 0; i <= normKey.Length - _ngramSize; i++)
                     {
-                        string gram = normKey.Substring(i, _ngramSize);
-                        if (distinctGrams.Add(gram))
+                        long hash = GetNgramHash(normKey, i, _ngramSize);
+                        if (distinctHashes.Add(hash))
                         {
-                            if (!_ngramIndex.TryGetValue(gram, out var list))
+                            if (!_ngramIndex.TryGetValue(hash, out var list))
                             {
                                 list = new List<int>();
-                                _ngramIndex[gram] = list;
+                                _ngramIndex[hash] = list;
                             }
                             list.Add(index);
                         }
@@ -117,8 +135,8 @@ namespace GI_Subtitles.Services.Translation
 
                 for (int i = 0; i <= inputLen - _ngramSize; i += step)
                 {
-                    string gram = normInput.Substring(i, _ngramSize);
-                    if (_ngramIndex.TryGetValue(gram, out var ids))
+                    long hash = GetNgramHash(normInput, i, _ngramSize);
+                    if (_ngramIndex.TryGetValue(hash, out var ids))
                     {
                         // Pruning: Skip very common grams
                         if (ids.Count > maxCandidatesPerGram) continue;
@@ -136,8 +154,8 @@ namespace GI_Subtitles.Services.Translation
                 {
                     for (int i = 0; i <= inputLen - _ngramSize; i += step)
                     {
-                        string gram = normInput.Substring(i, _ngramSize);
-                        if (_ngramIndex.TryGetValue(gram, out var ids))
+                        long hash = GetNgramHash(normInput, i, _ngramSize);
+                        if (_ngramIndex.TryGetValue(hash, out var ids))
                         {
                             foreach (var id in ids) candidates.Add(id);
                         }
