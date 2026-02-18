@@ -581,7 +581,7 @@ namespace GI_Subtitles.Views
                         }
 
                         // Play audio (only when content changes, to avoid repeated playback)
-                        if (Config.Get<bool>("PlayVoice", false) && contentChanged && !AudioList.Contains(key))
+                        if (Config.Get<bool>("PlayVoice", false) && contentChanged && !AudioList.Contains(key) && !string.IsNullOrEmpty(key))
                         {
                             string audioKey = VoiceContentHelper.CalculateMd5Hash(key);
                             PlayAudioFromUrl($"{server}?md5={audioKey}&token={token}");
@@ -977,8 +977,21 @@ namespace GI_Subtitles.Views
                 // Download the file to a temporary file
                 using (var webClient = new WebClient())
                 {
+                    try
+                    {
+                        webClient.OpenRead(url).Close();
+                    }
+                    catch (WebException ex)
+                    {
+                        if (ex.Response is HttpWebResponse response &&
+                            response.StatusCode == HttpStatusCode.NotFound)
+                        {
+                            return;
+                        }
+                        Console.WriteLine($"Error: {ex.Message}");
+                        return;
+                    }
                     string tempFile = Path.GetTempFileName();
-                    Console.WriteLine($"{tempFile}, {tempFilePath}");
                     if (tempFile != tempFilePath)
                     {
                         webClient.DownloadFile(url, tempFile);
