@@ -53,6 +53,7 @@ using GI_Subtitles.Services.Translation;
 using GI_Subtitles.Common;
 using GI_Subtitles.Core.Screen;
 using static GI_Subtitles.Core.Config.Config;
+using System.Windows.Threading;
 
 [assembly: log4net.Config.XmlConfigurator(Watch = true)]
 namespace GI_Subtitles.Views
@@ -139,6 +140,22 @@ namespace GI_Subtitles.Views
             this.Opacity = 0;
             Loaded += MainWindow_Loaded;
             CheckAndUpdate(Update);
+            DispatcherTimer _hideButtonTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(2),
+                IsEnabled = false
+            };
+            _hideButtonTimer.Tick += (s, e) =>
+            {
+                DragButton.Visibility = Visibility.Hidden;
+                _hideButtonTimer.Stop(); // 执行后停止定时器
+            };
+            this.MouseEnter += (s, e) => { DragButton.Visibility = Visibility.Visible; _hideButtonTimer.Stop(); };
+            // 鼠标移出窗口 → 隐藏拖动按钮
+            this.MouseLeave += (s, e) =>
+            {
+                _hideButtonTimer.Start();
+            };
         }
 
 
@@ -842,10 +859,11 @@ namespace GI_Subtitles.Views
 
         private void Window_MouseDown(object sender, MouseButtonEventArgs e)
         {
-            if (e.LeftButton == MouseButtonState.Pressed)
+            if (e.LeftButton != MouseButtonState.Pressed)
             {
-                DragMove();
+                return;
             }
+            DragMove();
         }
 
 
@@ -1059,7 +1077,14 @@ namespace GI_Subtitles.Views
             }
 
         }
-
+        private void DragButton_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            Console.WriteLine("DragButton_MouseDown");
+            if (e.LeftButton == MouseButtonState.Pressed)
+            {
+                this.DragMove();
+            }
+        }
         public class NativeMethods
         {
             public enum MonitorDpiType
