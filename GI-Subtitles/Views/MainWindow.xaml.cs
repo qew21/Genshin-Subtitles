@@ -309,31 +309,57 @@ namespace GI_Subtitles.Views
                             bool isStableVsPrev = true;
                             if (_lastBinaryFrame != null)
                             {
-                                diffFrame = new Mat();
-                                Cv2.Absdiff(currentBinary, _lastBinaryFrame, diffFrame);
-                                int nonZeroPrev = Cv2.CountNonZero(diffFrame);
-                                double changePrev = (double)nonZeroPrev / (diffFrame.Rows * diffFrame.Cols);
-                                if (debug)
+
+                                if (currentBinary.Size() != _lastBinaryFrame.Size() ||
+            currentBinary.Channels() != _lastBinaryFrame.Channels())
                                 {
-                                    Logger.Log.Debug($"Subtitle changeRatio(prev)={changePrev:F4}");
+                                    isStableVsPrev = false;
+                                    if (debug)
+                                    {
+                                        Logger.Log.Debug("Last binary frame size mismatch, reset cache");
+                                    }
                                 }
-                                isStableVsPrev = changePrev <= ChangeThreshold;
+                                else
+                                {
+                                    diffFrame = new Mat();
+                                    Cv2.Absdiff(currentBinary, _lastBinaryFrame, diffFrame);
+                                    int nonZeroPrev = Cv2.CountNonZero(diffFrame);
+                                    double changePrev = (double)nonZeroPrev / (diffFrame.Rows * diffFrame.Cols);
+                                    if (debug)
+                                    {
+                                        Logger.Log.Debug($"Subtitle changeRatio(prev)={changePrev:F4}");
+                                    }
+                                    isStableVsPrev = changePrev <= ChangeThreshold;
+                                }
+
                             }
 
                             // Check change vs last OCR frame
                             bool changedVsOcr = false;
                             if (_lastOcrBinaryFrame != null)
                             {
-                                using (Mat diffToOcr = new Mat())
+                                if (currentBinary.Size() != _lastOcrBinaryFrame.Size() ||
+            currentBinary.Channels() != _lastOcrBinaryFrame.Channels())
                                 {
-                                    Cv2.Absdiff(currentBinary, _lastOcrBinaryFrame, diffToOcr);
-                                    int nonZeroOcr = Cv2.CountNonZero(diffToOcr);
-                                    double changeOcr = (double)nonZeroOcr / (diffToOcr.Rows * diffToOcr.Cols);
+                                    changedVsOcr = true;
                                     if (debug)
                                     {
-                                        Logger.Log.Debug($"Subtitle changeRatio(ocr)={changeOcr:F4}");
+                                        Logger.Log.Debug("Last binary frame size mismatch, run ocr");
                                     }
-                                    changedVsOcr = changeOcr > ChangeThreshold;
+                                }
+                                else
+                                {
+                                    using (Mat diffToOcr = new Mat())
+                                    {
+                                        Cv2.Absdiff(currentBinary, _lastOcrBinaryFrame, diffToOcr);
+                                        int nonZeroOcr = Cv2.CountNonZero(diffToOcr);
+                                        double changeOcr = (double)nonZeroOcr / (diffToOcr.Rows * diffToOcr.Cols);
+                                        if (debug)
+                                        {
+                                            Logger.Log.Debug($"Subtitle changeRatio(ocr)={changeOcr:F4}");
+                                        }
+                                        changedVsOcr = changeOcr > ChangeThreshold;
+                                    }
                                 }
                             }
                             else
