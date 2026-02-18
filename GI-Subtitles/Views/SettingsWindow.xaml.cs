@@ -760,7 +760,6 @@ namespace GI_Subtitles.Views
             {
                 HttpResponseMessage response = await client.GetAsync(url);
                 response.EnsureSuccessStatusCode();
-
                 string responseText = await response.Content.ReadAsStringAsync();
                 if (Game == "Zenless")
                 {
@@ -805,8 +804,10 @@ namespace GI_Subtitles.Views
             }
             catch (Exception ex)
             {
-                Logger.Log.Error(ex);
-
+                if (!url.Contains("gitlab"))  // gitlab is not available in some regions
+                {
+                    Logger.Log.Error(ex);
+                }
             }
             return "";
         }
