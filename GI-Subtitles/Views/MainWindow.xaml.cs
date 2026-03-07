@@ -1,4 +1,4 @@
-﻿using Emgu.CV.Dnn;
+using Emgu.CV.Dnn;
 using OpenCvSharp;
 using OpenCvSharp.Extensions;
 using PaddleOCRSharp;
@@ -500,6 +500,10 @@ namespace GI_Subtitles.Views
                     double screenTop = targetScreen.Bounds.Top / screenScale;
                     double screenBottom = targetScreen.Bounds.Bottom / screenScale;
 
+                    // Cap window height to screen so content never exceeds screen range (fixes large font overflow)
+                    double maxWindowHeight = screenBottom - screenTop;
+                    desiredHeight = Math.Min(desiredHeight, maxWindowHeight);
+
                     // Keep the window vertically stable: only clamp Top to keep inside the screen
                     // instead of recomputing it from the OCR region each time (which caused drift).
                     double newTop = this.Top;
@@ -514,6 +518,10 @@ namespace GI_Subtitles.Views
 
                     this.Top = newTop;
                     this.Height = desiredHeight;
+
+                    // Constrain subtitle content height so it never overflows the window (especially at max font size)
+                    double contentMaxHeight = Math.Max(desiredHeight - margin, 20);
+                    SubtitleText.MaxHeight = contentMaxHeight;
                 }
                 catch (Exception ex)
                 {
