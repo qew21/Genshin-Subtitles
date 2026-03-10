@@ -446,7 +446,7 @@ namespace GI_Subtitles.Views
                     double width = Convert.ToInt16(notify.Region[2]) / scale + 200;
 
                     this.Left = left + (screen.Bounds.Width / scale - width) / 2 + Config.GetPadHorizontal();
-                    this.Width = width;
+                    this.Width = Math.Min(width, screen.Bounds.Width / scale);
                     this.Top = baseTop;
                 }
             }
@@ -475,7 +475,7 @@ namespace GI_Subtitles.Views
                     }
 
                     // 2. Desired window height with margin, clamped to a percentage of screen height
-                    double margin = 50;
+                    double margin = 40;
                     double desiredHeight = contentHeight + margin;
 
                     Screen targetScreen = null;
@@ -517,11 +517,8 @@ namespace GI_Subtitles.Views
                     }
 
                     this.Top = newTop;
-                    this.Height = desiredHeight;
-
-                    // Constrain subtitle content height so it never overflows the window (especially at max font size)
-                    double contentMaxHeight = Math.Max(desiredHeight - margin, 20);
-                    SubtitleText.MaxHeight = contentMaxHeight;
+                    this.Height = desiredHeight + HeaderText.ActualHeight;
+                    SubtitleText.MaxHeight = desiredHeight;
                 }
                 catch (Exception ex)
                 {
