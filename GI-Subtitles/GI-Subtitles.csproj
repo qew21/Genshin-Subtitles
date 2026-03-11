@@ -123,6 +123,8 @@
     <Compile Include="Core\Cache\LRUCache.cs" />
     <Compile Include="Common\OCRSummary.cs" />
     <Compile Include="Core\Input\HotkeySettings.cs" />
+    <Compile Include="Models\GameConfig.cs" />
+    <Compile Include="Models\GameMetadata.cs" />
     <Compile Include="Services\OCR\ImageProcessor.cs" />
     <Compile Include="Core\UI\INotifyIcon.cs" />
     <Compile Include="Services\Translation\OptimizedMatcher.cs" />

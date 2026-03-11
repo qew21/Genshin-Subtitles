@@ -32,7 +32,6 @@ using System.Windows.Markup;
 using System.Collections;
 using System.Globalization;
 using System.Web.UI.WebControls;
-using System.Xml;
 using System.ServiceModel.Syndication;
 using System.Runtime.InteropServices;
 using Microsoft.Win32;
@@ -52,7 +51,7 @@ namespace GI_Subtitles.Views
     /// </summary>
     public partial class SettingsWindow : Window
     {
-        public string repoUrl = "https://gitlab.com/Dimbreath/AnimeGameData/-/refs/master/logs_tree/TextMap?format=json&offset=0&ref_type=heads";
+        public string repoUrl = string.Empty;
         string Game = Config.Get<string>("Game");
         string InputLanguage = Config.Get<string>("Input");
         string OutputLanguage = Config.Get<string>("Output");
@@ -67,15 +66,9 @@ namespace GI_Subtitles.Views
                 { "English", "EN"},
                 { "日本語", "JP"}
             };
-        readonly Dictionary<string, string> GameDict = new Dictionary<string, string>
-        {
-            ["原神"] = "Genshin",
-            ["星穹铁道"] = "StarRail",
-            ["绝区零"] = "Zenless",
-            ["鸣潮"] = "Wuthering",
-            ["终末地"] = "Endfield",
-            ["崩坏三"] = "BH3",
-        };
+        private List<GameMetadata> _supportedGames = new List<GameMetadata>();
+        private GameConfig _currentGameConfig;
+
         readonly Stopwatch sw = new Stopwatch();
         readonly static string dataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GI-Subtitles");
         readonly string outpath = Path.Combine(dataDir, "out");
@@ -139,41 +132,40 @@ namespace GI_Subtitles.Views
 
             // Initialize window title with current language and version
             UpdateWindowTitle();
+
+            // Load games and current config
+            LoadSupportedGames();
+            LoadGameConfig(Game);
+
             GameSelector.SelectionChanged += OnGameSelectorChanged;
+            
+            // Initialize InputSelector items
+            InputSelector.ItemsSource = InputLanguages.Keys.ToList();
             InputSelector.SelectionChanged += OnInputSelectorChanged;
-            // OutputSelector uses multi-select with explicit confirm, handled by OutputSelector_SelectionChanged + OutputConfirmButton_Click
+            
+            // Initialize OutputSelector items
+            OutputSelector.ItemsSource = OutputLanguages.Keys.ToList();
             OutputSelector.SelectionChanged += OutputSelector_SelectionChanged;
-            Dictionary<string, string> GameNames = GameDict.ToDictionary(x => x.Value, x => x.Key);
-            Dictionary<string, string> InputNames = InputLanguages.ToDictionary(x => x.Value, x => x.Key);
-            Dictionary<string, string> OutputNames = OutputLanguages.ToDictionary(x => x.Value, x => x.Key);
-            var item = GameSelector.Items.Cast<ComboBoxItem>().FirstOrDefault(i => i.Content.ToString() == GameNames[Game]);
-            if (item != null)
+
+            // Set initial selections
+            GameSelector.SelectedValue = Game;
+
+            var inputNames = InputLanguages.ToDictionary(x => x.Value, x => x.Key);
+            if (inputNames.TryGetValue(InputLanguage, out var inputDisplayName))
             {
-                GameSelector.SelectedItem = item;
+                InputSelector.SelectedItem = inputDisplayName;
             }
-            item = InputSelector.Items.Cast<ComboBoxItem>().FirstOrDefault(i => i.Content.ToString() == InputNames[InputLanguage]);
-            if (item != null)
+
+            var outputNames = OutputLanguages.ToDictionary(x => x.Value, x => x.Key);
+            if (outputNames.TryGetValue(OutputLanguage, out var primaryName))
             {
-                InputSelector.SelectedItem = item;
+                OutputSelector.SelectedItems.Add(primaryName);
             }
-            // Initialize output language selection (support up to 2 outputs)
-            var outputItems = OutputSelector.Items.Cast<ListBoxItem>().ToList();
-            if (OutputNames.TryGetValue(OutputLanguage, out var primaryName))
+            if (!string.IsNullOrEmpty(OutputLanguage2) && outputNames.TryGetValue(OutputLanguage2, out var secondName))
             {
-                var primaryItem = outputItems.FirstOrDefault(i => i.Content.ToString() == primaryName);
-                if (primaryItem != null)
-                {
-                    primaryItem.IsSelected = true;
-                }
+                OutputSelector.SelectedItems.Add(secondName);
             }
-            if (!string.IsNullOrEmpty(OutputLanguage2) && OutputNames.TryGetValue(OutputLanguage2, out var secondName))
-            {
-                var secondItem = outputItems.FirstOrDefault(i => i.Content.ToString() == secondName);
-                if (secondItem != null)
-                {
-                    secondItem.IsSelected = true;
-                }
-            }
+            
             DisplayLocalFileDates();
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
             ServicePointManager.ServerCertificateValidationCallback += (sender, certificate, chain, sslPolicyErrors) => true;
@@ -367,113 +359,184 @@ namespace GI_Subtitles.Views
             await CheckDataAsync();
         }
 
+        private void LoadSupportedGames()
+        {
+            string gamesListPath = Path.Combine(dataDir, "Games.json");
+            if (File.Exists(gamesListPath))
+            {
+                try
+                {
+                    _supportedGames = JsonConvert.DeserializeObject<List<GameMetadata>>(File.ReadAllText(gamesListPath));
+                }
+                catch (Exception ex)
+                {
+                    Logger.Log.Error($"Failed to load Games.json: {ex.Message}");
+                }
+            }
+
+            if (_supportedGames == null || _supportedGames.Count == 0)
+            {
+                // Default games with internal ID and display metadata
+                _supportedGames = new List<GameMetadata>
+                {
+                    new GameMetadata { Name = "Genshin", DisplayNames = new Dictionary<string, string>{{"zh-CN","原神"},{"en-US","Genshin Impact"},{"ja-JP","原神"}} },
+                    new GameMetadata { Name = "StarRail", DisplayNames = new Dictionary<string, string>{{"zh-CN","崩坏：星穹铁道"},{"en-US","Honkai: Star Rail"},{"ja-JP","崩壊：スターレイル"}} },
+                    new GameMetadata { Name = "Zenless", DisplayNames = new Dictionary<string, string>{{"zh-CN","绝区零"},{"en-US","Zenless Zone Zero"},{"ja-JP","ゼンレスゾーンゼロ"}} },
+                    new GameMetadata { Name = "Wuthering", DisplayNames = new Dictionary<string, string>{{"zh-CN","鸣潮"},{"en-US","Wuthering Waves"},{"ja-JP","鳴潮"}} },
+                    new GameMetadata { Name = "Endfield", DisplayNames = new Dictionary<string, string>{{"zh-CN","明日方舟：终末地"},{"en-US","Arknights: Endfield"},{"ja-JP","アークナイツ：エンドフィール"}} },
+                    new GameMetadata { Name = "BH3", DisplayNames = new Dictionary<string, string>{{"zh-CN","崩坏3"},{"en-US","Honkai Impact 3rd"},{"ja-JP","崩壊3rd"}} }
+                };
+                File.WriteAllText(gamesListPath, JsonConvert.SerializeObject(_supportedGames, Formatting.Indented));
+            }
+
+            // Current UI culture tag (zh-CN, en-US, ja-JP)
+            string uiLang = Config.Get("UILang", "zh-CN");
+
+            // Build a list of simple objects for the ComboBox to avoid binding errors
+            // Each object has a Display property and the original Name (Internal ID)
+            var displayList = _supportedGames.Select(g => new
+            {
+                Display = (g.DisplayNames != null && g.DisplayNames.TryGetValue(uiLang, out var localizedName)) 
+                          ? localizedName : g.Name,
+                Name = g.Name
+            }).ToList();
+
+            GameSelector.ItemsSource = displayList;
+            GameSelector.DisplayMemberPath = "Display";
+            GameSelector.SelectedValuePath = "Name";
+        }
+
+        private void LoadGameConfig(string gameName)
+        {
+            string configPath = Path.Combine(dataDir, $"{gameName}.json");
+            bool fileExists = File.Exists(configPath);
+            if (fileExists)
+            {
+                try
+                {
+                    _currentGameConfig = JsonConvert.DeserializeObject<GameConfig>(File.ReadAllText(configPath));
+                }
+                catch (Exception ex)
+                {
+                    Logger.Log.Error($"Failed to load {gameName}.json: {ex.Message}");
+                }
+            }
+
+            if (_currentGameConfig == null)
+            {
+                _currentGameConfig = CreateDefaultGameConfig(gameName);
+                if (!fileExists)
+                {
+                    File.WriteAllText(configPath, JsonConvert.SerializeObject(_currentGameConfig, Formatting.Indented));
+                }
+            }
+
+            repoUrl = _currentGameConfig.RepoUrl;
+        }
+
+        private GameConfig CreateDefaultGameConfig(string gameName)
+        {
+            var config = new GameConfig();
+            switch (gameName)
+            {
+                case "Genshin":
+                    config.RepoUrl = "https://gitlab.com/Dimbreath/AnimeGameData/-/refs/master/logs_tree/TextMap?format=json&offset=0&ref_type=heads";
+                    config.RepoType = "GitLab";
+                    config.InputUrlTemplate = "https://gitlab.com/Dimbreath/AnimeGameData/-/raw/master/TextMap/TextMap{Language}.json?inline=false";
+                    config.OutputUrlTemplate = "https://gitlab.com/Dimbreath/AnimeGameData/-/raw/master/TextMap/TextMap{Language}.json?inline=false";
+                    break;
+                case "StarRail":
+                    config.RepoUrl = "https://gitlab.com/Dimbreath/turnbasedgamedata/-/refs/main/logs_tree/?format=json&offset=0&ref_type=HEADS";
+                    config.RepoType = "GitLab";
+                    config.InputUrlTemplate = "https://gitlab.com/Dimbreath/turnbasedgamedata/-/raw/main/TextMap/TextMap{Language}.json?inline=false";
+                    config.OutputUrlTemplate = "https://gitlab.com/Dimbreath/turnbasedgamedata/-/raw/main/TextMap/TextMap{Language}.json?inline=false";
+                    break;
+                case "Zenless":
+                    config.RepoUrl = "https://git.mero.moe/dimbreath/ZenlessData";
+                    config.RepoType = "ZenlessGitMero";
+                    config.InputUrlTemplate = "https://git.mero.moe/dimbreath/ZenlessData/raw/branch/master/TextMap/TextMap{Language}TemplateTb.json";
+                    config.OutputUrlTemplate = "https://git.mero.moe/dimbreath/ZenlessData/raw/branch/master/TextMap/TextMap{Language}TemplateTb.json";
+                    config.LanguageMapping = new Dictionary<string, string>
+                    {
+                        ["CHS"] = "",
+                        ["JP"] = "_JA",
+                        ["EN"] = "_EN",
+                        ["KR"] = "_KR",
+                        ["PT"] = "_PT",
+                        ["RU"] = "_RU",
+                        ["TH"] = "_TH",
+                        ["VI"] = "_VI",
+                        ["DE"] = "_DE",
+                        ["ES"] = "_ES",
+                        ["FR"] = "_FR",
+                        ["ID"] = "_ID"
+                    };
+                    break;
+                case "Wuthering":
+                    config.RepoUrl = "https://github.com/Dimbreath/WutheringData/commits/master.atom";
+                    config.RepoType = "GitHubAtom";
+                    config.InputUrlTemplate = "https://raw.githubusercontent.com/Dimbreath/WutheringData/refs/heads/master/TextMap/{Language}/MultiText.json";
+                    config.OutputUrlTemplate = "https://raw.githubusercontent.com/Dimbreath/WutheringData/refs/heads/master/TextMap/{Language}/MultiText.json";
+                    config.TestFile = "Wuthering.png";
+                    config.LanguageMapping = new Dictionary<string, string>
+                    {
+                        ["CHS"] = "zh-Hans",
+                        ["EN"] = "en",
+                        ["JP"] = "ja",
+                        ["KR"] = "ko",
+                        ["FR"] = "fr",
+                        ["DE"] = "de",
+                        ["ES"] = "es",
+                        ["PT"] = "pt",
+                        ["RU"] = "ru",
+                        ["TH"] = "th",
+                        ["ID"] = "id",
+                        ["VI"] = "vi"
+                    };
+                    break;
+                case "Endfield":
+                    config.RepoUrl = "https://github.com/XiaBei-cy/EndfieldData/commits/master.atom";
+                    config.RepoType = "GitHubAtom";
+                    config.InputUrlTemplate = "https://raw.githubusercontent.com/XiaBei-cy/EndfieldData/refs/heads/master/i18n/I18nTextTable_{Language}.json";
+                    config.OutputUrlTemplate = "https://raw.githubusercontent.com/XiaBei-cy/EndfieldData/refs/heads/master/i18n/I18nTextTable_{Language}.json";
+                    config.LanguageMapping = new Dictionary<string, string>
+                    {
+                        ["CHS"] = "CN",
+                        ["EN"] = "EN",
+                        ["JP"] = "JP",
+                        ["KR"] = "KR",
+                        ["FR"] = "FR",
+                        ["DE"] = "DE",
+                        ["ES"] = "ES",
+                        ["PT"] = "PT",
+                        ["RU"] = "RU",
+                        ["TH"] = "TH",
+                        ["ID"] = "ID",
+                        ["VI"] = "VI"
+                    };
+                    break;
+                case "BH3":
+                    config.Warning = "注意：崩坏三需要从群文件下载整理的数据，不像其他游戏一样有完全匹配的文本，暂时没有高质量仓库";
+                    break;
+            }
+            return config;
+        }
+
         public void RefreshUrl()
         {
-            InputLangDownloadUrl.Text = $"https://gitlab.com/Dimbreath/AnimeGameData/-/raw/master/TextMap/TextMap{InputLanguage}.json?inline=false";
-            OutputLangDownloadUrl.Text = $"https://gitlab.com/Dimbreath/AnimeGameData/-/raw/master/TextMap/TextMap{OutputLanguage}.json?inline=false";
-            // Second output language download url (if configured)
+            if (_currentGameConfig == null) return;
+
+            InputLangDownloadUrl.Text = _currentGameConfig.GetDownloadUrl(InputLanguage, true);
+            OutputLangDownloadUrl.Text = _currentGameConfig.GetDownloadUrl(OutputLanguage, false);
+
             if (!string.IsNullOrEmpty(OutputLanguage2))
             {
-                OutputLangDownloadUrl2.Text = $"https://gitlab.com/Dimbreath/AnimeGameData/-/raw/master/TextMap/TextMap{OutputLanguage2}.json?inline=false";
+                OutputLangDownloadUrl2.Text = _currentGameConfig.GetDownloadUrl(OutputLanguage2, false);
             }
             else
             {
                 OutputLangDownloadUrl2.Text = string.Empty;
             }
-            if (Game == "StarRail")
-            {
-                repoUrl = "https://gitlab.com/Dimbreath/turnbasedgamedata/-/refs/main/logs_tree/?format=json&offset=0&ref_type=HEADS";
-                InputLangDownloadUrl.Text = $"https://gitlab.com/Dimbreath/turnbasedgamedata/-/raw/main/TextMap/TextMap{InputLanguage}.json?inline=false";
-                OutputLangDownloadUrl.Text = $"https://gitlab.com/Dimbreath/turnbasedgamedata/-/raw/main/TextMap/TextMap{OutputLanguage}.json?inline=false";
-                if (!string.IsNullOrEmpty(OutputLanguage2))
-                {
-                    OutputLangDownloadUrl2.Text = $"https://gitlab.com/Dimbreath/turnbasedgamedata/-/raw/main/TextMap/TextMap{OutputLanguage2}.json?inline=false";
-                }
-                else
-                {
-                    OutputLangDownloadUrl2.Text = string.Empty;
-                }
-            }
-            else if (Game == "Zenless")
-            {
-                repoUrl = "https://git.mero.moe/dimbreath/ZenlessData";
-                InputLangDownloadUrl.Text = ZenlessUrl(InputLanguage);
-                OutputLangDownloadUrl.Text = ZenlessUrl(OutputLanguage);
-                if (!string.IsNullOrEmpty(OutputLanguage2))
-                {
-                    OutputLangDownloadUrl2.Text = ZenlessUrl(OutputLanguage2);
-                }
-                else
-                {
-                    OutputLangDownloadUrl2.Text = string.Empty;
-                }
-            }
-            else if (Game == "Wuthering")
-            {
-                repoUrl = "https://github.com/Dimbreath/WutheringData/commits/master.atom";
-                InputLangDownloadUrl.Text = WutheringUrl(InputLanguage);
-                OutputLangDownloadUrl.Text = WutheringUrl(OutputLanguage);
-                if (!string.IsNullOrEmpty(OutputLanguage2))
-                {
-                    OutputLangDownloadUrl2.Text = WutheringUrl(OutputLanguage2);
-                }
-                else
-                {
-                    OutputLangDownloadUrl2.Text = string.Empty;
-                }
-            }
-            else if (Game == "Endfield")
-            {
-                repoUrl = "https://github.com/XiaBei-cy/EndfieldData/commits/master.atom";
-                InputLangDownloadUrl.Text = EndfieldUrl(InputLanguage);
-                OutputLangDownloadUrl.Text = EndfieldUrl(OutputLanguage);
-                if (!string.IsNullOrEmpty(OutputLanguage2))
-                {
-                    OutputLangDownloadUrl2.Text = EndfieldUrl(OutputLanguage2);
-                }
-                else
-                {
-                    OutputLangDownloadUrl2.Text = string.Empty;
-                }
-            }
-        }
-
-        private string ZenlessUrl(string language)
-        {
-            string url = "https://git.mero.moe/dimbreath/ZenlessData/raw/branch/master/TextMap/TextMapTemplateTb.json";
-            if (language != "CHS")
-            {
-                if (language == "JP")
-                {
-                    language = "JA";
-                }
-                url = $"https://git.mero.moe/dimbreath/ZenlessData/raw/branch/master/TextMap/TextMap_{language}TemplateTb.json";
-            }
-            return url;
-        }
-
-        private string WutheringUrl(string language)
-        {
-            string url = "https://raw.githubusercontent.com/Dimbreath/WutheringData/refs/heads/master/TextMap/zh-Hans/MultiText.json";
-            if (language != "CHS")
-            {
-                if (language == "JP")
-                {
-                    language = "JA";
-                }
-                url = $"https://raw.githubusercontent.com/Dimbreath/WutheringData/refs/heads/master/TextMap/{language.ToLower()}/MultiText.json";
-            }
-            return url;
-        }
-
-        private string EndfieldUrl(string language)
-        {
-            string url = "https://raw.githubusercontent.com/XiaBei-cy/EndfieldData/refs/heads/master/i18n/I18nTextTable_CN.json";
-            if (language != "CHS")
-            {
-                url = $"https://raw.githubusercontent.com/XiaBei-cy/EndfieldData/refs/heads/master/i18n/I18nTextTable_{language.ToUpper()}.json";
-            }
-            return url;
         }
 
         private async void OnGameSelectorChanged(object sender, SelectionChangedEventArgs e)
@@ -483,26 +546,30 @@ namespace GI_Subtitles.Views
                 return;
             }
 
-            if (comboBox.SelectedItem is ComboBoxItem selectedItem)
+            if (comboBox.SelectedValue is string newValue)
             {
-                string newValue = GameDict[selectedItem.Content.ToString()];
                 if (Game != newValue)
                 {
                     Game = newValue;
+                    LoadGameConfig(Game);
+
                     if (!Directory.Exists(Path.Combine(dataDir, Game)))
                     {
                         Directory.CreateDirectory(Path.Combine(dataDir, Game));
                     }
-                    if (Game == "BH3")
+
+                    if (_currentGameConfig != null && !string.IsNullOrEmpty(_currentGameConfig.Warning))
                     {
-                        System.Windows.MessageBox.Show("注意：崩坏三需要从群文件下载整理的数据，不像其他游戏一样有完全匹配的文本，暂时没有高质量仓库");
+                        System.Windows.MessageBox.Show(_currentGameConfig.Warning);
                     }
+
                     DisplayLocalFileDates();
                     Config.Set("Game", newValue);
                     await CheckDataAsync(true);
                 }
             }
         }
+
 
         private async void OnInputSelectorChanged(object sender, SelectionChangedEventArgs e)
         {
@@ -511,9 +578,9 @@ namespace GI_Subtitles.Views
                 return;
             }
 
-            if (comboBox.SelectedItem is ComboBoxItem selectedItem)
+            if (comboBox.SelectedItem is string selectedText)
             {
-                string newValue = InputLanguages[selectedItem.Content.ToString()];
+                string newValue = InputLanguages[selectedText];
                 if (InputLanguage != newValue)
                 {
                     InputLanguage = newValue;
@@ -669,8 +736,8 @@ namespace GI_Subtitles.Views
 
         public DateTime GetLocalFileDates(string input, string output, string game)
         {
-            string inputFilePath = $"{Path.Combine(dataDir, Game)}\\TextMap{input}.json";
-            string outputFilePath = $"{Path.Combine(dataDir, Game)}\\TextMap{output}.json";
+            string inputFilePath = $"{Path.Combine(dataDir, game)}\\TextMap{input}.json";
+            string outputFilePath = $"{Path.Combine(dataDir, game)}\\TextMap{output}.json";
             if (File.Exists(inputFilePath))
             {
                 return File.GetLastWriteTime(inputFilePath);
@@ -691,61 +758,8 @@ namespace GI_Subtitles.Views
             try
             {
                 Logger.Log.Info($"Load start.");
-                HttpResponseMessage response = await client.GetAsync(repoUrl);
-                response.EnsureSuccessStatusCode();
-                string responseText = await response.Content.ReadAsStringAsync();
-                if (Game == "Zenless")
-                {
-                    string pattern = @"datetime=""([^""]*)""";
-                    Match match = Regex.Match(responseText, pattern);
-
-                    if (match.Success)
-                    {
-                        string dateTimeString = match.Groups[1].Value;
-                        try
-                        {
-                            DateTimeOffset dateTimeOffset = DateTimeOffset.Parse(dateTimeString);
-                            DateTime localTime = dateTimeOffset.LocalDateTime; // 自动转换为本地时区
-                            RepoModifiedDate.Text = localTime.ToString();
-                        }
-                        catch (Exception ex)
-                        {
-                            Logger.Log.Error("Error parsing datetime: " + ex.Message);
-                        }
-                    }
-                    else
-                    {
-                        Logger.Log.Error("No datetime attribute found in the input string.");
-                    }
-
-                }
-                else if (Game == "Wuthering")
-                {
-                    var reader = XmlReader.Create(new System.IO.StringReader(responseText));
-                    var feed = SyndicationFeed.Load(reader);
-                    var item = feed?.Items?.FirstOrDefault();
-                    var dateTime = item?.LastUpdatedTime ?? item?.PublishDate;
-                    RepoModifiedDate.Text = dateTime.ToString();
-                }
-                else
-                {
-                    JArray jsonArray = JArray.Parse(responseText);
-                    if (jsonArray.Count > 0)
-                    {
-                        List<string> dateList = new List<string>();
-                        foreach (var date in jsonArray)
-                        {
-                            dateList.Add(date["commit"]?["committed_date"]?.ToString());
-                        }
-                        dateList.Sort();
-                        dateList.Reverse();
-                        RepoModifiedDate.Text = dateList.Count > 0 ? dateList[0] : "Unable to get committed_date";
-                    }
-                    else
-                    {
-                        RepoModifiedDate.Text = "No response";
-                    }
-                }
+                string date = await GetRepositoryModificationDate(repoUrl, Game);
+                RepoModifiedDate.Text = string.IsNullOrEmpty(date) ? "Unable to get date" : date;
             }
             catch (Exception ex)
             {
@@ -754,62 +768,65 @@ namespace GI_Subtitles.Views
             }
         }
 
-        public async Task<string> GetRepositoryModificationDate(string url, string game)
+        public async Task<string> GetRepositoryModificationDate(string url, string gameName)
         {
+            if (string.IsNullOrEmpty(url)) return string.Empty;
+
             try
             {
                 HttpResponseMessage response = await client.GetAsync(url);
                 response.EnsureSuccessStatusCode();
                 string responseText = await response.Content.ReadAsStringAsync();
-                if (Game == "Zenless")
+
+                string type = _currentGameConfig?.RepoType;
+                if (string.IsNullOrEmpty(type))
+                {
+                    // Fallback to auto-detect if config is not loaded or RepoType is missing
+                    if (url.Contains("gitlab")) type = "GitLab";
+                    else if (url.EndsWith(".atom")) type = "GitHubAtom";
+                    else if (url.Contains("git.mero.moe")) type = "ZenlessGitMero";
+                }
+
+                if (type == "ZenlessGitMero")
                 {
                     string pattern = @"datetime=""([^""]*)""";
                     Match match = Regex.Match(responseText, pattern);
-
                     if (match.Success)
                     {
-                        string dateTimeString = match.Groups[1].Value;
-                        try
-                        {
-                            DateTimeOffset dateTimeOffset = DateTimeOffset.Parse(dateTimeString);
-                            DateTime localTime = dateTimeOffset.LocalDateTime; // 自动转换为本地时区
-                            return localTime.ToString();
-                        }
-                        catch (Exception ex)
-                        {
-                            Logger.Log.Error("Error parsing datetime: " + ex.Message);
-                        }
+                        DateTimeOffset dateTimeOffset = DateTimeOffset.Parse(match.Groups[1].Value);
+                        return dateTimeOffset.LocalDateTime.ToString();
                     }
-                    else
-                    {
-                        Logger.Log.Error("No datetime attribute found in the input string.");
-                    }
-
                 }
-                else
+                else if (type == "GitHubAtom")
+                {
+                    var reader = System.Xml.XmlReader.Create(new System.IO.StringReader(responseText));
+                    var feed = SyndicationFeed.Load(reader);
+                    var item = feed?.Items?.FirstOrDefault();
+                    var dateTime = item?.LastUpdatedTime ?? item?.PublishDate;
+                    return dateTime.ToString();
+                }
+                else if (type == "GitLab")
                 {
                     JArray jsonArray = JArray.Parse(responseText);
                     if (jsonArray.Count > 0)
                     {
-                        List<string> dateList = new List<string>();
-                        foreach (var date in jsonArray)
-                        {
-                            dateList.Add(date["commit"]?["committed_date"]?.ToString());
-                        }
-                        dateList.Sort();
-                        dateList.Reverse();
-                        return dateList[0];
+                        var dateList = jsonArray
+                            .Select(d => d["commit"]?["committed_date"]?.ToString())
+                            .Where(d => !string.IsNullOrEmpty(d))
+                            .OrderByDescending(d => d)
+                            .ToList();
+                        return dateList.FirstOrDefault() ?? string.Empty;
                     }
                 }
             }
             catch (Exception ex)
             {
-                if (!url.Contains("gitlab"))  // gitlab is not available in some regions
+                if (!url.Contains("gitlab"))
                 {
                     Logger.Log.Error(ex);
                 }
             }
-            return "";
+            return string.Empty;
         }
 
         private async void SyncButton_Click(object sender, RoutedEventArgs e)
@@ -835,7 +852,7 @@ namespace GI_Subtitles.Views
         private async void OutputConfirmButton_Click(object sender, RoutedEventArgs e)
         {
             // Commit selected output languages (max 2) and reload data
-            var selectedItems = OutputSelector.SelectedItems.Cast<ListBoxItem>().ToList();
+            var selectedItems = OutputSelector.SelectedItems.Cast<string>().ToList();
             if (selectedItems.Count == 0)
             {
                 System.Windows.MessageBox.Show("Please select at least one output language.");
@@ -846,7 +863,7 @@ namespace GI_Subtitles.Views
             var uiToCode = OutputLanguages;
 
             // Primary output
-            string primaryName = selectedItems[0].Content.ToString();
+            string primaryName = selectedItems[0];
             if (!uiToCode.TryGetValue(primaryName, out var primaryCode))
             {
                 System.Windows.MessageBox.Show("Invalid primary output language.");
@@ -856,7 +873,7 @@ namespace GI_Subtitles.Views
             string secondCode = null;
             if (selectedItems.Count > 1)
             {
-                string secondName = selectedItems[1].Content.ToString();
+                string secondName = selectedItems[1];
                 if (!uiToCode.TryGetValue(secondName, out secondCode))
                 {
                     System.Windows.MessageBox.Show("Invalid secondary output language.");
@@ -1044,11 +1061,7 @@ namespace GI_Subtitles.Views
         private void TestButton_Click(object sender, RoutedEventArgs e)
         {
             LoadEngine();
-            string testFile = InputLanguage + ".jpg";
-            if (Game == "Wuthering")
-            {
-                testFile = "Wuthering.png";
-            }
+            string testFile = _currentGameConfig?.TestFile ?? (InputLanguage + ".jpg");
             string report = "";
             try
             {
