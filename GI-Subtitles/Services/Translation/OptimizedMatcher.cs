@@ -219,7 +219,7 @@ namespace GI_Subtitles.Services.Translation
 
                     if (normInput.StartsWith(entry.NormalizedKey, StringComparison.Ordinal))
                     {
-                        currentDistance = 0;
+                        currentDistance = inputLen - keyLen;
                     }
                     else
                     {
@@ -396,6 +396,15 @@ namespace GI_Subtitles.Services.Translation
                 }
             }
             string bodyMatch = FindClosestMatch(bodyText, out string bodyKey);
+            if (string.IsNullOrEmpty(bodyMatch))
+            {
+                var bodyLines = lines.Skip(maxIndex).ToArray();
+                if (bodyLines.Length > 1)
+                {
+                    Array.Reverse(bodyLines);
+                    bodyMatch = FindClosestMatch(string.Join(" ", bodyLines), out bodyKey);
+                }
+            }
             if (string.IsNullOrEmpty(bodyMatch) && maxIndex > 1)
             {
                 bodyMatch = FindClosestMatch(string.Join(" ", lines.Skip(1)), out bodyKey);
