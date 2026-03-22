@@ -1,0 +1,121 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+  release:
+    types: [ created ]
+
+env:
+  PROJECT_NAME: GI-Subtitles
+  SOLUTION_FILE: GI-Subtitles.sln
+  BUILD_CONFIGURATION: Release
+
+jobs:
+  build:
+    name: Build WPF Application
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        submodules: recursive
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Setup NuGet
+      uses: NuGet/setup-nuget@v2
+      with:
+        nuget-version: '6.x'
+
+    - name: Restore NuGet Packages
+      run: nuget restore ${{ env.SOLUTION_FILE }}
+
+    - name: Build Solution
+      run: msbuild ${{ env.SOLUTION_FILE }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform="Any CPU" /restore /t:Build
+
+    - name: Run Unit Tests
+      run: |
+        $testAssemblies = Get-ChildItem -Recurse -Filter "*test*.dll" | Where-Object { $_.FullName -match "bin\\" }
+        if ($testAssemblies) {
+          foreach ($test in $testAssemblies) {
+            vstest.console.exe $test.FullName /logger:trx /logger:console
+          }
+        } else {
+          Write-Host "No test assemblies found"
+        }
+      continue-on-error: true
+
+    - name: Upload Build Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.PROJECT_NAME }}-Build
+        path: |
+          GI-Subtitles/bin/${{ env.BUILD_CONFIGURATION }}/**/*.exe
+          GI-Subtitles/bin/${{ env.BUILD_CONFIGURATION }}/**/*.dll
+          GI-Subtitles/bin/${{ env.BUILD_CONFIGURATION }}/**/*.pdb
+        retention-days: 30
+
+  release:
+    name: Create Release
+    needs: build
+    if: github.event_name == 'release'
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Setup NuGet
+      uses: NuGet/setup-nuget@v2
+      with:
+        nuget-version: '6.x'
+
+    - name: Restore NuGet Packages
+      run: nuget restore ${{ env.SOLUTION_FILE }}
+
+    - name: Build Release
+      run: msbuild ${{ env.SOLUTION_FILE }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform="Any CPU" /restore /t:Build
+
+    - name: Create Release Package
+      run: |
+        $releaseDir = "release-package"
+        New-Item -ItemType Directory -Force -Path $releaseDir
+        Copy-Item -Path "GI-Subtitles/bin/${{ env.BUILD_CONFIGURATION }}/**/*" -Destination $releaseDir -Recurse -Force
+        Compress-Archive -Path "$releaseDir/*" -DestinationPath "${{ env.PROJECT_NAME }}-${{ github.event.release.tag_name }}.zip" -Force
+      shell: pwsh
+
+    - name: Upload Release Assets
+      uses: softprops/action-gh-release@v2
+      with:
+        files: ${{ env.PROJECT_NAME }}-*.zip
+        body: |
+          ## 🚀 自动构建发布
+          **Commit**: ${{ github.sha }}
+          **构建时间**: ${{ github.event.release.created_at }}
+          ### 📦 包含内容
+          - 主程序可执行文件
+          - 依赖库文件
+          - PaddleOCRSharp 引擎
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  code-quality:
+    name: Code Quality Check
+    runs-on: windows-latest
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+    - name: Run Code Analysis
+      run: msbuild ${{ env.SOLUTION_FILE }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:RunCodeAnalysis=true /restore /t:Build
+      continue-on-error: true
