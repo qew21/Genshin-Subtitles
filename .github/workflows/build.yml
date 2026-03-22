@@ -102,13 +102,23 @@ jobs:
         Write-Host "=== Running Unit Tests ==="
         Write-Host "=========================================`n"
         
-        $testDir = "GI-Test\bin\$${{ env.BUILD_CONFIGURATION }}"
+        # Use environment variable directly
+        $testDir = "GI-Test\bin\Release"
         $testAssembly = Join-Path $testDir "GI-Test.dll"
         $testResultsDir = "test-results"
         New-Item -ItemType Directory -Force -Path $testResultsDir | Out-Null
         
+        Write-Host "Looking for test assembly at: $testAssembly"
+        Write-Host "Current directory: $(Get-Location)"
+        Write-Host "GI-Test bin contents:"
+        if (Test-Path "GI-Test\bin") {
+          Get-ChildItem -Path "GI-Test\bin" -Recurse -Filter "*.dll" | ForEach-Object {
+            Write-Host "  $($_.FullName)"
+          }
+        }
+        
         if (Test-Path $testAssembly) {
-          Write-Host "Test assembly: $testAssembly"
+          Write-Host "`nTest assembly found: $testAssembly"
           
           # Run tests with TRX output
           $trxFile = Join-Path $testResultsDir "test-results.trx"
@@ -142,7 +152,11 @@ jobs:
             }
           }
         } else {
-          Write-Host "Test assembly not found: $testAssembly"
+          Write-Host "`nTest assembly not found: $testAssembly"
+          Write-Host "Available directories:"
+          Get-ChildItem -Path "GI-Test\bin" -Recurse -Directory | ForEach-Object {
+            Write-Host "  $($_.FullName)"
+          }
           exit 1
         }
       shell: pwsh
@@ -217,10 +231,8 @@ jobs:
         $releaseDir = "release-package"
         New-Item -ItemType Directory -Force -Path $releaseDir
         
-        # Copy base release (includes models, language packs, etc.)
         Copy-Item -Path "base-release/**/*" -Destination $releaseDir -Recurse -Force
         
-        # Overwrite with newly built executable and DLLs
         $newBuildPath = "GI-Subtitles/bin/${{ env.BUILD_CONFIGURATION }}"
         Write-Host "Merging new build from: $newBuildPath"
         
