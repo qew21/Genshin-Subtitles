@@ -124,7 +124,7 @@ jobs:
           $trxFile = Join-Path $testResultsDir "test-results.trx"
           Write-Host "Running tests with TRX output: $trxFile"
           
-          dotnet vstest $testAssembly --logger:trx --logger:console --results-directory:$testResultsDir
+          dotnet vstest $testAssembly /logger:trx /logger:console /ResultsDirectory:$testResultsDir
           
           Write-Host "`n========================================="
           Write-Host "=== Test Result Files ==="
