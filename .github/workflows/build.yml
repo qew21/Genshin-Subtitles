@@ -17,7 +17,7 @@ env:
 
 jobs:
   build:
-    name: Build WPF Application
+    name: Build and Test
     runs-on: windows-latest
     
     steps:
@@ -38,29 +38,76 @@ jobs:
     - name: Restore NuGet Packages
       run: nuget restore ${{ env.SOLUTION_FILE }}
 
-    - name: Build Main Application Only
+    - name: Build Main Application
       run: |
-        # Targeted build: only build GI-Subtitles project from solution
         msbuild ${{ env.SOLUTION_FILE }} -t:${{ env.MAIN_PROJECT }}:Rebuild -p:Configuration=${{ env.BUILD_CONFIGURATION }} -p:Platform=${{ env.BUILD_PLATFORM }}
-      continue-on-error: false
 
-    - name: Build GI-Test (Optional)
+    - name: Build GI-Test
       run: |
         msbuild ${{ env.SOLUTION_FILE }} -t:GI-Test:Rebuild -p:Configuration=${{ env.BUILD_CONFIGURATION }} -p:Platform=${{ env.BUILD_PLATFORM }}
-      continue-on-error: true
+
+    - name: Download Language Files for Tests
+      run: |
+        # Create data directory
+        $dataDir = "$env:APPDATA\GI-Subtitles"
+        New-Item -ItemType Directory -Force -Path $dataDir
+        
+        # Download Genshin language files
+        $genshinDir = Join-Path $dataDir "Genshin"
+        New-Item -ItemType Directory -Force -Path $genshinDir
+        
+        Write-Host "Downloading Genshin TextMap files..."
+        Invoke-WebRequest -Uri "https://gitlab.com/Dimbreath/AnimeGameData/-/raw/master/TextMap/TextMapCHS.json?inline=false" -OutFile (Join-Path $genshinDir "TextMapCHS.json") -UseBasicParsing
+        Invoke-WebRequest -Uri "https://gitlab.com/Dimbreath/AnimeGameData/-/raw/master/TextMap/TextMapEN.json?inline=false" -OutFile (Join-Path $genshinDir "TextMapEN.json") -UseBasicParsing
+        Invoke-WebRequest -Uri "https://gitlab.com/Dimbreath/AnimeGameData/-/raw/master/TextMap/TextMapJP.json?inline=false" -OutFile (Join-Path $genshinDir "TextMapJP.json") -UseBasicParsing
+        
+        # Download StarRail language files
+        $starRailDir = Join-Path $dataDir "StarRail"
+        New-Item -ItemType Directory -Force -Path $starRailDir
+        
+        Write-Host "Downloading StarRail TextMap files..."
+        Invoke-WebRequest -Uri "https://gitlab.com/Dimbreath/turnbasedgamedata/-/raw/main/TextMap/TextMapCHS.json?inline=false" -OutFile (Join-Path $starRailDir "TextMapCHS.json") -UseBasicParsing
+        Invoke-WebRequest -Uri "https://gitlab.com/Dimbreath/turnbasedgamedata/-/raw/main/TextMap/TextMapEN.json?inline=false" -OutFile (Join-Path $starRailDir "TextMapEN.json") -UseBasicParsing
+        
+        Write-Host "Language files downloaded successfully"
+        Get-ChildItem -Path $genshinDir | ForEach-Object { Write-Host "  Genshin: $($_.Name) - $([math]::Round($_.Length / 1KB, 2)) KB" }
+        Get-ChildItem -Path $starRailDir | ForEach-Object { Write-Host "  StarRail: $($_.Name) - $([math]::Round($_.Length / 1KB, 2)) KB" }
+      shell: pwsh
 
     - name: Run Unit Tests
       run: |
+        Write-Host "=== Running Unit Tests ==="
         $testAssemblies = Get-ChildItem -Recurse -Filter "GI-Test.dll" | Where-Object { $_.FullName -match "bin\\" }
         if ($testAssemblies) {
           foreach ($test in $testAssemblies) {
             Write-Host "Running tests in: $($test.FullName)"
-            vstest.console.exe $test.FullName /logger:trx /logger:console
+            # Run tests and capture output
+            $testOutput = vstest.console.exe $test.FullName /logger:trx /logger:console 2>&1
+            Write-Host $testOutput
+            
+            # Print test result files
+            Write-Host "`n=== Test Result Files ==="
+            Get-ChildItem -Path . -Filter "*.json" -Recurse | Where-Object { $_.Name -like "*TestResult*" -or $_.Name -eq "result.json" } | ForEach-Object {
+              Write-Host "`n--- $($_.FullName) ---"
+              Get-Content $_.FullName | Write-Host
+            }
           }
         } else {
           Write-Host "No test assemblies found"
         }
+      shell: pwsh
       continue-on-error: true
+
+    - name: Upload Test Results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: Test-Results
+        path: |
+          **/*.trx
+          **/result.json
+          **/*TestResult*.json
+        retention-days: 30
 
     - name: Upload Build Artifacts
       uses: actions/upload-artifact@v4
@@ -85,19 +132,16 @@ jobs:
 
     - name: Download Base Release
       run: |
-        # Download base version from existing release
         $baseZip = "1.6.4pre.zip"
         $baseUri = "https://github.com/qew21/Genshin-Subtitles/releases/download/1.6.4/$baseZip"
         Write-Host "Downloading base version from: $baseUri"
         Invoke-WebRequest -Uri $baseUri -OutFile $baseZip -UseBasicParsing
         Write-Host "Downloaded: $baseZip"
         
-        # Extract base version
         $baseDir = "base-release"
         New-Item -ItemType Directory -Force -Path $baseDir
         Expand-Archive -Path $baseZip -DestinationPath $baseDir -Force
         Write-Host "Extracted base release to: $baseDir"
-        Get-ChildItem -Path $baseDir | ForEach-Object { Write-Host "  - $($_.Name)" }
       shell: pwsh
 
     - name: Setup MSBuild
@@ -120,19 +164,15 @@ jobs:
         $releaseDir = "release-package"
         New-Item -ItemType Directory -Force -Path $releaseDir
         
-        # Copy base release files
         Copy-Item -Path "base-release/**/*" -Destination $releaseDir -Recurse -Force
         
-        # Overwrite with newly built files
         $newBuildPath = "GI-Subtitles/bin/${{ env.BUILD_CONFIGURATION }}"
         Write-Host "Copying new build from: $newBuildPath"
         
-        # Copy main executable and related files
         Copy-Item -Path "$newBuildPath/GI-Subtitles.exe" -Destination "$releaseDir/GI-Subtitles.exe" -Force
         Copy-Item -Path "$newBuildPath/GI-Subtitles.pdb" -Destination "$releaseDir/GI-Subtitles.pdb" -Force -ErrorAction SilentlyContinue
         Copy-Item -Path "$newBuildPath/GI-Subtitles.exe.config" -Destination "$releaseDir/GI-Subtitles.exe.config" -Force -ErrorAction SilentlyContinue
         
-        # Copy dependent DLLs that were rebuilt
         Get-ChildItem -Path "$newBuildPath" -Filter "*.dll" | ForEach-Object {
           Copy-Item -Path $_.FullName -Destination "$releaseDir/$($_.Name)" -Force -ErrorAction SilentlyContinue
         }
@@ -178,7 +218,7 @@ jobs:
   installer:
     name: Build MSI Installer (Optional)
     needs: build
-    if: false # Disabled until WiX is properly configured
+    if: false
     runs-on: windows-latest
     
     steps:
@@ -205,7 +245,6 @@ jobs:
         $wixFilesDir = "WixSharp Setup/bin/Files"
         New-Item -ItemType Directory -Force -Path $wixFilesDir
         Copy-Item -Path "GI-Subtitles/bin/${{ env.BUILD_CONFIGURATION }}/**/*" -Destination $wixFilesDir -Recurse -Force
-        Write-Host "Copied build output to: $wixFilesDir"
       shell: pwsh
 
     - name: Build MSI
