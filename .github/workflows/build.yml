@@ -17,7 +17,7 @@ env:
   BASE_VERSION: 1.6.3
 
 jobs:
-  build:
+  build-and-test:
     name: Build and Test
     runs-on: windows-latest
     
@@ -92,27 +92,58 @@ jobs:
         Invoke-WebRequest -Uri "https://gitlab.com/Dimbreath/turnbasedgamedata/-/raw/main/TextMap/TextMapEN.json?inline=false" -OutFile (Join-Path $starRailDir "TextMapEN.json") -UseBasicParsing
         
         Write-Host "Language files downloaded successfully"
+        Get-ChildItem -Path $genshinDir | ForEach-Object { Write-Host "  $($_.Name) - $([math]::Round($_.Length / 1KB, 2)) KB" }
       shell: pwsh
 
     - name: Run Unit Tests
+      id: tests
       run: |
+        Write-Host "`n========================================="
         Write-Host "=== Running Unit Tests ==="
+        Write-Host "=========================================`n"
+        
         $testDir = "GI-Test\bin\$${{ env.BUILD_CONFIGURATION }}"
         $testAssembly = Join-Path $testDir "GI-Test.dll"
+        $testResultsDir = "test-results"
+        New-Item -ItemType Directory -Force -Path $testResultsDir | Out-Null
         
         if (Test-Path $testAssembly) {
-          Write-Host "Running tests from: $testAssembly"
+          Write-Host "Test assembly: $testAssembly"
           
-          $trxFile = "test-results.trx"
-          dotnet vstest $testAssembly --logger:trx --logger:console --results-directory:.
+          # Run tests with TRX output
+          $trxFile = Join-Path $testResultsDir "test-results.trx"
+          Write-Host "Running tests with TRX output: $trxFile"
           
-          Write-Host "`n=== Test Result Files ==="
-          Get-ChildItem -Path . -Filter "*.json" -Recurse | Where-Object { $_.Name -like "*TestResult*" -or $_.Name -eq "result.json" } | ForEach-Object {
-            Write-Host "`n--- $($_.FullName) ---"
-            Get-Content $_.FullName | Write-Host
+          dotnet vstest $testAssembly --logger:trx --logger:console --results-directory:$testResultsDir
+          
+          Write-Host "`n========================================="
+          Write-Host "=== Test Result Files ==="
+          Write-Host "=========================================`n"
+          
+          # Print all JSON result files
+          $jsonFiles = Get-ChildItem -Path . -Filter "*.json" -Recurse | 
+            Where-Object { $_.Name -like "*TestResult*" -or $_.Name -eq "result.json" -or $_.Name -like "*Performance*" }
+          
+          if ($jsonFiles) {
+            foreach ($file in $jsonFiles) {
+              Write-Host "`n--- $($file.FullName) ---"
+              Get-Content $file.FullName | Write-Host
+            }
+          } else {
+            Write-Host "No JSON test result files found"
+            Write-Host "Looking for files matching: *TestResult*.json, result.json, *Performance*.json"
+          }
+          
+          # Print TRX summary
+          if (Test-Path $trxFile) {
+            Write-Host "`n--- TRX Summary ---"
+            Select-Xml -Path $trxFile -XPath "//UnitTestResult" | ForEach-Object {
+              Write-Host "Test: $($_.Node.testName) - $($_.Node.outcome)"
+            }
           }
         } else {
           Write-Host "Test assembly not found: $testAssembly"
+          exit 1
         }
       shell: pwsh
       continue-on-error: true
@@ -123,25 +154,29 @@ jobs:
       with:
         name: Test-Results
         path: |
-          **/*.trx
+          test-results/*.trx
           **/result.json
           **/*TestResult*.json
-        retention-days: 30
+          **/*Performance*.json
+        retention-days: 14
+        if-no-files-found: warn
 
-    - name: Upload Build Artifacts
+    - name: Upload Built Application (Release Only)
       uses: actions/upload-artifact@v4
+      if: github.event_name == 'release'
       with:
-        name: ${{ env.PROJECT_NAME }}-Build
+        name: GI-Subtitles-Build
         path: |
           GI-Subtitles/bin/${{ env.BUILD_CONFIGURATION }}/**/*.exe
           GI-Subtitles/bin/${{ env.BUILD_CONFIGURATION }}/**/*.dll
           GI-Subtitles/bin/${{ env.BUILD_CONFIGURATION }}/**/*.pdb
           GI-Subtitles/bin/${{ env.BUILD_CONFIGURATION }}/**/*.config
+          inference/**/*
         retention-days: 30
 
-  release:
+  release-package:
     name: Create Release Package
-    needs: build
+    needs: build-and-test
     if: github.event_name == 'release'
     runs-on: windows-latest
     
@@ -159,6 +194,7 @@ jobs:
         $baseDir = "base-release"
         New-Item -ItemType Directory -Force -Path $baseDir
         Expand-Archive -Path $baseZip -DestinationPath $baseDir -Force
+        Write-Host "Extracted base release"
       shell: pwsh
 
     - name: Setup MSBuild
@@ -181,9 +217,13 @@ jobs:
         $releaseDir = "release-package"
         New-Item -ItemType Directory -Force -Path $releaseDir
         
+        # Copy base release (includes models, language packs, etc.)
         Copy-Item -Path "base-release/**/*" -Destination $releaseDir -Recurse -Force
         
+        # Overwrite with newly built executable and DLLs
         $newBuildPath = "GI-Subtitles/bin/${{ env.BUILD_CONFIGURATION }}"
+        Write-Host "Merging new build from: $newBuildPath"
+        
         Copy-Item -Path "$newBuildPath/GI-Subtitles.exe" -Destination "$releaseDir/GI-Subtitles.exe" -Force
         Copy-Item -Path "$newBuildPath/GI-Subtitles.pdb" -Destination "$releaseDir/GI-Subtitles.pdb" -Force -ErrorAction SilentlyContinue
         Copy-Item -Path "$newBuildPath/GI-Subtitles.exe.config" -Destination "$releaseDir/GI-Subtitles.exe.config" -Force -ErrorAction SilentlyContinue
@@ -191,11 +231,16 @@ jobs:
         Get-ChildItem -Path "$newBuildPath" -Filter "*.dll" | ForEach-Object {
           Copy-Item -Path $_.FullName -Destination "$releaseDir/$($_.Name)" -Force -ErrorAction SilentlyContinue
         }
+        
+        Write-Host "`nRelease package contents:"
+        Get-ChildItem -Path $releaseDir -File | ForEach-Object { Write-Host "  $($_.Name) - $([math]::Round($_.Length / 1KB, 2)) KB" }
       shell: pwsh
 
     - name: Create Release Package
       run: |
         Compress-Archive -Path "release-package/*" -DestinationPath "${{ env.PROJECT_NAME }}-${{ github.event.release.tag_name }}.zip" -Force
+        $size = (Get-Item "${{ env.PROJECT_NAME }}-${{ github.event.release.tag_name }}.zip").Length / 1MB
+        Write-Host "Created package: ${{ env.PROJECT_NAME }}-${{ github.event.release.tag_name }}.zip ($([math]::Round($size, 2)) MB)"
       shell: pwsh
 
     - name: Upload Release Assets
@@ -204,11 +249,23 @@ jobs:
         files: ${{ env.PROJECT_NAME }}-*.zip
         body: |
           ## 🚀 自动构建发布
+          
           **Commit**: ${{ github.sha }}
+          **构建时间**: ${{ github.event.release.created_at }}
           **版本**: ${{ github.event.release.tag_name }}
+          
           ### 📦 包含内容
-          - 主程序可执行文件
+          - 主程序可执行文件 (GI-Subtitles.exe)
           - PaddleOCRSharp 引擎
+          - OCR 模型文件 (inference/)
           - 依赖库文件
+          - 语言包文件
+          
+          ### 📝 更新说明
+          ${{ github.event.release.body }}
+          
+          ---
+          🤖 此发布由 GitHub Actions 自动构建
+          ℹ️ MSI 安装程序需手动构建
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
