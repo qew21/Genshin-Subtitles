@@ -174,7 +174,10 @@ namespace GI_Subtitles.Views
             notify.SetData(data);
             if (!data.FileExists())
             {
-                data.ShowDialog();
+                if (!data.IsVisible)
+                {
+                    data.ShowDialog();
+                }
             }
             else
             {
@@ -195,7 +198,10 @@ namespace GI_Subtitles.Views
                                     notifyIcon.ShowBalloonTip(3000, "Language pack update notification", $"Repository update time: {repoDate}, local modification time: {inputDate}", ToolTipIcon.Info);
                                     string originalTitle = data.Title;
                                     data.Title = $"[Language pack update]{originalTitle}";
-                                    data.ShowDialog();
+                                    if (!data.IsVisible)
+                                    {
+                                        data.ShowDialog();
+                                    }
                                     data.Title = originalTitle;
                                 });
                             }
