@@ -14,6 +14,7 @@ env:
   MAIN_PROJECT: GI-Subtitles
   BUILD_CONFIGURATION: Release
   BUILD_PLATFORM: x64
+  BASE_VERSION: 1.6.3
 
 jobs:
   build:
@@ -37,6 +38,27 @@ jobs:
 
     - name: Setup Visual Studio Command Prompt
       uses: ilammy/msvc-dev-cmd@v1
+
+    - name: Download OCR Models
+      run: |
+        Write-Host "Downloading OCR models from release ${{ env.BASE_VERSION }}..."
+        $baseZip = "${{ env.BASE_VERSION }}.zip"
+        $baseUri = "https://github.com/qew21/Genshin-Subtitles/releases/download/${{ env.BASE_VERSION }}/$baseZip"
+        Invoke-WebRequest -Uri $baseUri -OutFile $baseZip -UseBasicParsing
+        
+        $modelDir = "inference"
+        New-Item -ItemType Directory -Force -Path $modelDir | Out-Null
+        Expand-Archive -Path $baseZip -DestinationPath "temp_extract" -Force
+        
+        Copy-Item -Path "temp_extract/inference/*" -Destination $modelDir -Recurse -Force
+        Remove-Item -Path $baseZip -Force
+        Remove-Item -Path "temp_extract" -Recurse -Force
+        
+        Write-Host "OCR models downloaded and extracted"
+        Get-ChildItem -Path $modelDir -Recurse -Filter "*.onnx" | ForEach-Object {
+          Write-Host "  Model: $($_.Name) - $([math]::Round($_.Length / 1MB, 2)) MB"
+        }
+      shell: pwsh
 
     - name: Restore NuGet Packages
       run: nuget restore ${{ env.SOLUTION_FILE }}
@@ -70,8 +92,6 @@ jobs:
         Invoke-WebRequest -Uri "https://gitlab.com/Dimbreath/turnbasedgamedata/-/raw/main/TextMap/TextMapEN.json?inline=false" -OutFile (Join-Path $starRailDir "TextMapEN.json") -UseBasicParsing
         
         Write-Host "Language files downloaded successfully"
-        Get-ChildItem -Path $genshinDir | ForEach-Object { Write-Host "  Genshin: $($_.Name) - $([math]::Round($_.Length / 1KB, 2)) KB" }
-        Get-ChildItem -Path $starRailDir | ForEach-Object { Write-Host "  StarRail: $($_.Name) - $([math]::Round($_.Length / 1KB, 2)) KB" }
       shell: pwsh
 
     - name: Run Unit Tests
@@ -83,7 +103,6 @@ jobs:
         if (Test-Path $testAssembly) {
           Write-Host "Running tests from: $testAssembly"
           
-          # Run tests using dotnet vstest
           $trxFile = "test-results.trx"
           dotnet vstest $testAssembly --logger:trx --logger:console --results-directory:.
           
@@ -132,8 +151,8 @@ jobs:
 
     - name: Download Base Release
       run: |
-        $baseZip = "1.6.4pre.zip"
-        $baseUri = "https://github.com/qew21/Genshin-Subtitles/releases/download/1.6.4/$baseZip"
+        $baseZip = "${{ env.BASE_VERSION }}.zip"
+        $baseUri = "https://github.com/qew21/Genshin-Subtitles/releases/download/${{ env.BASE_VERSION }}/$baseZip"
         Write-Host "Downloading base version from: $baseUri"
         Invoke-WebRequest -Uri $baseUri -OutFile $baseZip -UseBasicParsing
         
