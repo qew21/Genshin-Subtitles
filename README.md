@@ -8,108 +8,215 @@
 
 Genshin-Subtitles is an OCR-based application that provides real-time multi-language subtitles for games such as Genshin Impact and Honkai: Star Rail. It captures game text using optical character recognition technology, matches it against known text databases, and displays translated subtitles in a configurable overlay.
 
-For detailed information about the system architecture and components, see [Architecture](#architecture). For information about the OCR implementation, see [OCR Engine](#ocr-engine).
-
 ### Core Functionality
 
 Genshin-Subtitles enables players to:
 
-1. Display dual-language subtitles during gameplay.
-2. Enjoy voice acting in one language while reading text in another.
-3. Select specific screen regions for text recognition.
-4. Configure subtitle appearance, position, and language preferences.
-5. Optionally play AI-synthesized voice audio for certain content.
+1. Display dual-language subtitles during gameplay
+2. Enjoy voice acting in one language while reading text in another
+3. Select specific screen regions for text recognition
+4. Configure subtitle appearance, position, and language preferences
+5. Extract and process subtitles from video files
 
 ### System Requirements
 
-- 64-bit CPU with AVX instruction set support (required by PaddleOCR)
-- Windows operating system
-- .NET Framework 4.5.2 or higher
-- Compatible games: Genshin Impact, Honkai: Star Rail
+- Windows 10/11 64-bit
+- CPU with AVX instruction set support (required by PaddleOCR)
+- .NET Framework 4.8 or higher
+- At least 2GB available RAM
+- Compatible games: Genshin Impact, Honkai: Star Rail, Honkai Impact 3rd
 
-### Technical Implementation
+## How It Works
 
-Genshin-Subtitles employs a sophisticated pipeline to achieve real-time subtitle translation. It captures game text, processes it using OCR, matches it against known translations, and displays the results as subtitles.
+```
+┌─────────────────┐    ┌──────────────┐    ┌─────────────────┐
+│ Game Screen     │ -> │ OCR Engine   │ -> │ Text Matcher    │
+│ Capture         │    │ (PaddleOCR)  │    │ (Optimized)     │
+└─────────────────┘    └──────────────┘    └─────────────────┘
+                                                  │
+                                                  v
+┌─────────────────┐    ┌──────────────┐    ┌─────────────────┐
+│ Subtitle        │ <- │ Translation  │ <- │ Language Pack   │
+│ Overlay Display │    │ Lookup       │    │ Database        │
+└─────────────────┘    └──────────────┘    └─────────────────┘
+```
 
 ### Key Components
 
-| Component          | Description                                                                 |
-|--------------------|-----------------------------------------------------------------------------|
-| OCR Engine         | PaddleOCRSharp for text recognition from screen captures                    |
-| Image Processor    | Enhances captured images to improve recognition accuracy                    |
-| Text Matcher       | Uses Levenshtein distance algorithm to match OCR results with known game text|
-| Language Maps      | JSON files containing game text in multiple languages                        |
-| Subtitle Overlay   | Customizable UI component for displaying translated text                    |
-| System Tray Interface| Controls for configuring the application                                   |
-| Hotkey System      | Keyboard shortcuts for controlling operation during gameplay                 |
+| Component | Description |
+|-----------|-------------|
+| **OCR Engine** | PaddleOCRSharp (PP-OCRv4 mobile) for text recognition |
+| **OptimizedMatcher** | n-gram indexed fuzzy matching with Levenshtein distance |
+| **VideoProcessor** | Extract subtitles from video files automatically |
+| **Frame Detector** | Smart change detection to avoid redundant OCR |
+| **Language Maps** | JSON files containing game text in 13+ languages |
+| **Subtitle Overlay** | Customizable WPF overlay for displaying translations |
 
-### User Interaction Model
+## Core Features
 
-The application uses a dual-timer architecture to separate OCR processing from UI updates, ensuring smooth operation. Users can control the application using hotkeys and the system tray interface.
-```mermaid
-graph TB
-    T(((" "))) --> A[Application Start] 
-    A --> B[Idle]
-    B --> |"Ctrl+Shift+R"| G[RegionSelection]
-    G --> |"Region Selected"|B
-    B --> |"Ctrl+Shift+S (Start)"| Capturing
-    B --> |"Ctrl+Shift+S (Stop)"| Capturing
-    subgraph Capturing  [Capturing]
-    direction TB
-    UT(((" "))) --> J[OCRProcessing]
-    J --> K[TextMatching]
-    
-    K --> M[DisplaySubtitles]
-    M --> |"500ms Timer"| J
-    end
-    Capturing -->|"Ctrl+Shift+H"| O[SubtitlesHidden]
-    O -->|"Ctrl+Shift+H"| Capturing
+### 🚀 High-Performance Text Matcher (OptimizedMatcher)
 
+- **n-gram Indexing**: 2-gram for Chinese, 4-gram for English - drastically reduces candidate set
+- **FNV-1a Hashing**: Avoids creating millions of string objects, reduces memory footprint
+- **Smart Line Parsing**: Automatically handles multi-line text, identifies headers and content
+- **Fuzzy Matching**: Tolerates OCR recognition errors with Levenshtein distance
+
+### 📹 Video Subtitle Extraction
+
+- Automatically extract subtitles from video files
+- Configurable recognition region (via `demo_region.json`)
+- Batch process video content to generate bilingual subtitles
+
+### 🎯 Frame Detection Optimization
+
+- Intelligent screen change detection
+- Triggers OCR only when text actually changes
+- Significantly reduces CPU usage and power consumption
+
+### 🔊 AI Voice Support
+
+- Local AI voice file loading
+- Online voice synthesis API support
+- Automatically skips blank text
+
+## Version History
+
+### 1.6.3 (Current)
+✅ Upgraded OCR models to PP-OCRv4 mobile (detection + recognition)  
+✅ New OptimizedMatcher with 10x+ performance improvement  
+✅ Video subtitle extraction feature (VideoProcessor)  
+✅ Frame detection for optimized OCR triggering  
+✅ Skip voice synthesis for blank text  
+✅ Support for Honkai: Star Rail and Honkai Impact 3rd  
+✅ Full CI/CD test coverage (8 unit tests)  
+
+### 1.4.2
+- Auto-start on Windows boot with update notifications
+- Optimized initialization position and hints
+- Local voice files and online voice API support
+
+### 1.3.0
+- Local AI voice loading for side quests
+- Hotkey `Ctrl+Shift+H` to hide/show subtitles
+- Improved region selection (no duplicate prompts)
+
+### 1.2.2
+- Enhanced image preprocessing for OCR
+- Drag-to-reposition subtitles with mouse
+
+### 1.2.1
+- Gender-specific text support (auto-selects male/female protagonist text)
+
+### 1.2.0
+- Hotkey `Ctrl+Shift+S` to start/pause OCR
+- Hotkey `Ctrl+Shift+R` to select recognition region
+- Audio feedback for start/stop
+- Significant performance improvements
+
+### 1.1.0
+- Honkai: Star Rail support
+- 13 language subtitle support
+- Adjustable font size
+
+### 1.0.0
+- Initial release with Chinese-English support
+
+## Hotkeys
+
+| Hotkey | Function |
+|--------|----------|
+| `Ctrl+Shift+S` | Start/Pause OCR recognition |
+| `Ctrl+Shift+R` | Select recognition region |
+| `Ctrl+Shift+H` | Hide/Show subtitles |
+
+## Development
+
+### Building
+
+```bash
+# Restore NuGet packages
+nuget restore GI-Subtitles.sln
+
+# Build Release version
+msbuild GI-Subtitles.sln -t:GI-Subtitles:Rebuild -p:Configuration=Release -p:Platform=x64
 ```
 
-### Language Support
+### Running Tests
 
-Genshin-Subtitles supports translation between various languages, including Chinese, English, Japanese, Korean, and other languages supported by the games (up to 13 total). Translation is accomplished by matching recognized text against a database of game dialogues in various languages.
-
-
-```mermaid
-graph TB
-    subgraph TextMap Management
-    A[Remote Repository] --> B[Language Pack Manager]
-    B[Language Pack Manager] --> C[Local Language Files]
-    end
-    
-    subgraph Text Processing
-    F[OCR Result]--> H[Levenshtein Distance Algo]
-    C --> G[Source Language Text]
-    G --> H[Levenshtein Distance Algo]
-    H --> I[Target Language Text]
-    end
-    I --> J[Subtitle Display]
-
+```bash
+# Run unit tests
+dotnet vstest GI-Test\bin\Release\GI-Test.dll
 ```
 
+### CI/CD
 
-### Version History
+This project uses GitHub Actions for continuous integration:
 
-- Version 1.4.X: Current version
-- Version 1.3.0: Added AI voice playback, subtitle hiding, and improved region selection
-- Version 1.2.0: Added hotkey controls, region selection, and performance improvements
-- Version 1.1.0: Added Star Rail support and multiple language options
-- Version 1.0.0: Initial release with Chinese-English support
+- Automatic unit tests on every Push/PR
+- OCR models downloaded from Release (not committed to Git)
+- Test coverage: 8 test cases (7 passing, 1 conditionally skipped)
 
-### Integration with Game Systems
+## Architecture Details
 
-The application functions as an external overlay that captures visual information from the game window, processes the captured images to extract text, matches extracted text against known game dialogue, and displays translated text as an overlay. This approach ensures compatibility across game versions and updates.
+### OptimizedMatcher Algorithm
 
-### Technical Foundation
+The matcher uses a two-stage approach:
 
-Genshin-Subtitles is built on several key technologies:
+1. **Indexing Phase** (build time):
+   - Normalize all keys (lowercase, remove punctuation)
+   - Build n-gram hash index (2-gram for CN, 4-gram for EN)
+   - Use FNV-1a hash for fast lookup without string allocation
 
-- PaddleOCRSharp: Provides the OCR capabilities for text recognition
-- Windows Presentation Foundation (WPF): Powers the user interface
-- Levenshtein distance algorithm: Enables fuzzy matching of recognized text
-- JSON processing: Handles the language pack data structures
-- Image processing: Enhances OCR accuracy through preprocessing techniques
+2. **Matching Phase** (runtime):
+   - Extract n-grams from OCR input
+   - Look up candidate entries via hash index
+   - Score candidates with Levenshtein distance
+   - Return best match above threshold
 
-The application maintains a minimal footprint while providing powerful functionality for multi-language game subtitle display.
+### Video Processing Pipeline
+
+1. Load video file and region configuration
+2. Extract frames at configurable interval
+3. Run OCR on each frame
+4. Match recognized text against language pack
+5. Export subtitles with timestamps
+
+## Language Support
+
+Genshin-Subtitles supports translation between 13+ languages including:
+
+- Chinese (Simplified & Traditional)
+- English
+- Japanese
+- Korean
+- French, German, Spanish, Russian, and more
+
+Translation is accomplished by matching recognized text against a comprehensive database of game dialogues.
+
+## Troubleshooting
+
+### Common Issues
+
+**OCR not recognizing text:**
+- Ensure recognition region is correctly selected (`Ctrl+Shift+R`)
+- Check that game is running in windowed or borderless mode
+- Verify OCR models are downloaded (check `inference/` folder)
+
+**High CPU usage:**
+- Frame detection should minimize redundant processing
+- Reduce recognition region size
+- Ensure you're using the latest version with OptimizedMatcher
+
+**Subtitles not matching:**
+- Some text may have slight OCR errors - the fuzzy matcher handles most cases
+- Check that language packs are up to date (right-click tray icon)
+
+## License
+
+This project is for educational and research purposes only.
+
+## Acknowledgments
+
+- [PaddleOCRSharp](https://github.com/raoyutian/PaddleOCRSharp) - OCR engine
+- [Genshin_Datasets](https://github.com/AI-Hobbyist/Genshin_Voice_Sorting_Scripts) - Game text data
+- [Dimbreath/AnimeGameData](https://gitlab.com/Dimbreath/AnimeGameData) - TextMap language packs
