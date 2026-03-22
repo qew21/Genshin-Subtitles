@@ -54,7 +54,7 @@ jobs:
         Remove-Item -Path $baseZip -Force
         Remove-Item -Path "temp_extract" -Recurse -Force
         
-        Write-Host "OCR models downloaded and extracted"
+        Write-Host "OCR models downloaded and extracted to root inference/"
         Get-ChildItem -Path $modelDir -Recurse -Filter "*.onnx" | ForEach-Object {
           Write-Host "  Model: $($_.Name) - $([math]::Round($_.Length / 1MB, 2)) MB"
         }
@@ -70,6 +70,22 @@ jobs:
     - name: Build GI-Test
       run: |
         msbuild ${{ env.SOLUTION_FILE }} -t:GI-Test:Rebuild -p:Configuration=${{ env.BUILD_CONFIGURATION }} -p:Platform=${{ env.BUILD_PLATFORM }}
+
+    - name: Copy Models to Test Output Directory
+      run: |
+        $testOutputDir = "GI-Test\bin\Release"
+        $targetInferenceDir = Join-Path $testOutputDir "inference"
+        
+        Write-Host "Copying models to test output directory: $targetInferenceDir"
+        New-Item -ItemType Directory -Force -Path $targetInferenceDir | Out-Null
+        
+        Copy-Item -Path "inference/*" -Destination $targetInferenceDir -Recurse -Force
+        
+        Write-Host "Models copied successfully"
+        Get-ChildItem -Path $targetInferenceDir -Recurse -Filter "*.onnx" | ForEach-Object {
+          Write-Host "  $($_.FullName)"
+        }
+      shell: pwsh
 
     - name: Download Language Files for Tests
       run: |
@@ -95,6 +111,23 @@ jobs:
         Get-ChildItem -Path $genshinDir | ForEach-Object { Write-Host "  $($_.Name) - $([math]::Round($_.Length / 1KB, 2)) KB" }
       shell: pwsh
 
+    - name: Copy Test Images
+      run: |
+        $testOutputDir = "GI-Test\bin\Release"
+        $imagesDir = Join-Path $testOutputDir "Images"
+        
+        if (Test-Path "GI-Test/Images") {
+          Write-Host "Copying test images to: $imagesDir"
+          New-Item -ItemType Directory -Force -Path $imagesDir | Out-Null
+          Copy-Item -Path "GI-Test/Images/*" -Destination $imagesDir -Recurse -Force
+          
+          Write-Host "Test images copied:"
+          Get-ChildItem -Path $imagesDir -File | ForEach-Object { Write-Host "  $($_.Name)" }
+        } else {
+          Write-Host "No GI-Test/Images folder found, skipping"
+        }
+      shell: pwsh
+
     - name: Run Unit Tests
       id: tests
       run: |
@@ -102,7 +135,6 @@ jobs:
         Write-Host "=== Running Unit Tests ==="
         Write-Host "=========================================`n"
         
-        # Use environment variable directly
         $testDir = "GI-Test\bin\Release"
         $testAssembly = Join-Path $testDir "GI-Test.dll"
         $testResultsDir = "test-results"
@@ -110,17 +142,10 @@ jobs:
         
         Write-Host "Looking for test assembly at: $testAssembly"
         Write-Host "Current directory: $(Get-Location)"
-        Write-Host "GI-Test bin contents:"
-        if (Test-Path "GI-Test\bin") {
-          Get-ChildItem -Path "GI-Test\bin" -Recurse -Filter "*.dll" | ForEach-Object {
-            Write-Host "  $($_.FullName)"
-          }
-        }
         
         if (Test-Path $testAssembly) {
           Write-Host "`nTest assembly found: $testAssembly"
           
-          # Run tests with TRX output
           $trxFile = Join-Path $testResultsDir "test-results.trx"
           Write-Host "Running tests with TRX output: $trxFile"
           
@@ -130,7 +155,6 @@ jobs:
           Write-Host "=== Test Result Files ==="
           Write-Host "=========================================`n"
           
-          # Print all JSON result files
           $jsonFiles = Get-ChildItem -Path . -Filter "*.json" -Recurse | 
             Where-Object { $_.Name -like "*TestResult*" -or $_.Name -eq "result.json" -or $_.Name -like "*Performance*" }
           
@@ -141,10 +165,8 @@ jobs:
             }
           } else {
             Write-Host "No JSON test result files found"
-            Write-Host "Looking for files matching: *TestResult*.json, result.json, *Performance*.json"
           }
           
-          # Print TRX summary
           if (Test-Path $trxFile) {
             Write-Host "`n--- TRX Summary ---"
             Select-Xml -Path $trxFile -XPath "//UnitTestResult" | ForEach-Object {
@@ -153,10 +175,6 @@ jobs:
           }
         } else {
           Write-Host "`nTest assembly not found: $testAssembly"
-          Write-Host "Available directories:"
-          Get-ChildItem -Path "GI-Test\bin" -Recurse -Directory | ForEach-Object {
-            Write-Host "  $($_.FullName)"
-          }
           exit 1
         }
       shell: pwsh
