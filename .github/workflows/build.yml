@@ -10,7 +10,7 @@ on:
 
 env:
   PROJECT_NAME: GI-Subtitles
-  SOLUTION_FILE: GI-Subtitles.sln
+  MAIN_PROJECT: GI-Subtitles/GI-Subtitles.csproj
   BUILD_CONFIGURATION: Release
 
 jobs:
@@ -34,16 +34,21 @@ jobs:
         nuget-version: '6.x'
 
     - name: Restore NuGet Packages
-      run: nuget restore ${{ env.SOLUTION_FILE }}
+      run: nuget restore GI-Subtitles.sln
 
-    - name: Build Solution
-      run: msbuild ${{ env.SOLUTION_FILE }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform="Any CPU" /restore /t:Build
+    - name: Build Main Application (Exclude WixSharp Setup)
+      run: |
+        # Build only the main application, skip WixSharp Setup (requires installer tools)
+        msbuild ${{ env.MAIN_PROJECT }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform="Any CPU" /restore /t:Build
+        msbuild GI-Test/GI-Test.csproj /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform="Any CPU" /restore /t:Build
+      continue-on-error: false
 
     - name: Run Unit Tests
       run: |
-        $testAssemblies = Get-ChildItem -Recurse -Filter "*test*.dll" | Where-Object { $_.FullName -match "bin\\" }
+        $testAssemblies = Get-ChildItem -Recurse -Filter "GI-Test.dll" | Where-Object { $_.FullName -match "bin\\" }
         if ($testAssemblies) {
           foreach ($test in $testAssemblies) {
+            Write-Host "Running tests in: $($test.FullName)"
             vstest.console.exe $test.FullName /logger:trx /logger:console
           }
         } else {
@@ -59,6 +64,7 @@ jobs:
           GI-Subtitles/bin/${{ env.BUILD_CONFIGURATION }}/**/*.exe
           GI-Subtitles/bin/${{ env.BUILD_CONFIGURATION }}/**/*.dll
           GI-Subtitles/bin/${{ env.BUILD_CONFIGURATION }}/**/*.pdb
+          GI-Subtitles/bin/${{ env.BUILD_CONFIGURATION }}/**/*.config
         retention-days: 30
 
   release:
@@ -80,17 +86,22 @@ jobs:
         nuget-version: '6.x'
 
     - name: Restore NuGet Packages
-      run: nuget restore ${{ env.SOLUTION_FILE }}
+      run: nuget restore GI-Subtitles.sln
 
     - name: Build Release
-      run: msbuild ${{ env.SOLUTION_FILE }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform="Any CPU" /restore /t:Build
+      run: |
+        msbuild ${{ env.MAIN_PROJECT }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform="Any CPU" /restore /t:Build
 
     - name: Create Release Package
       run: |
         $releaseDir = "release-package"
         New-Item -ItemType Directory -Force -Path $releaseDir
+        # Copy main application files
         Copy-Item -Path "GI-Subtitles/bin/${{ env.BUILD_CONFIGURATION }}/**/*" -Destination $releaseDir -Recurse -Force
+        # Create ZIP package
         Compress-Archive -Path "$releaseDir/*" -DestinationPath "${{ env.PROJECT_NAME }}-${{ github.event.release.tag_name }}.zip" -Force
+        Write-Host "Created package: ${{ env.PROJECT_NAME }}-${{ github.event.release.tag_name }}.zip"
+        Get-ChildItem -Path . -Filter "*.zip" | ForEach-Object { Write-Host "Package: $($_.Name) - Size: $($_.Length / 1KB) KB" }
       shell: pwsh
 
     - name: Upload Release Assets
@@ -102,9 +113,12 @@ jobs:
           **Commit**: ${{ github.sha }}
           **构建时间**: ${{ github.event.release.created_at }}
           ### 📦 包含内容
-          - 主程序可执行文件
+          - 主程序可执行文件 (GI-Subtitles.exe)
           - 依赖库文件
           - PaddleOCRSharp 引擎
+          - 语言包文件
+          ### ⚠️ 注意
+          - WixSharp 安装程序需要手动构建
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -117,5 +131,6 @@ jobs:
     - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v2
     - name: Run Code Analysis
-      run: msbuild ${{ env.SOLUTION_FILE }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:RunCodeAnalysis=true /restore /t:Build
+      run: |
+        msbuild ${{ env.MAIN_PROJECT }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:RunCodeAnalysis=true /restore /t:Build
       continue-on-error: true
