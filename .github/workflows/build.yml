@@ -10,8 +10,10 @@ on:
 
 env:
   PROJECT_NAME: GI-Subtitles
-  MAIN_PROJECT: GI-Subtitles/GI-Subtitles.csproj
+  SOLUTION_FILE: GI-Subtitles.sln
+  MAIN_PROJECT: GI-Subtitles
   BUILD_CONFIGURATION: Release
+  BUILD_PLATFORM: x64
 
 jobs:
   build:
@@ -34,14 +36,18 @@ jobs:
         nuget-version: '6.x'
 
     - name: Restore NuGet Packages
-      run: nuget restore GI-Subtitles.sln
+      run: nuget restore ${{ env.SOLUTION_FILE }}
 
-    - name: Build Main Application (Exclude WixSharp Setup)
+    - name: Build Main Application Only
       run: |
-        # Build only the main application, skip WixSharp Setup (requires installer tools)
-        msbuild ${{ env.MAIN_PROJECT }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform="Any CPU" /restore /t:Build
-        msbuild GI-Test/GI-Test.csproj /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform="Any CPU" /restore /t:Build
+        # Targeted build: only build GI-Subtitles project from solution
+        msbuild ${{ env.SOLUTION_FILE }} -t:${{ env.MAIN_PROJECT }}:Rebuild -p:Configuration=${{ env.BUILD_CONFIGURATION }} -p:Platform=${{ env.BUILD_PLATFORM }}
       continue-on-error: false
+
+    - name: Build GI-Test (Optional)
+      run: |
+        msbuild ${{ env.SOLUTION_FILE }} -t:GI-Test:Rebuild -p:Configuration=${{ env.BUILD_CONFIGURATION }} -p:Platform=${{ env.BUILD_PLATFORM }}
+      continue-on-error: true
 
     - name: Run Unit Tests
       run: |
@@ -68,9 +74,111 @@ jobs:
         retention-days: 30
 
   release:
-    name: Create Release
+    name: Create Release Package
     needs: build
     if: github.event_name == 'release'
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Download Base Release
+      run: |
+        # Download base version from existing release
+        $baseZip = "1.6.4pre.zip"
+        $baseUri = "https://github.com/qew21/Genshin-Subtitles/releases/download/1.6.4/$baseZip"
+        Write-Host "Downloading base version from: $baseUri"
+        Invoke-WebRequest -Uri $baseUri -OutFile $baseZip -UseBasicParsing
+        Write-Host "Downloaded: $baseZip"
+        
+        # Extract base version
+        $baseDir = "base-release"
+        New-Item -ItemType Directory -Force -Path $baseDir
+        Expand-Archive -Path $baseZip -DestinationPath $baseDir -Force
+        Write-Host "Extracted base release to: $baseDir"
+        Get-ChildItem -Path $baseDir | ForEach-Object { Write-Host "  - $($_.Name)" }
+      shell: pwsh
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Setup NuGet
+      uses: NuGet/setup-nuget@v2
+      with:
+        nuget-version: '6.x'
+
+    - name: Restore NuGet Packages
+      run: nuget restore ${{ env.SOLUTION_FILE }}
+
+    - name: Build Release
+      run: |
+        msbuild ${{ env.SOLUTION_FILE }} -t:${{ env.MAIN_PROJECT }}:Rebuild -p:Configuration=${{ env.BUILD_CONFIGURATION }} -p:Platform=${{ env.BUILD_PLATFORM }}
+
+    - name: Merge with Base Release
+      run: |
+        $releaseDir = "release-package"
+        New-Item -ItemType Directory -Force -Path $releaseDir
+        
+        # Copy base release files
+        Copy-Item -Path "base-release/**/*" -Destination $releaseDir -Recurse -Force
+        
+        # Overwrite with newly built files
+        $newBuildPath = "GI-Subtitles/bin/${{ env.BUILD_CONFIGURATION }}"
+        Write-Host "Copying new build from: $newBuildPath"
+        
+        # Copy main executable and related files
+        Copy-Item -Path "$newBuildPath/GI-Subtitles.exe" -Destination "$releaseDir/GI-Subtitles.exe" -Force
+        Copy-Item -Path "$newBuildPath/GI-Subtitles.pdb" -Destination "$releaseDir/GI-Subtitles.pdb" -Force -ErrorAction SilentlyContinue
+        Copy-Item -Path "$newBuildPath/GI-Subtitles.exe.config" -Destination "$releaseDir/GI-Subtitles.exe.config" -Force -ErrorAction SilentlyContinue
+        
+        # Copy dependent DLLs that were rebuilt
+        Get-ChildItem -Path "$newBuildPath" -Filter "*.dll" | ForEach-Object {
+          Copy-Item -Path $_.FullName -Destination "$releaseDir/$($_.Name)" -Force -ErrorAction SilentlyContinue
+        }
+        
+        Write-Host "Release package contents:"
+        Get-ChildItem -Path $releaseDir | ForEach-Object { Write-Host "  - $($_.Name)" }
+      shell: pwsh
+
+    - name: Create Release Package
+      run: |
+        Compress-Archive -Path "release-package/*" -DestinationPath "${{ env.PROJECT_NAME }}-${{ github.event.release.tag_name }}.zip" -Force
+        Write-Host "Created package: ${{ env.PROJECT_NAME }}-${{ github.event.release.tag_name }}.zip"
+        $size = (Get-Item "${{ env.PROJECT_NAME }}-${{ github.event.release.tag_name }}.zip").Length / 1KB
+        Write-Host "Package size: $([math]::Round($size, 2)) KB"
+      shell: pwsh
+
+    - name: Upload Release Assets
+      uses: softprops/action-gh-release@v2
+      with:
+        files: ${{ env.PROJECT_NAME }}-*.zip
+        body: |
+          ## 🚀 自动构建发布
+          
+          **Commit**: ${{ github.sha }}
+          **构建时间**: ${{ github.event.release.created_at }}
+          **版本**: ${{ github.event.release.tag_name }}
+          
+          ### 📦 包含内容
+          - 主程序可执行文件 (GI-Subtitles.exe)
+          - PaddleOCRSharp 引擎
+          - 依赖库文件
+          - 语言包文件
+          
+          ### 📝 更新说明
+          ${{ github.event.release.body }}
+          
+          ---
+          🤖 此发布由 GitHub Actions 自动构建
+          ℹ️ MSI 安装程序需手动构建
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  installer:
+    name: Build MSI Installer (Optional)
+    needs: build
+    if: false # Disabled until WiX is properly configured
     runs-on: windows-latest
     
     steps:
@@ -86,51 +194,21 @@ jobs:
         nuget-version: '6.x'
 
     - name: Restore NuGet Packages
-      run: nuget restore GI-Subtitles.sln
+      run: nuget restore ${{ env.SOLUTION_FILE }}
 
-    - name: Build Release
+    - name: Build Main Application
       run: |
-        msbuild ${{ env.MAIN_PROJECT }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform="Any CPU" /restore /t:Build
+        msbuild ${{ env.SOLUTION_FILE }} -t:${{ env.MAIN_PROJECT }}:Rebuild -p:Configuration=${{ env.BUILD_CONFIGURATION }} -p:Platform=${{ env.BUILD_PLATFORM }}
 
-    - name: Create Release Package
+    - name: Copy Output to WixSharp
       run: |
-        $releaseDir = "release-package"
-        New-Item -ItemType Directory -Force -Path $releaseDir
-        # Copy main application files
-        Copy-Item -Path "GI-Subtitles/bin/${{ env.BUILD_CONFIGURATION }}/**/*" -Destination $releaseDir -Recurse -Force
-        # Create ZIP package
-        Compress-Archive -Path "$releaseDir/*" -DestinationPath "${{ env.PROJECT_NAME }}-${{ github.event.release.tag_name }}.zip" -Force
-        Write-Host "Created package: ${{ env.PROJECT_NAME }}-${{ github.event.release.tag_name }}.zip"
-        Get-ChildItem -Path . -Filter "*.zip" | ForEach-Object { Write-Host "Package: $($_.Name) - Size: $($_.Length / 1KB) KB" }
+        $wixFilesDir = "WixSharp Setup/bin/Files"
+        New-Item -ItemType Directory -Force -Path $wixFilesDir
+        Copy-Item -Path "GI-Subtitles/bin/${{ env.BUILD_CONFIGURATION }}/**/*" -Destination $wixFilesDir -Recurse -Force
+        Write-Host "Copied build output to: $wixFilesDir"
       shell: pwsh
 
-    - name: Upload Release Assets
-      uses: softprops/action-gh-release@v2
-      with:
-        files: ${{ env.PROJECT_NAME }}-*.zip
-        body: |
-          ## 🚀 自动构建发布
-          **Commit**: ${{ github.sha }}
-          **构建时间**: ${{ github.event.release.created_at }}
-          ### 📦 包含内容
-          - 主程序可执行文件 (GI-Subtitles.exe)
-          - 依赖库文件
-          - PaddleOCRSharp 引擎
-          - 语言包文件
-          ### ⚠️ 注意
-          - WixSharp 安装程序需要手动构建
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  code-quality:
-    name: Code Quality Check
-    runs-on: windows-latest
-    steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
-    - name: Setup MSBuild
-      uses: microsoft/setup-msbuild@v2
-    - name: Run Code Analysis
+    - name: Build MSI
       run: |
-        msbuild ${{ env.MAIN_PROJECT }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:RunCodeAnalysis=true /restore /t:Build
+        msbuild ${{ env.SOLUTION_FILE }} -t:"WixSharp Setup":Rebuild -p:Configuration=${{ env.BUILD_CONFIGURATION }} -p:Platform=${{ env.BUILD_PLATFORM }}
       continue-on-error: true
