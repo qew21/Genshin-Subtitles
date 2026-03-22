@@ -35,6 +35,9 @@ jobs:
       with:
         nuget-version: '6.x'
 
+    - name: Setup Visual Studio Command Prompt
+      uses: ilammy/msvc-dev-cmd@v1
+
     - name: Restore NuGet Packages
       run: nuget restore ${{ env.SOLUTION_FILE }}
 
@@ -48,11 +51,9 @@ jobs:
 
     - name: Download Language Files for Tests
       run: |
-        # Create data directory
         $dataDir = "$env:APPDATA\GI-Subtitles"
         New-Item -ItemType Directory -Force -Path $dataDir
         
-        # Download Genshin language files
         $genshinDir = Join-Path $dataDir "Genshin"
         New-Item -ItemType Directory -Force -Path $genshinDir
         
@@ -61,7 +62,6 @@ jobs:
         Invoke-WebRequest -Uri "https://gitlab.com/Dimbreath/AnimeGameData/-/raw/master/TextMap/TextMapEN.json?inline=false" -OutFile (Join-Path $genshinDir "TextMapEN.json") -UseBasicParsing
         Invoke-WebRequest -Uri "https://gitlab.com/Dimbreath/AnimeGameData/-/raw/master/TextMap/TextMapJP.json?inline=false" -OutFile (Join-Path $genshinDir "TextMapJP.json") -UseBasicParsing
         
-        # Download StarRail language files
         $starRailDir = Join-Path $dataDir "StarRail"
         New-Item -ItemType Directory -Force -Path $starRailDir
         
@@ -77,23 +77,23 @@ jobs:
     - name: Run Unit Tests
       run: |
         Write-Host "=== Running Unit Tests ==="
-        $testAssemblies = Get-ChildItem -Recurse -Filter "GI-Test.dll" | Where-Object { $_.FullName -match "bin\\" }
-        if ($testAssemblies) {
-          foreach ($test in $testAssemblies) {
-            Write-Host "Running tests in: $($test.FullName)"
-            # Run tests and capture output
-            $testOutput = vstest.console.exe $test.FullName /logger:trx /logger:console 2>&1
-            Write-Host $testOutput
-            
-            # Print test result files
-            Write-Host "`n=== Test Result Files ==="
-            Get-ChildItem -Path . -Filter "*.json" -Recurse | Where-Object { $_.Name -like "*TestResult*" -or $_.Name -eq "result.json" } | ForEach-Object {
-              Write-Host "`n--- $($_.FullName) ---"
-              Get-Content $_.FullName | Write-Host
-            }
+        $testDir = "GI-Test\bin\$${{ env.BUILD_CONFIGURATION }}"
+        $testAssembly = Join-Path $testDir "GI-Test.dll"
+        
+        if (Test-Path $testAssembly) {
+          Write-Host "Running tests from: $testAssembly"
+          
+          # Run tests using dotnet vstest
+          $trxFile = "test-results.trx"
+          dotnet vstest $testAssembly --logger:trx --logger:console --results-directory:.
+          
+          Write-Host "`n=== Test Result Files ==="
+          Get-ChildItem -Path . -Filter "*.json" -Recurse | Where-Object { $_.Name -like "*TestResult*" -or $_.Name -eq "result.json" } | ForEach-Object {
+            Write-Host "`n--- $($_.FullName) ---"
+            Get-Content $_.FullName | Write-Host
           }
         } else {
-          Write-Host "No test assemblies found"
+          Write-Host "Test assembly not found: $testAssembly"
         }
       shell: pwsh
       continue-on-error: true
@@ -136,12 +136,10 @@ jobs:
         $baseUri = "https://github.com/qew21/Genshin-Subtitles/releases/download/1.6.4/$baseZip"
         Write-Host "Downloading base version from: $baseUri"
         Invoke-WebRequest -Uri $baseUri -OutFile $baseZip -UseBasicParsing
-        Write-Host "Downloaded: $baseZip"
         
         $baseDir = "base-release"
         New-Item -ItemType Directory -Force -Path $baseDir
         Expand-Archive -Path $baseZip -DestinationPath $baseDir -Force
-        Write-Host "Extracted base release to: $baseDir"
       shell: pwsh
 
     - name: Setup MSBuild
@@ -167,8 +165,6 @@ jobs:
         Copy-Item -Path "base-release/**/*" -Destination $releaseDir -Recurse -Force
         
         $newBuildPath = "GI-Subtitles/bin/${{ env.BUILD_CONFIGURATION }}"
-        Write-Host "Copying new build from: $newBuildPath"
-        
         Copy-Item -Path "$newBuildPath/GI-Subtitles.exe" -Destination "$releaseDir/GI-Subtitles.exe" -Force
         Copy-Item -Path "$newBuildPath/GI-Subtitles.pdb" -Destination "$releaseDir/GI-Subtitles.pdb" -Force -ErrorAction SilentlyContinue
         Copy-Item -Path "$newBuildPath/GI-Subtitles.exe.config" -Destination "$releaseDir/GI-Subtitles.exe.config" -Force -ErrorAction SilentlyContinue
@@ -176,17 +172,11 @@ jobs:
         Get-ChildItem -Path "$newBuildPath" -Filter "*.dll" | ForEach-Object {
           Copy-Item -Path $_.FullName -Destination "$releaseDir/$($_.Name)" -Force -ErrorAction SilentlyContinue
         }
-        
-        Write-Host "Release package contents:"
-        Get-ChildItem -Path $releaseDir | ForEach-Object { Write-Host "  - $($_.Name)" }
       shell: pwsh
 
     - name: Create Release Package
       run: |
         Compress-Archive -Path "release-package/*" -DestinationPath "${{ env.PROJECT_NAME }}-${{ github.event.release.tag_name }}.zip" -Force
-        Write-Host "Created package: ${{ env.PROJECT_NAME }}-${{ github.event.release.tag_name }}.zip"
-        $size = (Get-Item "${{ env.PROJECT_NAME }}-${{ github.event.release.tag_name }}.zip").Length / 1KB
-        Write-Host "Package size: $([math]::Round($size, 2)) KB"
       shell: pwsh
 
     - name: Upload Release Assets
@@ -195,59 +185,11 @@ jobs:
         files: ${{ env.PROJECT_NAME }}-*.zip
         body: |
           ## 🚀 自动构建发布
-          
           **Commit**: ${{ github.sha }}
-          **构建时间**: ${{ github.event.release.created_at }}
           **版本**: ${{ github.event.release.tag_name }}
-          
           ### 📦 包含内容
-          - 主程序可执行文件 (GI-Subtitles.exe)
+          - 主程序可执行文件
           - PaddleOCRSharp 引擎
           - 依赖库文件
-          - 语言包文件
-          
-          ### 📝 更新说明
-          ${{ github.event.release.body }}
-          
-          ---
-          🤖 此发布由 GitHub Actions 自动构建
-          ℹ️ MSI 安装程序需手动构建
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  installer:
-    name: Build MSI Installer (Optional)
-    needs: build
-    if: false
-    runs-on: windows-latest
-    
-    steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
-
-    - name: Setup MSBuild
-      uses: microsoft/setup-msbuild@v2
-
-    - name: Setup NuGet
-      uses: NuGet/setup-nuget@v2
-      with:
-        nuget-version: '6.x'
-
-    - name: Restore NuGet Packages
-      run: nuget restore ${{ env.SOLUTION_FILE }}
-
-    - name: Build Main Application
-      run: |
-        msbuild ${{ env.SOLUTION_FILE }} -t:${{ env.MAIN_PROJECT }}:Rebuild -p:Configuration=${{ env.BUILD_CONFIGURATION }} -p:Platform=${{ env.BUILD_PLATFORM }}
-
-    - name: Copy Output to WixSharp
-      run: |
-        $wixFilesDir = "WixSharp Setup/bin/Files"
-        New-Item -ItemType Directory -Force -Path $wixFilesDir
-        Copy-Item -Path "GI-Subtitles/bin/${{ env.BUILD_CONFIGURATION }}/**/*" -Destination $wixFilesDir -Recurse -Force
-      shell: pwsh
-
-    - name: Build MSI
-      run: |
-        msbuild ${{ env.SOLUTION_FILE }} -t:"WixSharp Setup":Rebuild -p:Configuration=${{ env.BUILD_CONFIGURATION }} -p:Platform=${{ env.BUILD_PLATFORM }}
-      continue-on-error: true
