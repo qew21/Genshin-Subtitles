@@ -1,0 +1,389 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+  release:
+    types: [ created ]
+
+env:
+  PROJECT_NAME: GI-Subtitles
+  SOLUTION_FILE: GI-Subtitles.sln
+  MAIN_PROJECT: GI-Subtitles
+  BUILD_CONFIGURATION: Release
+  BUILD_PLATFORM: x64
+  BASE_VERSION: 1.6.3
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        submodules: recursive
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Setup NuGet
+      uses: NuGet/setup-nuget@v2
+      with:
+        nuget-version: '6.x'
+
+    - name: Setup Visual Studio Command Prompt
+      uses: ilammy/msvc-dev-cmd@v1
+
+    - name: Download OCR Models
+      run: |
+        Write-Host "Downloading OCR models from release ${{ env.BASE_VERSION }}..."
+        $baseZip = "${{ env.BASE_VERSION }}.zip"
+        $baseUri = "https://github.com/qew21/Genshin-Subtitles/releases/download/${{ env.BASE_VERSION }}/$baseZip"
+        Invoke-WebRequest -Uri $baseUri -OutFile $baseZip -UseBasicParsing
+        
+        $modelDir = "inference"
+        New-Item -ItemType Directory -Force -Path $modelDir | Out-Null
+        Expand-Archive -Path $baseZip -DestinationPath "temp_extract" -Force
+        
+        Copy-Item -Path "temp_extract/inference/*" -Destination $modelDir -Recurse -Force
+        Remove-Item -Path $baseZip -Force
+        Remove-Item -Path "temp_extract" -Recurse -Force
+        
+        Write-Host "OCR models downloaded and extracted to root inference/"
+        Get-ChildItem -Path $modelDir -Recurse -Filter "*.onnx" | ForEach-Object {
+          Write-Host "  Model: $($_.Name) - $([math]::Round($_.Length / 1MB, 2)) MB"
+        }
+      shell: pwsh
+
+    - name: Restore NuGet Packages
+      run: nuget restore ${{ env.SOLUTION_FILE }}
+
+    - name: Build Main Application
+      run: |
+        msbuild ${{ env.SOLUTION_FILE }} -t:${{ env.MAIN_PROJECT }}:Rebuild -p:Configuration=${{ env.BUILD_CONFIGURATION }} -p:Platform=${{ env.BUILD_PLATFORM }}
+
+    - name: Build GI-Test
+      run: |
+        msbuild ${{ env.SOLUTION_FILE }} -t:GI-Test:Rebuild -p:Configuration=${{ env.BUILD_CONFIGURATION }} -p:Platform=${{ env.BUILD_PLATFORM }}
+
+    - name: Copy Models to Test Output Directory
+      run: |
+        $testOutputDir = "GI-Test\bin\Release"
+        $targetInferenceDir = Join-Path $testOutputDir "inference"
+        
+        Write-Host "Copying models to test output directory: $targetInferenceDir"
+        New-Item -ItemType Directory -Force -Path $targetInferenceDir | Out-Null
+        
+        Copy-Item -Path "inference/*" -Destination $targetInferenceDir -Recurse -Force
+        
+        Write-Host "Models copied successfully"
+        Get-ChildItem -Path $targetInferenceDir -Recurse -Filter "*.onnx" | ForEach-Object {
+          Write-Host "  $($_.FullName)"
+        }
+      shell: pwsh
+
+    - name: Download Language Files for Tests
+      run: |
+        $dataDir = "$env:APPDATA\GI-Subtitles"
+        New-Item -ItemType Directory -Force -Path $dataDir
+        
+        $genshinDir = Join-Path $dataDir "Genshin"
+        New-Item -ItemType Directory -Force -Path $genshinDir
+        
+        Write-Host "Downloading Genshin TextMap files..."
+        Invoke-WebRequest -Uri "https://gitlab.com/Dimbreath/AnimeGameData/-/raw/master/TextMap/TextMapCHS.json?inline=false" -OutFile (Join-Path $genshinDir "TextMapCHS.json") -UseBasicParsing
+        Invoke-WebRequest -Uri "https://gitlab.com/Dimbreath/AnimeGameData/-/raw/master/TextMap/TextMapEN.json?inline=false" -OutFile (Join-Path $genshinDir "TextMapEN.json") -UseBasicParsing
+        Invoke-WebRequest -Uri "https://gitlab.com/Dimbreath/AnimeGameData/-/raw/master/TextMap/TextMapJP.json?inline=false" -OutFile (Join-Path $genshinDir "TextMapJP.json") -UseBasicParsing
+        
+        $starRailDir = Join-Path $dataDir "StarRail"
+        New-Item -ItemType Directory -Force -Path $starRailDir
+        
+        Write-Host "Downloading StarRail TextMap files..."
+        Invoke-WebRequest -Uri "https://gitlab.com/Dimbreath/turnbasedgamedata/-/raw/main/TextMap/TextMapCHS.json?inline=false" -OutFile (Join-Path $starRailDir "TextMapCHS.json") -UseBasicParsing
+        Invoke-WebRequest -Uri "https://gitlab.com/Dimbreath/turnbasedgamedata/-/raw/main/TextMap/TextMapEN.json?inline=false" -OutFile (Join-Path $starRailDir "TextMapEN.json") -UseBasicParsing
+        
+        Write-Host "Language files downloaded successfully"
+        Get-ChildItem -Path $genshinDir | ForEach-Object { Write-Host "  $($_.Name) - $([math]::Round($_.Length / 1KB, 2)) KB" }
+      shell: pwsh
+
+    - name: Copy Test Images
+      run: |
+        $testOutputDir = "GI-Test\bin\Release"
+        $imagesDir = Join-Path $testOutputDir "Images"
+        
+        if (Test-Path "GI-Test/Images") {
+          Write-Host "Copying test images to: $imagesDir"
+          New-Item -ItemType Directory -Force -Path $imagesDir | Out-Null
+          Copy-Item -Path "GI-Test/Images/*" -Destination $imagesDir -Recurse -Force
+          
+          Write-Host "Test images copied:"
+          Get-ChildItem -Path $imagesDir -File | ForEach-Object { Write-Host "  $($_.Name)" }
+        } else {
+          Write-Host "No GI-Test/Images folder found, skipping"
+        }
+      shell: pwsh
+
+    - name: Run Unit Tests
+      id: tests
+      run: |
+        Write-Host "`n========================================="
+        Write-Host "=== Running Unit Tests ==="
+        Write-Host "=========================================`n"
+        
+        $testDir = "GI-Test\bin\Release"
+        $testAssembly = Join-Path $testDir "GI-Test.dll"
+        $testResultsDir = "test-results"
+        New-Item -ItemType Directory -Force -Path $testResultsDir | Out-Null
+        
+        Write-Host "Looking for test assembly at: $testAssembly"
+        Write-Host "Current directory: $(Get-Location)"
+        
+        if (Test-Path $testAssembly) {
+          Write-Host "`nTest assembly found: $testAssembly"
+          
+          $trxFile = Join-Path $testResultsDir "test-results.trx"
+          Write-Host "Running tests with TRX output: $trxFile"
+          
+          dotnet vstest $testAssembly /logger:trx /logger:console /ResultsDirectory:$testResultsDir
+          
+          Write-Host "`n========================================="
+          Write-Host "=== Test Result Files ==="
+          Write-Host "=========================================`n"
+          
+          $jsonFiles = Get-ChildItem -Path . -Filter "*.json" -Recurse | 
+            Where-Object { $_.Name -like "*TestResult*" -or $_.Name -eq "result.json" -or $_.Name -like "*Performance*" }
+          
+          if ($jsonFiles) {
+            foreach ($file in $jsonFiles) {
+              Write-Host "`n--- $($file.FullName) ---"
+              Get-Content $file.FullName | Write-Host
+            }
+          } else {
+            Write-Host "No JSON test result files found"
+          }
+          
+          if (Test-Path $trxFile) {
+            Write-Host "`n--- TRX Summary ---"
+            Select-Xml -Path $trxFile -XPath "//UnitTestResult" | ForEach-Object {
+              Write-Host "Test: $($_.Node.testName) - $($_.Node.outcome)"
+            }
+          }
+        } else {
+          Write-Host "`nTest assembly not found: $testAssembly"
+          exit 1
+        }
+      shell: pwsh
+      continue-on-error: true
+
+    - name: Upload Test Results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: Test-Results
+        path: |
+          test-results/*.trx
+          **/result.json
+          **/*TestResult*.json
+          **/*Performance*.json
+        retention-days: 14
+        if-no-files-found: warn
+
+    - name: Upload Built Application (Release Only)
+      uses: actions/upload-artifact@v4
+      if: github.event_name == 'release'
+      with:
+        name: GI-Subtitles-Build
+        path: |
+          GI-Subtitles/bin/${{ env.BUILD_CONFIGURATION }}/**/*.exe
+          GI-Subtitles/bin/${{ env.BUILD_CONFIGURATION }}/**/*.dll
+          GI-Subtitles/bin/${{ env.BUILD_CONFIGURATION }}/**/*.pdb
+          GI-Subtitles/bin/${{ env.BUILD_CONFIGURATION }}/**/*.config
+          inference/**/*
+        retention-days: 30
+
+  release-package:
+    name: Create Release Package
+    needs: build-and-test
+    if: github.event_name == 'release'
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Download Base Release
+      run: |
+        $baseZip = "${{ env.BASE_VERSION }}.zip"
+        $baseUri = "https://github.com/qew21/Genshin-Subtitles/releases/download/${{ env.BASE_VERSION }}/$baseZip"
+        Write-Host "Downloading base version from: $baseUri"
+        Invoke-WebRequest -Uri $baseUri -OutFile $baseZip -UseBasicParsing
+        
+        $baseDir = "base-release"
+        New-Item -ItemType Directory -Force -Path $baseDir
+        Expand-Archive -Path $baseZip -DestinationPath $baseDir -Force
+        Write-Host "Extracted base release"
+      shell: pwsh
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Setup NuGet
+      uses: NuGet/setup-nuget@v2
+      with:
+        nuget-version: '6.x'
+
+    - name: Restore NuGet Packages
+      run: nuget restore ${{ env.SOLUTION_FILE }}
+
+    - name: Build Release
+      run: |
+        msbuild ${{ env.SOLUTION_FILE }} -t:${{ env.MAIN_PROJECT }}:Rebuild -p:Configuration=${{ env.BUILD_CONFIGURATION }} -p:Platform=${{ env.BUILD_PLATFORM }}
+
+    - name: Merge with Base Release
+      run: |
+        $releaseDir = "release-package"
+        New-Item -ItemType Directory -Force -Path $releaseDir
+        
+        # ===========================================
+        # Step 1: Copy ALL files from base release (1.6.3.zip)
+        # This includes: Config.json, inference/, x64/, native DLLs
+        # IMPORTANT: Use "base-release\*" to preserve directory structure
+        # ===========================================
+        Write-Host "Step 1: Copying base release (1.6.3.zip)..."
+        Copy-Item -Path "base-release\*" -Destination $releaseDir -Recurse -Force
+        Write-Host "  ✓ Base release copied"
+        
+        # ===========================================
+        # Step 2: Copy newly built executable and config
+        # ===========================================
+        $newBuildPath = "GI-Subtitles/bin/${{ env.BUILD_CONFIGURATION }}"
+        Write-Host "`nStep 2: Merging new build from: $newBuildPath"
+        
+        Copy-Item -Path "$newBuildPath/GI-Subtitles.exe" -Destination "$releaseDir/GI-Subtitles.exe" -Force
+        Copy-Item -Path "$newBuildPath/GI-Subtitles.pdb" -Destination "$releaseDir/GI-Subtitles.pdb" -Force -ErrorAction SilentlyContinue
+        Copy-Item -Path "$newBuildPath/GI-Subtitles.exe.config" -Destination "$releaseDir/GI-Subtitles.exe.config" -Force -ErrorAction SilentlyContinue
+        Write-Host "  ✓ Executable and config copied"
+        
+        # ===========================================
+        # Step 3: Copy application DLLs (preserve critical native DLLs from base)
+        # ===========================================
+        Write-Host "`nStep 3: Copying application DLLs..."
+        
+        # Files to PRESERVE from base-release (DO NOT overwrite)
+        $preserveFiles = @(
+          "onnxruntime.dll",
+          "opencv_videoio_ffmpeg4110_64.dll",
+          "OpenCvSharp4.runtime.dll"
+        )
+        
+        # Files to REMOVE from root (they should only be in x64/ folder)
+        # These are the 5 files that should be inside x64/ only
+        $x64OnlyFiles = @(
+          "Microsoft.ML.OnnxRuntime.dll",
+          "Microsoft.ML.OnnxRuntime.Managed.dll",
+          "Microsoft.ML.OnnxRuntime.Managed.pdb",
+          "Microsoft.ML.OnnxRuntime.pdb",
+          "Microsoft.ML.OnnxRuntime.CSharp.dll"
+        )
+        
+        Get-ChildItem -Path "$newBuildPath" -Filter "*.dll" | ForEach-Object {
+          # Skip files that should be preserved from base-release
+          if ($preserveFiles -contains $_.Name) {
+            Write-Host "  ⊘ Skipped (preserving base-release): $($_.Name)"
+            return
+          }
+          
+          # Skip files that should only be in x64/ folder
+          if ($x64OnlyFiles -contains $_.Name) {
+            Write-Host "  ⊘ Skipped (x64 only): $($_.Name)"
+            return
+          }
+          
+          # Copy other DLLs
+          Copy-Item -Path $_.FullName -Destination "$releaseDir/$($_.Name)" -Force -ErrorAction SilentlyContinue
+          Write-Host "  ✓ Copied: $($_.Name)"
+        }
+        
+        # ===========================================
+        # Step 4: Verify package structure
+        # ===========================================
+        Write-Host "`n========================================="
+        Write-Host "Release Package Verification"
+        Write-Host "=========================================`n"
+        
+        Write-Host "Critical Files Check:"
+        $checks = @(
+          @{Path="GI-Subtitles.exe"; Type="File"; Name="Main executable"},
+          @{Path="Config.json"; Type="File"; Name="Configuration file"},
+          @{Path="inference"; Type="Folder"; Name="OCR models folder"},
+          @{Path="x64"; Type="Folder"; Name="Native DLLs folder"},
+          @{Path="onnxruntime.dll"; Type="File"; Name="OnnxRuntime native DLL"},
+          @{Path="opencv_videoio_ffmpeg4110_64.dll"; Type="File"; Name="OpenCV FFMPEG DLL"}
+        )
+        
+        foreach ($check in $checks) {
+          $fullPath = Join-Path $releaseDir $check.Path
+          if (Test-Path $fullPath) {
+            Write-Host "  ✓ $($check.Name) ($($check.Path))" -ForegroundColor Green
+          } else {
+            Write-Host "  ✗ $($check.Name) ($($check.Path)) - MISSING!" -ForegroundColor Red
+          }
+        }
+        
+        Write-Host "`nRoot folder contents:"
+        Get-ChildItem -Path $releaseDir | ForEach-Object {
+          if ($_.PSIsContainer) {
+            Write-Host "  [DIR]  $($_.Name)" -ForegroundColor Cyan
+          } else {
+            Write-Host "  [FILE] $($_.Name) ($([math]::Round($_.Length / 1KB, 2)) KB)"
+          }
+        }
+        
+        Write-Host "`nx64 folder contents:"
+        if (Test-Path "$releaseDir/x64") {
+          Get-ChildItem -Path "$releaseDir/x64" | ForEach-Object {
+            Write-Host "  $($_.Name) ($([math]::Round($_.Length / 1KB, 2)) KB)"
+          }
+        } else {
+          Write-Host "  [x64 folder not found]" -ForegroundColor Red
+        }
+      shell: pwsh
+
+    - name: Create Release Package
+      run: |
+        Compress-Archive -Path "release-package/*" -DestinationPath "${{ env.PROJECT_NAME }}-${{ github.event.release.tag_name }}.zip" -Force
+        $size = (Get-Item "${{ env.PROJECT_NAME }}-${{ github.event.release.tag_name }}.zip").Length / 1MB
+        Write-Host "Created package: ${{ env.PROJECT_NAME }}-${{ github.event.release.tag_name }}.zip ($([math]::Round($size, 2)) MB)"
+      shell: pwsh
+
+    - name: Upload Release Assets
+      uses: softprops/action-gh-release@v2
+      with:
+        files: ${{ env.PROJECT_NAME }}-*.zip
+        body: |
+          ## 🚀 自动构建发布
+          
+          **Commit**: ${{ github.sha }}
+          **构建时间**: ${{ github.event.release.created_at }}
+          **版本**: ${{ github.event.release.tag_name }}
+          
+          ### 📦 包含内容
+          - 主程序可执行文件 (GI-Subtitles.exe)
+          - PaddleOCRSharp 引擎
+          - OCR 模型文件 (inference/)
+          - 依赖库文件
+          - 语言包文件
+          
+          ### 📝 更新说明
+          ${{ github.event.release.body }}
+          
+          ---
+          🤖 此发布由 GitHub Actions 自动构建
+          ℹ️ MSI 安装程序需手动构建
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
