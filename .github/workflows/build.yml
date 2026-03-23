@@ -249,46 +249,107 @@ jobs:
         $releaseDir = "release-package"
         New-Item -ItemType Directory -Force -Path $releaseDir
         
-        # Step 1: Copy base release (1.6.3.zip) - includes OCR models, Config.json, and all dependencies
-        Write-Host "Copying base release (1.6.3.zip)..."
+        # ===========================================
+        # Step 1: Copy ALL files from base release (1.6.3.zip)
+        # This includes: Config.json, inference/, x64/, native DLLs
+        # ===========================================
+        Write-Host "Step 1: Copying base release (1.6.3.zip)..."
         Copy-Item -Path "base-release/**/*" -Destination $releaseDir -Recurse -Force
+        Write-Host "  ✓ Base release copied"
         
+        # ===========================================
         # Step 2: Copy newly built executable and config
+        # ===========================================
         $newBuildPath = "GI-Subtitles/bin/${{ env.BUILD_CONFIGURATION }}"
-        Write-Host "Merging new build from: $newBuildPath"
+        Write-Host "`nStep 2: Merging new build from: $newBuildPath"
         
         Copy-Item -Path "$newBuildPath/GI-Subtitles.exe" -Destination "$releaseDir/GI-Subtitles.exe" -Force
         Copy-Item -Path "$newBuildPath/GI-Subtitles.pdb" -Destination "$releaseDir/GI-Subtitles.pdb" -Force -ErrorAction SilentlyContinue
         Copy-Item -Path "$newBuildPath/GI-Subtitles.exe.config" -Destination "$releaseDir/GI-Subtitles.exe.config" -Force -ErrorAction SilentlyContinue
+        Write-Host "  ✓ Executable and config copied"
         
-        # Step 3: Copy DLL files EXCEPT onnxruntime and OpenCvSharp native DLLs
-        # These are already in base-release and working correctly
-        Write-Host "Copying application DLLs (preserving base-release native DLLs)..."
+        # ===========================================
+        # Step 3: Copy application DLLs (preserve critical native DLLs from base)
+        # ===========================================
+        Write-Host "`nStep 3: Copying application DLLs..."
+        
+        # Files to PRESERVE from base-release (DO NOT overwrite)
+        $preserveFiles = @(
+          "onnxruntime.dll",
+          "opencv_videoio_ffmpeg4110_64.dll",
+          "OpenCvSharp4.runtime.dll"
+        )
+        
+        # Files to REMOVE from root (they should only be in x64/ folder)
+        # These are the 5 files that should be inside x64/ only
+        $x64OnlyFiles = @(
+          "Microsoft.ML.OnnxRuntime.dll",
+          "Microsoft.ML.OnnxRuntime.Managed.dll",
+          "Microsoft.ML.OnnxRuntime.Managed.pdb",
+          "Microsoft.ML.OnnxRuntime.pdb",
+          "Microsoft.ML.OnnxRuntime.CSharp.dll"
+        )
+        
         Get-ChildItem -Path "$newBuildPath" -Filter "*.dll" | ForEach-Object {
-          # Skip OnnxRuntime and OpenCvSharp native DLLs - use working versions from base-release
-          $skipFiles = @("onnxruntime.dll", "OpenCvSharp4.runtime.dll")
-          if ($skipFiles -notcontains $_.Name) {
-            Copy-Item -Path $_.FullName -Destination "$releaseDir/$($_.Name)" -Force -ErrorAction SilentlyContinue
-            Write-Host "  Copied: $($_.Name)"
+          # Skip files that should be preserved from base-release
+          if ($preserveFiles -contains $_.Name) {
+            Write-Host "  ⊘ Skipped (preserving base-release): $($_.Name)"
+            return
+          }
+          
+          # Skip files that should only be in x64/ folder
+          if ($x64OnlyFiles -contains $_.Name) {
+            Write-Host "  ⊘ Skipped (x64 only): $($_.Name)"
+            return
+          }
+          
+          # Copy other DLLs
+          Copy-Item -Path $_.FullName -Destination "$releaseDir/$($_.Name)" -Force -ErrorAction SilentlyContinue
+          Write-Host "  ✓ Copied: $($_.Name)"
+        }
+        
+        # ===========================================
+        # Step 4: Verify package structure
+        # ===========================================
+        Write-Host "`n========================================="
+        Write-Host "Release Package Verification"
+        Write-Host "=========================================`n"
+        
+        Write-Host "Critical Files Check:"
+        $checks = @(
+          @{Path="GI-Subtitles.exe"; Type="File"; Name="Main executable"},
+          @{Path="Config.json"; Type="File"; Name="Configuration file"},
+          @{Path="inference"; Type="Folder"; Name="OCR models folder"},
+          @{Path="x64"; Type="Folder"; Name="Native DLLs folder"},
+          @{Path="onnxruntime.dll"; Type="File"; Name="OnnxRuntime native DLL"},
+          @{Path="opencv_videoio_ffmpeg4110_64.dll"; Type="File"; Name="OpenCV FFMPEG DLL"}
+        )
+        
+        foreach ($check in $checks) {
+          $fullPath = Join-Path $releaseDir $check.Path
+          if (Test-Path $fullPath) {
+            Write-Host "  ✓ $($check.Name) ($($check.Path))" -ForegroundColor Green
           } else {
-            Write-Host "  Skipped (using base-release): $($_.Name)"
+            Write-Host "  ✗ $($check.Name) ($($check.Path)) - MISSING!" -ForegroundColor Red
           }
         }
         
-        Write-Host "`nRelease package contents:"
-        Get-ChildItem -Path $releaseDir -File | ForEach-Object { Write-Host "  $($_.Name) - $([math]::Round($_.Length / 1KB, 2)) KB" }
-        
-        # Verify critical files
-        Write-Host "`nVerifying critical files:"
-        $criticalFiles = @("GI-Subtitles.exe", "Config.json", "inference", "onnxruntime.dll")
-        foreach ($file in $criticalFiles) {
-          if (Test-Path "$releaseDir/$file" -PathType Container -ErrorAction SilentlyContinue) {
-            Write-Host "  ✓ $file (folder)" -ForegroundColor Green
-          } elseif (Test-Path "$releaseDir/$file" -PathType Leaf -ErrorAction SilentlyContinue) {
-            Write-Host "  ✓ $file (file)" -ForegroundColor Green
+        Write-Host "`nRoot folder contents:"
+        Get-ChildItem -Path $releaseDir | ForEach-Object {
+          if ($_.PSIsContainer) {
+            Write-Host "  [DIR]  $($_.Name)" -ForegroundColor Cyan
           } else {
-            Write-Host "  ✗ $file (MISSING)" -ForegroundColor Red
+            Write-Host "  [FILE] $($_.Name) ($([math]::Round($_.Length / 1KB, 2)) KB)"
           }
+        }
+        
+        Write-Host "`nx64 folder contents:"
+        if (Test-Path "$releaseDir/x64") {
+          Get-ChildItem -Path "$releaseDir/x64" | ForEach-Object {
+            Write-Host "  $($_.Name) ($([math]::Round($_.Length / 1KB, 2)) KB)"
+          }
+        } else {
+          Write-Host "  [x64 folder not found]" -ForegroundColor Red
         }
       shell: pwsh
 
