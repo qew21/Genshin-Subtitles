@@ -249,8 +249,10 @@ jobs:
         $releaseDir = "release-package"
         New-Item -ItemType Directory -Force -Path $releaseDir
         
+        # Copy base release (includes OCR models and dependencies)
         Copy-Item -Path "base-release/**/*" -Destination $releaseDir -Recurse -Force
         
+        # Copy newly built files
         $newBuildPath = "GI-Subtitles/bin/${{ env.BUILD_CONFIGURATION }}"
         Write-Host "Merging new build from: $newBuildPath"
         
@@ -262,8 +264,40 @@ jobs:
           Copy-Item -Path $_.FullName -Destination "$releaseDir/$($_.Name)" -Force -ErrorAction SilentlyContinue
         }
         
+        # Ensure inference folder structure exists (for OCR models)
+        # Models should be in base release, but create structure if missing
+        if (!(Test-Path "$releaseDir/inference")) {
+          Write-Host "Creating inference folder structure..."
+          New-Item -ItemType Directory -Force -Path "$releaseDir/inference/Det/V5/PP-OCRv5_mobile_det_infer" | Out-Null
+          New-Item -ItemType Directory -Force -Path "$releaseDir/inference/Rec/V5/PP-OCRv5_mobile_rec_infer" | Out-Null
+        }
+        
+        # Create Config.json if not present (from base release or template)
+        if (!(Test-Path "$releaseDir/Config.json")) {
+          Write-Host "Creating default Config.json..."
+          @{
+            "Language" = "en-US"
+            "SourceLang" = "zh-cn"
+            "TargetLang" = "en"
+            "Pad" = @(0, 0)
+            "FontSize" = 24
+            "Opacity" = 0.9
+          } | ConvertTo-Json | Set-Content -Path "$releaseDir/Config.json" -Encoding UTF8
+        }
+        
         Write-Host "`nRelease package contents:"
         Get-ChildItem -Path $releaseDir -File | ForEach-Object { Write-Host "  $($_.Name) - $([math]::Round($_.Length / 1KB, 2)) KB" }
+        
+        # Verify critical files
+        Write-Host "`nVerifying critical files:"
+        $criticalFiles = @("GI-Subtitles.exe", "Config.json", "inference")
+        foreach ($file in $criticalFiles) {
+          if (Test-Path "$releaseDir/$file") {
+            Write-Host "  ✓ $file" -ForegroundColor Green
+          } else {
+            Write-Host "  ✗ $file (MISSING)" -ForegroundColor Red
+          }
+        }
       shell: pwsh
 
     - name: Create Release Package

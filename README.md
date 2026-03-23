@@ -90,36 +90,10 @@ Genshin-Subtitles enables players to:
 ✅ Support for Honkai: Star Rail and Honkai Impact 3rd  
 ✅ Full CI/CD test coverage (8 unit tests)  
 
-### 1.4.2
-- Auto-start on Windows boot with update notifications
-- Optimized initialization position and hints
-- Local voice files and online voice API support
-
-### 1.3.0
-- Local AI voice loading for side quests
-- Hotkey `Ctrl+Shift+H` to hide/show subtitles
-- Improved region selection (no duplicate prompts)
-
-### 1.2.2
-- Enhanced image preprocessing for OCR
-- Drag-to-reposition subtitles with mouse
-
-### 1.2.1
-- Gender-specific text support (auto-selects male/female protagonist text)
-
-### 1.2.0
-- Hotkey `Ctrl+Shift+S` to start/pause OCR
-- Hotkey `Ctrl+Shift+R` to select recognition region
-- Audio feedback for start/stop
-- Significant performance improvements
-
-### 1.1.0
-- Honkai: Star Rail support
-- 13 language subtitle support
-- Adjustable font size
-
-### 1.0.0
-- Initial release with Chinese-English support
+### 1.6.0
+- Initial release with OptimizedMatcher
+- Video processor for subtitle extraction
+- Frame detection optimization
 
 ## Hotkeys
 
