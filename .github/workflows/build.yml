@@ -252,9 +252,10 @@ jobs:
         # ===========================================
         # Step 1: Copy ALL files from base release (1.6.3.zip)
         # This includes: Config.json, inference/, x64/, native DLLs
+        # IMPORTANT: Use "base-release\*" to preserve directory structure
         # ===========================================
         Write-Host "Step 1: Copying base release (1.6.3.zip)..."
-        Copy-Item -Path "base-release/**/*" -Destination $releaseDir -Recurse -Force
+        Copy-Item -Path "base-release\*" -Destination $releaseDir -Recurse -Force
         Write-Host "  ✓ Base release copied"
         
         # ===========================================
