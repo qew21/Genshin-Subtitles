@@ -249,10 +249,11 @@ jobs:
         $releaseDir = "release-package"
         New-Item -ItemType Directory -Force -Path $releaseDir
         
-        # Copy base release (includes OCR models and dependencies)
+        # Step 1: Copy base release (1.6.3.zip) - includes OCR models, Config.json, and all dependencies
+        Write-Host "Copying base release (1.6.3.zip)..."
         Copy-Item -Path "base-release/**/*" -Destination $releaseDir -Recurse -Force
         
-        # Copy newly built files
+        # Step 2: Copy newly built executable and config
         $newBuildPath = "GI-Subtitles/bin/${{ env.BUILD_CONFIGURATION }}"
         Write-Host "Merging new build from: $newBuildPath"
         
@@ -260,29 +261,18 @@ jobs:
         Copy-Item -Path "$newBuildPath/GI-Subtitles.pdb" -Destination "$releaseDir/GI-Subtitles.pdb" -Force -ErrorAction SilentlyContinue
         Copy-Item -Path "$newBuildPath/GI-Subtitles.exe.config" -Destination "$releaseDir/GI-Subtitles.exe.config" -Force -ErrorAction SilentlyContinue
         
+        # Step 3: Copy DLL files EXCEPT onnxruntime and OpenCvSharp native DLLs
+        # These are already in base-release and working correctly
+        Write-Host "Copying application DLLs (preserving base-release native DLLs)..."
         Get-ChildItem -Path "$newBuildPath" -Filter "*.dll" | ForEach-Object {
-          Copy-Item -Path $_.FullName -Destination "$releaseDir/$($_.Name)" -Force -ErrorAction SilentlyContinue
-        }
-        
-        # Ensure inference folder structure exists (for OCR models)
-        # Models should be in base release, but create structure if missing
-        if (!(Test-Path "$releaseDir/inference")) {
-          Write-Host "Creating inference folder structure..."
-          New-Item -ItemType Directory -Force -Path "$releaseDir/inference/Det/V5/PP-OCRv5_mobile_det_infer" | Out-Null
-          New-Item -ItemType Directory -Force -Path "$releaseDir/inference/Rec/V5/PP-OCRv5_mobile_rec_infer" | Out-Null
-        }
-        
-        # Create Config.json if not present (from base release or template)
-        if (!(Test-Path "$releaseDir/Config.json")) {
-          Write-Host "Creating default Config.json..."
-          @{
-            "Language" = "en-US"
-            "SourceLang" = "zh-cn"
-            "TargetLang" = "en"
-            "Pad" = @(0, 0)
-            "FontSize" = 24
-            "Opacity" = 0.9
-          } | ConvertTo-Json | Set-Content -Path "$releaseDir/Config.json" -Encoding UTF8
+          # Skip OnnxRuntime and OpenCvSharp native DLLs - use working versions from base-release
+          $skipFiles = @("onnxruntime.dll", "OpenCvSharp4.runtime.dll")
+          if ($skipFiles -notcontains $_.Name) {
+            Copy-Item -Path $_.FullName -Destination "$releaseDir/$($_.Name)" -Force -ErrorAction SilentlyContinue
+            Write-Host "  Copied: $($_.Name)"
+          } else {
+            Write-Host "  Skipped (using base-release): $($_.Name)"
+          }
         }
         
         Write-Host "`nRelease package contents:"
@@ -290,10 +280,12 @@ jobs:
         
         # Verify critical files
         Write-Host "`nVerifying critical files:"
-        $criticalFiles = @("GI-Subtitles.exe", "Config.json", "inference")
+        $criticalFiles = @("GI-Subtitles.exe", "Config.json", "inference", "onnxruntime.dll")
         foreach ($file in $criticalFiles) {
-          if (Test-Path "$releaseDir/$file") {
-            Write-Host "  ✓ $file" -ForegroundColor Green
+          if (Test-Path "$releaseDir/$file" -PathType Container -ErrorAction SilentlyContinue) {
+            Write-Host "  ✓ $file (folder)" -ForegroundColor Green
+          } elseif (Test-Path "$releaseDir/$file" -PathType Leaf -ErrorAction SilentlyContinue) {
+            Write-Host "  ✓ $file (file)" -ForegroundColor Green
           } else {
             Write-Host "  ✗ $file (MISSING)" -ForegroundColor Red
           }
