@@ -57,6 +57,69 @@ namespace GI_Subtitles.Common
             return voiceContentDict;
         }
 
+        public static string GetGenshinMediumFilePath(string filePath)
+        {
+            if (string.IsNullOrEmpty(filePath)) return string.Empty;
+
+            string directory = Path.GetDirectoryName(filePath);
+            string fileName = Path.GetFileName(filePath);
+            if (string.IsNullOrEmpty(directory) || string.IsNullOrEmpty(fileName)) return string.Empty;
+
+            if (fileName.StartsWith("TextMap_Medium", StringComparison.OrdinalIgnoreCase))
+            {
+                return Path.Combine(directory, fileName);
+            }
+
+            if (fileName.StartsWith("TextMap", StringComparison.OrdinalIgnoreCase))
+            {
+                return Path.Combine(directory, fileName.Replace("TextMap", "TextMap_Medium"));
+            }
+
+            return string.Empty;
+        }
+
+        public static void MergeJsonFiles(string newFilePath, string existingFilePath)
+        {
+            if (!File.Exists(newFilePath)) return;
+            if (!File.Exists(existingFilePath))
+            {
+                File.Copy(newFilePath, existingFilePath);
+                return;
+            }
+
+            try
+            {
+                var newData = JsonConvert.DeserializeObject<Dictionary<string, string>>(File.ReadAllText(newFilePath));
+                var existingData = JsonConvert.DeserializeObject<Dictionary<string, string>>(File.ReadAllText(existingFilePath));
+
+                bool changed = false;
+                foreach (var kvp in newData)
+                {
+                    if (!existingData.TryGetValue(kvp.Key, out var existingValue) || existingValue != kvp.Value)
+                    {
+                        existingData[kvp.Key] = kvp.Value;
+                        changed = true;
+                    }
+                }
+
+                if (changed)
+                {
+                    File.WriteAllText(existingFilePath, JsonConvert.SerializeObject(existingData, Formatting.Indented));
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Log.Error($"Failed to merge JSON files: {ex.Message}");
+                // Fallback: if merge fails, just overwrite if the new file is valid JSON
+                try
+                {
+                    JsonConvert.DeserializeObject<Dictionary<string, string>>(File.ReadAllText(newFilePath));
+                    File.Copy(newFilePath, existingFilePath, true);
+                }
+                catch { }
+            }
+        }
+
         /// <summary>
         /// Build a merged output json where each key maps to two-language content joined by '\n'.
         /// Returns the merged json path (cached on disk).

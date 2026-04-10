@@ -17,6 +17,7 @@ using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.Window;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using Newtonsoft.Json;
 using System.Windows.Forms;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
@@ -101,6 +102,37 @@ namespace GI_Subtitles.Views
         public OptimizedMatcher Matcher;
         // Used to suppress initial UILangSelector SelectionChanged events triggered by XAML default selection
         private bool _uiLangInitialized = false;
+
+        public bool IsDataIncomplete
+        {
+            get { return (bool)GetValue(IsDataIncompleteProperty); }
+            set { SetValue(IsDataIncompleteProperty, value); }
+        }
+
+        public static readonly DependencyProperty IsDataIncompleteProperty =
+            DependencyProperty.Register("IsDataIncomplete", typeof(bool), typeof(SettingsWindow), new PropertyMetadata(false, OnIsDataIncompleteChanged));
+
+        private static void OnIsDataIncompleteChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            var window = d as SettingsWindow;
+            if (window == null) return;
+
+            bool isIncomplete = (bool)e.NewValue;
+            if (window.IncompleteDataWarning != null)
+            {
+                window.IncompleteDataWarning.Visibility = isIncomplete ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (window.DownloadButton != null)
+            {
+                string key = isIncomplete ? "Data_Repair" : "Btn_Download_All";
+                window.DownloadButton.Content = System.Windows.Application.Current.TryFindResource(key);
+            }
+
+            // Keep download URLs in sync with the current language selection
+            window.RefreshUrl();
+        }
+
         public SettingsWindow(string version, INotifyIcon notify, double scale = 1)
         {
             _version = version;
@@ -138,11 +170,11 @@ namespace GI_Subtitles.Views
             LoadGameConfig(Game);
 
             GameSelector.SelectionChanged += OnGameSelectorChanged;
-            
+
             // Initialize InputSelector items
             InputSelector.ItemsSource = InputLanguages.Keys.ToList();
             InputSelector.SelectionChanged += OnInputSelectorChanged;
-            
+
             // Initialize OutputSelector items
             OutputSelector.ItemsSource = OutputLanguages.Keys.ToList();
             OutputSelector.SelectionChanged += OutputSelector_SelectionChanged;
@@ -165,7 +197,7 @@ namespace GI_Subtitles.Views
             {
                 OutputSelector.SelectedItems.Add(secondName);
             }
-            
+
             DisplayLocalFileDates();
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
             ServicePointManager.ServerCertificateValidationCallback += (sender, certificate, chain, sslPolicyErrors) => true;
@@ -396,7 +428,7 @@ namespace GI_Subtitles.Views
             // Each object has a Display property and the original Name (Internal ID)
             var displayList = _supportedGames.Select(g => new
             {
-                Display = (g.DisplayNames != null && g.DisplayNames.TryGetValue(uiLang, out var localizedName)) 
+                Display = (g.DisplayNames != null && g.DisplayNames.TryGetValue(uiLang, out var localizedName))
                           ? localizedName : g.Name,
                 Name = g.Name
             }).ToList();
@@ -430,6 +462,23 @@ namespace GI_Subtitles.Views
                     File.WriteAllText(configPath, JsonConvert.SerializeObject(_currentGameConfig, Formatting.Indented));
                 }
             }
+            else if (gameName == "Genshin")
+            {
+                string mediumUrl = "https://gitlab.com/Dimbreath/AnimeGameData/-/raw/master/TextMap/TextMap_Medium{Language}.json?inline=false";
+                if (string.IsNullOrEmpty(_currentGameConfig.MediumUrlTemplate))
+                {
+                    _currentGameConfig.MediumUrlTemplate = mediumUrl;
+                    try
+                    {
+                        File.WriteAllText(configPath, JsonConvert.SerializeObject(_currentGameConfig, Formatting.Indented));
+                        Logger.Log.Info($"Migrated {gameName}.json to include MediumUrlTemplate");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Log.Error($"Failed to update {gameName}.json during migration: {ex.Message}");
+                    }
+                }
+            }
 
             repoUrl = _currentGameConfig.RepoUrl;
         }
@@ -444,6 +493,7 @@ namespace GI_Subtitles.Views
                     config.RepoType = "GitLab";
                     config.InputUrlTemplate = "https://gitlab.com/Dimbreath/AnimeGameData/-/raw/master/TextMap/TextMap{Language}.json?inline=false";
                     config.OutputUrlTemplate = "https://gitlab.com/Dimbreath/AnimeGameData/-/raw/master/TextMap/TextMap{Language}.json?inline=false";
+                    config.MediumUrlTemplate = "https://gitlab.com/Dimbreath/AnimeGameData/-/raw/master/TextMap/TextMap_Medium{Language}.json?inline=false";
                     break;
                 case "StarRail":
                     config.RepoUrl = "https://gitlab.com/Dimbreath/turnbasedgamedata/-/refs/main/logs_tree/?format=json&offset=0&ref_type=HEADS";
@@ -626,18 +676,64 @@ namespace GI_Subtitles.Views
             string outputFilePath1 = $"{Path.Combine(dataDir, Game)}\\TextMap{OutputLanguage}.json";
             string mergedCachePath = $"{Path.Combine(dataDir, Game)}\\TextMap{InputLanguage}_TextMap{OutputLanguage}.json";
 
+            bool basicExists;
             if (!string.IsNullOrEmpty(OutputLanguage2))
             {
                 string outputFilePath2 = $"{Path.Combine(dataDir, Game)}\\TextMap{OutputLanguage2}.json";
                 string mergedMulti = Path.Combine(Path.GetDirectoryName(outputFilePath1),
                     $"{Path.GetFileNameWithoutExtension(outputFilePath1)}_{Path.GetFileNameWithoutExtension(outputFilePath2)}.json");
 
-                return (File.Exists(inputFilePath) && File.Exists(outputFilePath1) && File.Exists(outputFilePath2)) ||
-                       File.Exists(mergedMulti);
+                basicExists = (File.Exists(inputFilePath) && File.Exists(outputFilePath1) && File.Exists(outputFilePath2)) ||
+                              File.Exists(mergedMulti);
+            }
+            else
+            {
+                basicExists = File.Exists(mergedCachePath) ||
+                              (File.Exists(inputFilePath) && File.Exists(outputFilePath1));
             }
 
-            return File.Exists(mergedCachePath) ||
-                   (File.Exists(inputFilePath) && File.Exists(outputFilePath1));
+            if (!basicExists) return false;
+
+            if (Game == "Genshin" && HasMissingRequiredMediumData()) return false;
+
+            return true;
+        }
+
+        public bool HasMissingRequiredMediumData()
+        {
+            if (Game != "Genshin") return false;
+
+            foreach (string filePath in GetSelectedLanguageFilePaths())
+            {
+                if (!File.Exists(filePath))
+                {
+                    continue;
+                }
+
+                string mediumFilePath = VoiceContentHelper.GetGenshinMediumFilePath(filePath);
+                if (string.IsNullOrEmpty(mediumFilePath) || !File.Exists(mediumFilePath))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private IEnumerable<string> GetSelectedLanguageFilePaths()
+        {
+            var paths = new List<string>
+            {
+                $"{Path.Combine(dataDir, Game)}\\TextMap{InputLanguage}.json",
+                $"{Path.Combine(dataDir, Game)}\\TextMap{OutputLanguage}.json"
+            };
+
+            if (!string.IsNullOrEmpty(OutputLanguage2))
+            {
+                paths.Add($"{Path.Combine(dataDir, Game)}\\TextMap{OutputLanguage2}.json");
+            }
+
+            return paths.Distinct(StringComparer.OrdinalIgnoreCase);
         }
 
         public async Task CheckDataAsync(bool renew = false)
@@ -834,18 +930,19 @@ namespace GI_Subtitles.Views
             await GetRepositoryModificationDateAsync();
         }
 
-        private async void DownloadButton1_Click(object sender, RoutedEventArgs e)
+        private async void DownloadButton_Click(object sender, RoutedEventArgs e)
         {
             string inputFilePath = $"{Path.Combine(dataDir, Game)}\\TextMap{InputLanguage}.json";
-            await DownloadFileAsync(InputLangDownloadUrl.Text, inputFilePath);
-        }
-
-        private async void DownloadButton2_Click(object sender, RoutedEventArgs e)
-        {
             string outputFilePath = $"{Path.Combine(dataDir, Game)}\\TextMap{OutputLanguage}.json";
-            await DownloadFileAsync(OutputLangDownloadUrl.Text, outputFilePath);
-            string outputFilePath2 = $"{Path.Combine(dataDir, Game)}\\TextMap{OutputLanguage2}.json";
-            await DownloadFileAsync(OutputLangDownloadUrl2.Text, outputFilePath2);
+
+            await DownloadFileAsync(InputLangDownloadUrl.Text, inputFilePath, Game, InputLanguage);
+            await DownloadFileAsync(OutputLangDownloadUrl.Text, outputFilePath, Game, OutputLanguage);
+
+            if (!string.IsNullOrEmpty(OutputLanguage2))
+            {
+                string outputFilePath2 = $"{Path.Combine(dataDir, Game)}\\TextMap{OutputLanguage2}.json";
+                await DownloadFileAsync(OutputLangDownloadUrl2.Text, outputFilePath2, Game, OutputLanguage2);
+            }
             await CheckDataAsync(true);
         }
 
@@ -897,93 +994,91 @@ namespace GI_Subtitles.Views
             OutputConfirmButton.IsEnabled = false;
         }
 
-        private async Task DownloadFileAsync(string url, string fileName)
+        private async Task DownloadFileAsync(string url, string fileName, string gameName = "", string language = "")
         {
+            if (string.IsNullOrEmpty(url)) return;
             if (!Uri.TryCreate(url, UriKind.Absolute, out Uri uri))
             {
                 System.Windows.MessageBox.Show($"Invalid URL: {url}");
                 return;
             }
-            fileName = Path.Combine(dataDir, fileName);
+
+            string fullPath = Path.Combine(dataDir, fileName);
             int attempt = 0;
             bool success = false;
-            long existingLength = 0;
-            string tmpFileName = fileName.Replace("json", "jsontmp");
 
+            string tmpUpdateFile = fullPath + ".update.tmp";
+            string mediumFilePath = VoiceContentHelper.GetGenshinMediumFilePath(fullPath);
+            string tmpMediumFile = string.IsNullOrEmpty(mediumFilePath) ? string.Empty : mediumFilePath + ".tmp";
 
             while (attempt < MaxRetries && !success)
             {
                 try
                 {
-                    using (HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, uri))
+                    await PerformDownloadAsync(uri, tmpUpdateFile);
+
+                    if (File.Exists(tmpUpdateFile))
                     {
-
-                        sw.Start();
-                        using (HttpResponseMessage response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead))
+                        if (gameName == "Genshin")
                         {
-                            response.EnsureSuccessStatusCode();
-
-                            // Get the total size
-                            long totalBytes = response.Content.Headers.ContentLength.Value;
-
-                            using (Stream contentStream = await response.Content.ReadAsStreamAsync(),
-                                          fileStream = new FileStream(tmpFileName, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true))
+                            string mediumUrl = _currentGameConfig?.GetMediumDownloadUrl(language);
+                            if (!string.IsNullOrEmpty(mediumUrl) &&
+                                !string.IsNullOrEmpty(tmpMediumFile) &&
+                                Uri.TryCreate(mediumUrl, UriKind.Absolute, out Uri mediumUri))
                             {
-                                byte[] buffer = new byte[8192];
-                                int bytesRead;
-                                while ((bytesRead = await contentStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
                                 {
-                                    await fileStream.WriteAsync(buffer, 0, bytesRead);
-                                    existingLength += bytesRead;
+                                    Status.Content = $"Downloading Medium data for {language}...";
+                                });
 
-                                    // Update the progress
-                                    double progressPercentage = (double)existingLength / totalBytes * 100;
-                                    DownloadProgressBar.Value = progressPercentage;
+                                await PerformDownloadAsync(mediumUri, tmpMediumFile);
+                                await Task.Run(() => VoiceContentHelper.MergeJsonFiles(tmpMediumFile, tmpUpdateFile));
 
-                                    // Calculate the download speed
-                                    double speed = existingLength / 1024d / sw.Elapsed.TotalSeconds;
-                                    DownloadSpeedText.Text = $"{speed:0.00} KB/s";
-                                }
+                                if (File.Exists(mediumFilePath)) File.Delete(mediumFilePath);
+                                File.Move(tmpMediumFile, mediumFilePath);
                             }
                         }
-                    }
 
-                    sw.Reset();
-                    if (File.Exists(tmpFileName))
-                    {
-                        if (File.Exists(fileName))
+                        if (File.Exists(fullPath)) File.Delete(fullPath);
+                        File.Move(tmpUpdateFile, fullPath);
+
+                        if (gameName == "Genshin")
                         {
-                            File.Delete(fileName);
+                            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                            {
+                                IsDataIncomplete = HasMissingRequiredMediumData();
+                            });
                         }
-                        File.Move(tmpFileName, fileName);
-                        string directoryPath = Path.GetDirectoryName(fileName);
 
-                        string baseFileName = Path.GetFileNameWithoutExtension(fileName);
+                        if (File.Exists(tmpUpdateFile)) File.Delete(tmpUpdateFile);
+                        if (!string.IsNullOrEmpty(tmpMediumFile) && File.Exists(tmpMediumFile)) File.Delete(tmpMediumFile);
+
+                        string directoryPath = Path.GetDirectoryName(fullPath);
+                        string baseFileName = Path.GetFileNameWithoutExtension(fullPath);
                         string[] matchingFiles = Directory.GetFiles(directoryPath);
                         foreach (string file in matchingFiles)
                         {
                             try
                             {
-                                string baseName = Path.GetFileNameWithoutExtension(file);
-                                if (baseName.Contains(baseFileName) && baseName.Contains("_"))
+                                string bName = Path.GetFileNameWithoutExtension(file);
+                                if (bName.Contains(baseFileName) && bName.Contains("_"))
                                 {
                                     File.Delete(file);
-                                    Logger.Log.Info($"Deleted: {file}");
+                                    Logger.Log.Info($"Deleted cache: {file}");
                                 }
                             }
                             catch (Exception ex)
                             {
-                                Logger.Log.Error($"Failed to delete {file}: {ex.Message}");
+                                Logger.Log.Error($"Failed to delete cache {file}: {ex.Message}");
                             }
                         }
                     }
 
-                    DisplayLocalFileDates(); // Update the local file date
+                    DisplayLocalFileDates();
                     success = true;
                 }
                 catch (Exception ex)
                 {
-                    sw.Reset();
                     attempt++;
                     if (attempt >= MaxRetries)
                     {
@@ -996,9 +1091,74 @@ namespace GI_Subtitles.Views
                 }
                 finally
                 {
-                    DownloadProgressBar.Value = 0;
-                    DownloadSpeedText.Text = "";
+                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                    {
+                        DownloadProgressBar.Value = 0;
+                        DownloadSpeedText.Text = "";
+                    });
                 }
+            }
+        }
+        private async Task PerformDownloadAsync(Uri uri, string destinationPath)
+        {
+            Logger.Log.Info($"Starting download from {uri.AbsoluteUri} to {destinationPath}");
+            using (HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, uri))
+            {
+                // Add Referrer based on the host to avoid some 403/Forbidden errors
+                if (uri.Host.Contains("gitlab.com"))
+                {
+                    request.Headers.Referrer = new Uri("https://gitlab.com/");
+                }
+                else if (uri.Host.Contains("github.com"))
+                {
+                    request.Headers.Referrer = new Uri("https://github.com/");
+                }
+
+                sw.Restart();
+                try
+                {
+                    using (HttpResponseMessage response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead))
+                    {
+                        Logger.Log.Info($"Download response: {response.StatusCode} for {uri.AbsoluteUri}");
+                        response.EnsureSuccessStatusCode();
+
+                        long? totalBytes = response.Content.Headers.ContentLength;
+                        long existingLength = 0;
+
+                        using (Stream contentStream = await response.Content.ReadAsStreamAsync(),
+                                      fileStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true))
+                        {
+                            byte[] buffer = new byte[8192];
+                            int bytesRead;
+                            while ((bytesRead = await contentStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                            {
+                                await fileStream.WriteAsync(buffer, 0, bytesRead);
+                                existingLength += bytesRead;
+
+                                if (totalBytes.HasValue)
+                                {
+                                    double progressPercentage = (double)existingLength / totalBytes.Value * 100;
+                                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                                    {
+                                        DownloadProgressBar.Value = progressPercentage;
+                                    });
+                                }
+
+                                double speed = existingLength / 1024d / sw.Elapsed.TotalSeconds;
+                                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                                {
+                                    DownloadSpeedText.Text = $"{speed:0.00} KB/s";
+                                });
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Log.Error($"Download failed for {uri.AbsoluteUri}: {ex.Message}");
+                    throw;
+                }
+                sw.Stop();
             }
         }
 
@@ -1534,21 +1694,21 @@ namespace GI_Subtitles.Views
             Config.Set("AutoStart", AutoStartCheckBox.IsChecked == true);
         }
 
-        private void Hyperlink_RequestNavigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
+        private void UrlTextBox_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
-            try
+            if (sender is System.Windows.Controls.TextBox textBox && !string.IsNullOrWhiteSpace(textBox.Text))
             {
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                try
                 {
-                    FileName = e.Uri.AbsoluteUri,
-                    UseShellExecute = true // Must be true to open in the default browser
-                });
+                    System.Windows.Clipboard.SetText(textBox.Text);
+                    Status.Content = "URL copied to clipboard";
+                    Logger.Log.Info($"URL copied to clipboard: {textBox.Text}");
+                }
+                catch (Exception ex)
+                {
+                    Logger.Log.Error($"Failed to copy URL to clipboard: {ex.Message}");
+                }
             }
-            catch (Exception ex)
-            {
-                Logger.Log.Error(ex);
-            }
-            e.Handled = true;
         }
 
         // Override the closing event
@@ -1586,6 +1746,23 @@ namespace GI_Subtitles.Views
                 return;
             }
             Config.Set("PlayVoice", PlayVoiceCheckBox.IsChecked == true);
+        }
+
+        private void Hyperlink_RequestNavigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
+        {
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = e.Uri.AbsoluteUri,
+                    UseShellExecute = true // Must be true to open in the default browser
+                });
+            }
+            catch (Exception ex)
+            {
+                Logger.Log.Error(ex);
+            }
+            e.Handled = true;
         }
     }
 }

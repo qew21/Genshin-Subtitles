@@ -24,6 +24,7 @@
     <sys:String x:Key="Status_Loading" xmlns:sys="clr-namespace:System;assembly=mscorlib">データ読み込み中……</sys:String>
 
     <sys:String x:Key="Btn_Sync" xmlns:sys="clr-namespace:System;assembly=mscorlib">同期</sys:String>
+    <sys:String x:Key="Btn_Download_All" xmlns:sys="clr-namespace:System;assembly=mscorlib">データ取得</sys:String>
     <sys:String x:Key="Btn_Download_Input" xmlns:sys="clr-namespace:System;assembly=mscorlib">入力を取得</sys:String>
     <sys:String x:Key="Btn_Download_Output" xmlns:sys="clr-namespace:System;assembly=mscorlib">出力を取得</sys:String>
     <sys:String x:Key="Btn_Restart" xmlns:sys="clr-namespace:System;assembly=mscorlib">再起動</sys:String>
@@ -35,6 +36,7 @@
     <sys:String x:Key="Btn_ResetDefault" xmlns:sys="clr-namespace:System;assembly=mscorlib">黙諾</sys:String>
 
     <sys:String x:Key="Help_Sync" xmlns:sys="clr-namespace:System;assembly=mscorlib">リモートリポジトリと同期して、最新の言語パックとメタデータを取得します。</sys:String>
+    <sys:String x:Key="Help_Download_All" xmlns:sys="clr-namespace:System;assembly=mscorlib">現在の設定に基づいて、認識言語、出力言語、および有効な場合は第2出力言語をまとめてダウンロードします。</sys:String>
     <sys:String x:Key="Help_Download_Input" xmlns:sys="clr-namespace:System;assembly=mscorlib">現在の「認識言語」の言語パックまたは語彙リソースをダウンロードします。</sys:String>
     <sys:String x:Key="Help_Download_Output" xmlns:sys="clr-namespace:System;assembly=mscorlib">現在の「出力言語」の翻訳/置換リソースをダウンロードします。</sys:String>
     <sys:String x:Key="Help_Restart" xmlns:sys="clr-namespace:System;assembly=mscorlib">最新の設定または言語リソースを適用するためにアプリケーションを再起動します。</sys:String>
@@ -78,4 +80,8 @@
     <sys:String x:Key="Hotkey_9001_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕領域（最初の行）の選択</sys:String>
     <sys:String x:Key="Hotkey_9002_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">二言語字幕を非表示</sys:String>
     <sys:String x:Key="Hotkey_9003_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">認識領域を表示</sys:String>
+
+    <!-- Data Warnings -->
+    <sys:String x:Key="Incomplete_Data_Warning" xmlns:sys="clr-namespace:System;assembly=mscorlib">現在使用中の『原神』言語パックに Medium データが不足しています。このままでは一部のテキストを認識できません。下のボタンから Medium データをダウンロードして結合してください。</sys:String>
+    <sys:String x:Key="Data_Repair" xmlns:sys="clr-namespace:System;assembly=mscorlib">Medium データを取得して結合</sys:String>
 </ResourceDictionary>

@@ -174,6 +174,14 @@ namespace GI_Subtitles.Views
             notify.SetData(data);
             if (!data.FileExists())
             {
+                if (Game == "Genshin")
+                {
+                    if (data.HasMissingRequiredMediumData())
+                    {
+                        data.IsDataIncomplete = true;
+                    }
+                }
+
                 if (!data.IsVisible)
                 {
                     data.ShowDialog();

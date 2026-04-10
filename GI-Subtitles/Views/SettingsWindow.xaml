@@ -57,7 +57,33 @@
     </Window.Resources>
 
     <Grid Margin="16">
-        <TabControl>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Warning banner for missing Genshin Medium data -->
+        <Border x:Name="IncompleteDataWarning" 
+                Grid.Row="0"
+                Background="#FFF4CE" 
+                BorderBrush="#FFBA00" 
+                BorderThickness="1" 
+                Padding="12,8" 
+                Margin="0,0,0,12"
+                CornerRadius="4"
+                Visibility="Collapsed">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="⚠" FontSize="18" Foreground="#FFBA00" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                <TextBlock Text="{DynamicResource Incomplete_Data_Warning}" 
+                           TextWrapping="Wrap" 
+                           Foreground="#333333" 
+                           FontSize="13"
+                           VerticalAlignment="Center"
+                           MaxWidth="750"/>
+            </StackPanel>
+        </Border>
+
+        <TabControl Grid.Row="1">
             <!-- Tab 1: Language & Data Management -->
             <TabItem Header="{DynamicResource Tab_Language}">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -135,16 +161,22 @@
                                     </TextBlock>
                                     <TextBlock Margin="0,4,0,0">
                                         <Run Text="{DynamicResource Download_Input_Lang}"/>
-                                        <TextBox x:Name="InputLangDownloadUrl" Style="{StaticResource LinkTextBox}" Text=""/>
+                                        <TextBox x:Name="InputLangDownloadUrl" Style="{StaticResource LinkTextBox}" Text="" 
+                                                 Cursor="Hand" MouseLeftButtonUp="UrlTextBox_MouseLeftButtonUp" IsReadOnly="True"
+                                                 ToolTip="Click to copy URL"/>
                                     </TextBlock>
                                     <TextBlock Margin="0,4,0,0">
                                         <Run Text="{DynamicResource Download_Output_Lang}"/>
-                                        <TextBox x:Name="OutputLangDownloadUrl" Style="{StaticResource LinkTextBox}" Text=""/>
+                                        <TextBox x:Name="OutputLangDownloadUrl" Style="{StaticResource LinkTextBox}" Text="" 
+                                                 Cursor="Hand" MouseLeftButtonUp="UrlTextBox_MouseLeftButtonUp" IsReadOnly="True"
+                                                 ToolTip="Click to copy URL"/>
                                     </TextBlock>
                                     <!-- Optional second output language download link (when multi-output is enabled) -->
                                     <TextBlock Margin="0,4,0,0">
                                         <Run Text="{DynamicResource Download_Output_Lang}"/>
-                                        <TextBox x:Name="OutputLangDownloadUrl2" Style="{StaticResource LinkTextBox}" Text=""/>
+                                        <TextBox x:Name="OutputLangDownloadUrl2" Style="{StaticResource LinkTextBox}" Text="" 
+                                                 Cursor="Hand" MouseLeftButtonUp="UrlTextBox_MouseLeftButtonUp" IsReadOnly="True"
+                                                 ToolTip="Click to copy URL"/>
                                     </TextBlock>
                                 </StackPanel>
                             </GroupBox>
@@ -165,12 +197,9 @@
                             <Button x:Name="SyncButton" Style="{StaticResource PrimaryButton}" 
                                     Content="{DynamicResource Btn_Sync}" Click="SyncButton_Click"
                                     ToolTip="{DynamicResource Help_Sync}"/>
-                            <Button x:Name="DownloadButton1" Style="{StaticResource PrimaryButton}"
-                                    Content="{DynamicResource Btn_Download_Input}" Click="DownloadButton1_Click"
-                                    ToolTip="{DynamicResource Help_Download_Input}"/>
-                            <Button x:Name="DownloadButton2" Style="{StaticResource PrimaryButton}"
-                                    Content="{DynamicResource Btn_Download_Output}" Click="DownloadButton2_Click"
-                                    ToolTip="{DynamicResource Help_Download_Output}"/>
+                            <Button x:Name="DownloadButton" Style="{StaticResource PrimaryButton}"
+                                    Content="{DynamicResource Btn_Download_All}" Click="DownloadButton_Click"
+                                    ToolTip="{DynamicResource Help_Download_All}"/>
                             <Button x:Name="RestartButton" Style="{StaticResource PrimaryButton}"
                                     Content="{DynamicResource Btn_Restart}" Click="RestartButton_Click"
                                     ToolTip="{DynamicResource Help_Restart}"/>

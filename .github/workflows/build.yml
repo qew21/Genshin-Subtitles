@@ -16,6 +16,9 @@ env:
   BUILD_PLATFORM: x64
   BASE_VERSION: 1.6.3
 
+permissions:
+  contents: write
+
 jobs:
   build-and-test:
     name: Build and Test

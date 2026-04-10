@@ -29,6 +29,7 @@
     <sys:String x:Key="Status_Loading" xmlns:sys="clr-namespace:System;assembly=mscorlib">数据加载中......</sys:String>
 
     <sys:String x:Key="Btn_Sync" xmlns:sys="clr-namespace:System;assembly=mscorlib">同步</sys:String>
+    <sys:String x:Key="Btn_Download_All" xmlns:sys="clr-namespace:System;assembly=mscorlib">下载数据</sys:String>
     <sys:String x:Key="Btn_Download_Input" xmlns:sys="clr-namespace:System;assembly=mscorlib">下载识别</sys:String>
     <sys:String x:Key="Btn_Download_Output" xmlns:sys="clr-namespace:System;assembly=mscorlib">下载转换</sys:String>
     <sys:String x:Key="Btn_Restart" xmlns:sys="clr-namespace:System;assembly=mscorlib">重启</sys:String>
@@ -42,6 +43,7 @@
 
     <!-- 帮助文案 -->
     <sys:String x:Key="Help_Sync" xmlns:sys="clr-namespace:System;assembly=mscorlib">与远程仓库同步最新语言包与元数据。</sys:String>
+    <sys:String x:Key="Help_Download_All" xmlns:sys="clr-namespace:System;assembly=mscorlib">按当前设置一次性下载识别语言、输出语言，以及第二输出语言（如果已启用）。</sys:String>
     <sys:String x:Key="Help_Download_Input" xmlns:sys="clr-namespace:System;assembly=mscorlib">下载当前“识别语言”的语言包或词库资源。</sys:String>
     <sys:String x:Key="Help_Download_Output" xmlns:sys="clr-namespace:System;assembly=mscorlib">下载当前“输出语言”的翻译/替换资源。</sys:String>
     <sys:String x:Key="Help_Restart" xmlns:sys="clr-namespace:System;assembly=mscorlib">重启应用以应用最新配置或语言资源。</sys:String>
@@ -86,4 +88,8 @@
     <sys:String x:Key="Hotkey_9001_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">选择字幕区域（第一行）</sys:String>
     <sys:String x:Key="Hotkey_9002_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">隐藏双语字幕</sys:String>
     <sys:String x:Key="Hotkey_9003_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">展示识别区域</sys:String>
+
+    <!-- Data Warnings -->
+    <sys:String x:Key="Incomplete_Data_Warning" xmlns:sys="clr-namespace:System;assembly=mscorlib">检测到《原神》当前使用的语言包缺少 Medium 数据，部分文本将无法识别。请点击下方按钮下载并合并 Medium 数据。</sys:String>
+    <sys:String x:Key="Data_Repair" xmlns:sys="clr-namespace:System;assembly=mscorlib">下载并合并 Medium 数据</sys:String>
 </ResourceDictionary>

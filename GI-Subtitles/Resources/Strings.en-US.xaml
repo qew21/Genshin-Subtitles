@@ -24,6 +24,7 @@
     <sys:String x:Key="Status_Loading" xmlns:sys="clr-namespace:System;assembly=mscorlib">Loading data...</sys:String>
 
     <sys:String x:Key="Btn_Sync" xmlns:sys="clr-namespace:System;assembly=mscorlib">Sync</sys:String>
+    <sys:String x:Key="Btn_Download_All" xmlns:sys="clr-namespace:System;assembly=mscorlib">Download Data</sys:String>
     <sys:String x:Key="Btn_Download_Input" xmlns:sys="clr-namespace:System;assembly=mscorlib">Download Input</sys:String>
     <sys:String x:Key="Btn_Download_Output" xmlns:sys="clr-namespace:System;assembly=mscorlib">Download Output</sys:String>
     <sys:String x:Key="Btn_Restart" xmlns:sys="clr-namespace:System;assembly=mscorlib">Restart</sys:String>
@@ -35,6 +36,7 @@
     <sys:String x:Key="Btn_ResetDefault" xmlns:sys="clr-namespace:System;assembly=mscorlib">Default</sys:String>
 
     <sys:String x:Key="Help_Sync" xmlns:sys="clr-namespace:System;assembly=mscorlib">Synchronize with the remote repository to obtain the latest language packs and metadata.</sys:String>
+    <sys:String x:Key="Help_Download_All" xmlns:sys="clr-namespace:System;assembly=mscorlib">Download the recognition language, output language, and second output language in one action when enabled.</sys:String>
     <sys:String x:Key="Help_Download_Input" xmlns:sys="clr-namespace:System;assembly=mscorlib">Download the language pack or vocabulary resources for the current 'Recognition Language'.</sys:String>
     <sys:String x:Key="Help_Download_Output" xmlns:sys="clr-namespace:System;assembly=mscorlib">Download the translation/replacement resources for the current 'Output Language'.</sys:String>
     <sys:String x:Key="Help_Restart" xmlns:sys="clr-namespace:System;assembly=mscorlib">Restart the application to apply the latest settings or language resources.</sys:String>
@@ -78,4 +80,8 @@
     <sys:String x:Key="Hotkey_9001_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">Select subtitle region (first line)</sys:String>
     <sys:String x:Key="Hotkey_9002_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">Hide bilingual subtitles</sys:String>
     <sys:String x:Key="Hotkey_9003_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">Show recognition region</sys:String>
+
+    <!-- Data Warnings -->
+    <sys:String x:Key="Incomplete_Data_Warning" xmlns:sys="clr-namespace:System;assembly=mscorlib">Detected that the currently used Genshin language packs are missing Medium data. Some text cannot be recognized until you download and merge the Medium files.</sys:String>
+    <sys:String x:Key="Data_Repair" xmlns:sys="clr-namespace:System;assembly=mscorlib">Download and Merge Medium Data</sys:String>
 </ResourceDictionary>
