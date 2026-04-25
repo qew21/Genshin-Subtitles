@@ -1746,6 +1746,11 @@ namespace GI_Subtitles.Views
                 return;
             }
             Config.Set("PlayVoice", PlayVoiceCheckBox.IsChecked == true);
+            if (string.IsNullOrEmpty(Config.Get<string>("Server")))
+            {
+                Config.Set("Server", "https://mp3.2langs.com/download");
+                Config.Set("Token", "ENGI");
+            }
         }
 
         private void Hyperlink_RequestNavigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)

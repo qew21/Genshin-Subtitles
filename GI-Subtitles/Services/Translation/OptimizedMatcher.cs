@@ -405,9 +405,13 @@ namespace GI_Subtitles.Services.Translation
                     bodyMatch = FindClosestMatch(string.Join(" ", bodyLines), out bodyKey);
                 }
             }
-            if (string.IsNullOrEmpty(bodyMatch) && maxIndex > 1)
+            if (string.IsNullOrEmpty(bodyMatch))
             {
-                bodyMatch = FindClosestMatch(string.Join(" ", lines.Skip(1)), out bodyKey);
+                if (maxIndex != 1 && lines.Length > 1)
+                {
+                    bodyMatch = FindClosestMatch(string.Join(" ", lines.Skip(1)), out bodyKey);
+                    ContentDict.TryGetValue(lines[0], out headerMatch);
+                }
             }
 
             key = bodyKey;
