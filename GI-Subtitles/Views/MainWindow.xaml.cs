@@ -129,6 +129,7 @@ namespace GI_Subtitles.Views
         private string tempFilePath;
         private int failedCount = 0;
         private bool usingRegion2 = false;
+        private bool _isUserMovingWindow = false;
 
 
         public MainWindow()
@@ -908,7 +909,7 @@ namespace GI_Subtitles.Views
             {
                 return;
             }
-            DragMove();
+            MoveWindowByUserDrag();
         }
 
 
@@ -922,9 +923,48 @@ namespace GI_Subtitles.Views
 
         private void MainWindow_LocationChanged(object sender, EventArgs e)
         {
+            if (!_isUserMovingWindow || notify?.Region == null || notify.Region.Length < 4)
+            {
+                return;
+            }
+
             int pad = Convert.ToInt16(this.Top - Convert.ToInt16(notify.Region[1]) / Scale);
-            int padHorizontal = Config.GetPadHorizontal();
+            int padHorizontal = CalculatePadHorizontal();
             Config.Set("Pad", new int[] { pad, padHorizontal });
+        }
+
+        private int CalculatePadHorizontal()
+        {
+            int regionX = Convert.ToInt16(notify.Region[0]);
+            int regionY = Convert.ToInt16(notify.Region[1]);
+            int regionWidth = Convert.ToInt16(notify.Region[2]);
+
+            foreach (var screen in Screen.AllScreens)
+            {
+                if (screen.WorkingArea.Contains(new System.Drawing.Point(regionX, regionY)))
+                {
+                    double scale = GetScaleForScreen(screen);
+                    double left = screen.Bounds.Left / scale;
+                    double width = regionWidth / scale + 200;
+                    double baseLeft = left + (screen.Bounds.Width / scale - width) / 2;
+                    return Convert.ToInt16(this.Left - baseLeft);
+                }
+            }
+
+            return Config.GetPadHorizontal();
+        }
+
+        private void MoveWindowByUserDrag()
+        {
+            try
+            {
+                _isUserMovingWindow = true;
+                DragMove();
+            }
+            finally
+            {
+                _isUserMovingWindow = false;
+            }
         }
 
 
@@ -1140,7 +1180,7 @@ namespace GI_Subtitles.Views
             Console.WriteLine("DragButton_MouseDown");
             if (e.LeftButton == MouseButtonState.Pressed)
             {
-                this.DragMove();
+                MoveWindowByUserDrag();
             }
         }
         public class NativeMethods

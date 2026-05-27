@@ -292,16 +292,16 @@
 
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <TextBlock Text="X:" Margin="0,0,4,0"/>
-                                <TextBox x:Name="RegionX" LostFocus="PadTextBox_LostFocus" Width="60" Text="763" Margin="0,0,8,0"/>
+                                <TextBox x:Name="RegionX" LostFocus="RegionField_LostFocus" Width="60" Text="763" Margin="0,0,8,0"/>
 
                                 <TextBlock Text="Y:" Margin="0,0,4,0"/>
-                                <TextBox x:Name="RegionY" LostFocus="PadTextBox_LostFocus" Width="60" Text="1797" Margin="0,0,8,0"/>
+                                <TextBox x:Name="RegionY" LostFocus="RegionField_LostFocus" Width="60" Text="1797" Margin="0,0,8,0"/>
 
                                 <TextBlock Text="{DynamicResource Config_Width}" Margin="0,0,4,0"/>
-                                <TextBox x:Name="RegionWidth" LostFocus="PadTextBox_LostFocus" Width="60" Text="2226" Margin="0,0,8,0"/>
+                                <TextBox x:Name="RegionWidth" LostFocus="RegionField_LostFocus" Width="60" Text="2226" Margin="0,0,8,0"/>
 
                                 <TextBlock Text="{DynamicResource Config_Height}" Margin="0,0,4,0"/>
-                                <TextBox x:Name="RegionHeight" LostFocus="PadTextBox_LostFocus" Width="60" Text="110" Margin="0,0,8,0"/>
+                                <TextBox x:Name="RegionHeight" LostFocus="RegionField_LostFocus" Width="60" Text="110" Margin="0,0,8,0"/>
                             </StackPanel>
 
                             <Button Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center"
