@@ -193,4 +193,4 @@ This project is for educational and research purposes only.
 
 - [PaddleOCRSharp](https://github.com/raoyutian/PaddleOCRSharp) - OCR engine
 - [Genshin_Datasets](https://github.com/AI-Hobbyist/Genshin_Voice_Sorting_Scripts) - Game text data
-- [Dimbreath/AnimeGameData](https://gitlab.com/Dimbreath/AnimeGameData) - TextMap language packs
+- [Dimbreath/animegamedata2](https://gitlab.com/Dimbreath/animegamedata2) - TextMap language packs

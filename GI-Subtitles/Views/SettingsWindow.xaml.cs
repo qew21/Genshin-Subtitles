@@ -464,14 +464,26 @@ namespace GI_Subtitles.Views
             }
             else if (gameName == "Genshin")
             {
-                string mediumUrl = "https://gitlab.com/Dimbreath/AnimeGameData/-/raw/master/TextMap/TextMap_Medium{Language}.json?inline=false";
+                bool configChanged = false;
+                string mediumUrl = "https://gitlab.com/Dimbreath/animegamedata2/-/raw/main/TextMap/TextMap_Medium{Language}.json?inline=false";
+
+                _currentGameConfig.RepoUrl = MigrateGenshinRepositoryUrl(_currentGameConfig.RepoUrl, ref configChanged);
+                _currentGameConfig.InputUrlTemplate = MigrateGenshinRepositoryUrl(_currentGameConfig.InputUrlTemplate, ref configChanged);
+                _currentGameConfig.OutputUrlTemplate = MigrateGenshinRepositoryUrl(_currentGameConfig.OutputUrlTemplate, ref configChanged);
+                _currentGameConfig.MediumUrlTemplate = MigrateGenshinRepositoryUrl(_currentGameConfig.MediumUrlTemplate, ref configChanged);
+
                 if (string.IsNullOrEmpty(_currentGameConfig.MediumUrlTemplate))
                 {
                     _currentGameConfig.MediumUrlTemplate = mediumUrl;
+                    configChanged = true;
+                }
+
+                if (configChanged)
+                {
                     try
                     {
                         File.WriteAllText(configPath, JsonConvert.SerializeObject(_currentGameConfig, Formatting.Indented));
-                        Logger.Log.Info($"Migrated {gameName}.json to include MediumUrlTemplate");
+                        Logger.Log.Info($"Migrated cached repository URLs in {gameName}.json");
                     }
                     catch (Exception ex)
                     {
@@ -483,17 +495,48 @@ namespace GI_Subtitles.Views
             repoUrl = _currentGameConfig.RepoUrl;
         }
 
+        private static string MigrateGenshinRepositoryUrl(string url, ref bool configChanged)
+        {
+            const string oldRepository = "https://gitlab.com/Dimbreath/AnimeGameData";
+            const string newRepository = "https://gitlab.com/Dimbreath/animegamedata2";
+
+            if (string.IsNullOrEmpty(url))
+            {
+                return url;
+            }
+
+            string migratedUrl = url;
+            int repositoryIndex = migratedUrl.IndexOf(oldRepository, StringComparison.OrdinalIgnoreCase);
+            if (repositoryIndex >= 0)
+            {
+                migratedUrl = migratedUrl.Substring(0, repositoryIndex)
+                    + newRepository
+                    + migratedUrl.Substring(repositoryIndex + oldRepository.Length);
+            }
+
+            if (migratedUrl.IndexOf(newRepository, StringComparison.OrdinalIgnoreCase) < 0)
+            {
+                return url;
+            }
+
+            migratedUrl = Regex.Replace(migratedUrl, "/-/raw/master/", "/-/raw/main/", RegexOptions.IgnoreCase);
+            migratedUrl = Regex.Replace(migratedUrl, "/-/refs/master/", "/-/refs/main/", RegexOptions.IgnoreCase);
+
+            configChanged |= !string.Equals(url, migratedUrl, StringComparison.Ordinal);
+            return migratedUrl;
+        }
+
         private GameConfig CreateDefaultGameConfig(string gameName)
         {
             var config = new GameConfig();
             switch (gameName)
             {
                 case "Genshin":
-                    config.RepoUrl = "https://gitlab.com/Dimbreath/AnimeGameData/-/refs/master/logs_tree/TextMap?format=json&offset=0&ref_type=heads";
+                    config.RepoUrl = "https://gitlab.com/Dimbreath/animegamedata2/-/refs/main/logs_tree/TextMap?format=json&offset=0&ref_type=heads";
                     config.RepoType = "GitLab";
-                    config.InputUrlTemplate = "https://gitlab.com/Dimbreath/AnimeGameData/-/raw/master/TextMap/TextMap{Language}.json?inline=false";
-                    config.OutputUrlTemplate = "https://gitlab.com/Dimbreath/AnimeGameData/-/raw/master/TextMap/TextMap{Language}.json?inline=false";
-                    config.MediumUrlTemplate = "https://gitlab.com/Dimbreath/AnimeGameData/-/raw/master/TextMap/TextMap_Medium{Language}.json?inline=false";
+                    config.InputUrlTemplate = "https://gitlab.com/Dimbreath/animegamedata2/-/raw/main/TextMap/TextMap{Language}.json?inline=false";
+                    config.OutputUrlTemplate = "https://gitlab.com/Dimbreath/animegamedata2/-/raw/main/TextMap/TextMap{Language}.json?inline=false";
+                    config.MediumUrlTemplate = "https://gitlab.com/Dimbreath/animegamedata2/-/raw/main/TextMap/TextMap_Medium{Language}.json?inline=false";
                     break;
                 case "StarRail":
                     config.RepoUrl = "https://gitlab.com/Dimbreath/turnbasedgamedata/-/refs/main/logs_tree/?format=json&offset=0&ref_type=HEADS";

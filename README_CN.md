@@ -127,4 +127,4 @@ dotnet vstest GI-Test\bin\Release\GI-Test.dll
 
 - [PaddleOCRSharp](https://github.com/raoyutian/PaddleOCRSharp) - OCR 引擎
 - [Genshin_Datasets](https://github.com/AI-Hobbyist/Genshin_Voice_Sorting_Scripts) - 游戏文本数据
-- [Dimbreath/AnimeGameData](https://gitlab.com/Dimbreath/AnimeGameData) - TextMap 语言包
+- [Dimbreath/animegamedata2](https://gitlab.com/Dimbreath/animegamedata2) - TextMap 语言包
