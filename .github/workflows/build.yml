@@ -22,7 +22,7 @@ permissions:
 jobs:
   build-and-test:
     name: Build and Test
-    runs-on: windows-latest
+    runs-on: windows-2022
     
     steps:
     - name: Checkout Repository
@@ -213,7 +213,7 @@ jobs:
     name: Create Release Package
     needs: build-and-test
     if: github.event_name == 'release'
-    runs-on: windows-latest
+    runs-on: windows-2022
     
     steps:
     - name: Checkout Repository
