@@ -7,6 +7,8 @@ namespace GI_Subtitles.Models
     {
         public string Header;
         public string Content;
+        public string MatchedHeader;
+        public string MatchedContent;
     }
 }
 

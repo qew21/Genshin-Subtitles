@@ -50,7 +50,7 @@ namespace GI_Subtitles.Services.Video
         public VideoProcessor(string videoPath, System.Drawing.Rectangle ocrRegion, double intervalSeconds, bool limitToFirstMinute = false)
             : this(videoPath, ocrRegion, (int)(1.0 / intervalSeconds), 100, limitToFirstMinute, false) { }
 
-        public void GenerateSrt(PaddleOCREngine engine, string outputSrtPath, IProgress<ProgressInfo> progress = null)
+        public List<SrtEntry> GenerateSrt(PaddleOCREngine engine, string outputSrtPath, IProgress<ProgressInfo> progress = null)
         {
             if (!File.Exists(_videoPath)) throw new FileNotFoundException("Video file not found.", _videoPath);
 
@@ -299,6 +299,7 @@ namespace GI_Subtitles.Services.Video
                     IsFinished = true
                 });
             }
+            return srtEntries;
         }
 
         /// <summary>
@@ -550,4 +551,3 @@ namespace GI_Subtitles.Services.Video
         }
     }
 }
-

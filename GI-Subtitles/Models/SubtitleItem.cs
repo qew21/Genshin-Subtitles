@@ -10,6 +10,9 @@ namespace GI_Subtitles.Models
         public int Index { get; set; }
         public string TimeRange { get; set; }
         public List<string> Lines { get; set; } = new List<string>();
+        public string RecognizedText { get; set; }
+        public string OfficialText { get; set; }
+        public string MatchKey { get; set; }
         public double StartTimeSeconds { get; set; }
         public double EndTimeSeconds { get; set; }
 

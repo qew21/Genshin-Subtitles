@@ -346,7 +346,13 @@ namespace GI_Subtitles.Services.Translation
         public MatchResult FindMatchWithHeaderSeparated(string ocrText, out string key)
         {
             key = "";
-            var result = new MatchResult { Header = "", Content = "" };
+            var result = new MatchResult
+            {
+                Header = "",
+                Content = "",
+                MatchedHeader = "",
+                MatchedContent = ""
+            };
 
             if (string.IsNullOrEmpty(ocrText)) return result;
 
@@ -354,6 +360,7 @@ namespace GI_Subtitles.Services.Translation
             if (lines.Length == 1)
             {
                 result.Content = FindClosestMatch(lines[0], out key);
+                result.MatchedContent = key;
                 return result;
             }
 
@@ -387,12 +394,14 @@ namespace GI_Subtitles.Services.Translation
             string bodyText = string.Join(" ", lines.Skip(maxIndex));
 
             string headerMatch = "";
+            var matchedHeaders = new List<string>();
             foreach (string header in headers)
             {
                 if (ContentDict.ContainsKey(header) && !ContentDict[header].Contains("test"))
                 {
                     if (!string.IsNullOrEmpty(headerMatch)) headerMatch += " ";
                     headerMatch += ContentDict[header];
+                    matchedHeaders.Add(header);
                 }
             }
             string bodyMatch = FindClosestMatch(bodyText, out string bodyKey);
@@ -410,13 +419,19 @@ namespace GI_Subtitles.Services.Translation
                 if (maxIndex != 1 && lines.Length > 1)
                 {
                     bodyMatch = FindClosestMatch(string.Join(" ", lines.Skip(1)), out bodyKey);
-                    ContentDict.TryGetValue(lines[0], out headerMatch);
+                    if (ContentDict.TryGetValue(lines[0], out headerMatch))
+                    {
+                        matchedHeaders.Clear();
+                        matchedHeaders.Add(lines[0]);
+                    }
                 }
             }
 
             key = bodyKey;
             result.Content = bodyMatch;
             result.Header = headerMatch;
+            result.MatchedHeader = string.Join("\n", matchedHeaders);
+            result.MatchedContent = bodyKey;
             return result;
         }
 

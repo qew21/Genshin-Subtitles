@@ -6,7 +6,7 @@
     To suppress generation of this file remove `set ide=true` from the PostBuildEvent of the VS project
 </auto-generated>
 -->
-  <Package Compressed="yes" ProductCode="a317d217-e1da-4ea4-acab-10d717310319" Name="GI-Subtitles" Language="1033" Version="1.6.4.0" UpgradeCode="6ee5aa0c-5e19-4e14-b585-7334de8c81a2" Manufacturer="jwhu" InstallerVersion="200">
+  <Package Compressed="yes" ProductCode="c073e720-f552-41da-a30f-a741a3d9aaae" Name="GI-Subtitles" Language="1033" Version="1.6.7.0" UpgradeCode="6ee5aa0c-5e19-4e14-b585-7334de8c81a2" Manufacturer="jwhu" InstallerVersion="200">
     <SummaryInformation Codepage="Windows-1252" />
     <Media Id="1" Cabinet="GI2dSubtitles.cab" EmbedCab="yes" />
 
@@ -31,6 +31,10 @@
 
         <Component Id="Component.GI2dSubtitles.exe.config_967311868" Guid="6ee5aa0c-5e19-4e14-b585-7334f737c169">
           <File Id="GI2dSubtitles.exe.config_967311868" Source="bin\Files\GI-Subtitles.exe.config" />
+        </Component>
+
+        <Component Id="Component.GI2dSubtitles.pdb_3224360530" Guid="6ee5aa0c-5e19-4e14-b585-7334dac27da0">
+          <File Id="GI2dSubtitles.pdb_3224360530" Source="bin\Files\GI-Subtitles.pdb" />
         </Component>
 
         <Component Id="Component.log4net.dll_2601190211" Guid="6ee5aa0c-5e19-4e14-b585-7334fe8344a6">
@@ -258,6 +262,7 @@
       <ComponentRef Id="Component.Emgu.CV.World.dll_2101702545" />
       <ComponentRef Id="Component.GI2dSubtitles.exe_4027473678" />
       <ComponentRef Id="Component.GI2dSubtitles.exe.config_967311868" />
+      <ComponentRef Id="Component.GI2dSubtitles.pdb_3224360530" />
       <ComponentRef Id="Component.log4net.dll_2601190211" />
       <ComponentRef Id="Component.Microsoft.ML.OnnxRuntime.dll_3766176570" />
       <ComponentRef Id="Component.NAudio.dll_3297479870" />

@@ -81,6 +81,16 @@ namespace GI_Subtitles.Views
             _matcher = matcher;
             InitializeComponent();
 
+            // Bring the newly opened window to the front once, then return it to normal
+            // z-order so users can minimize it or switch to other applications naturally.
+            Topmost = true;
+            Loaded += (s, e) =>
+            {
+                Activate();
+                Dispatcher.BeginInvoke(new Action(() => Topmost = false),
+                    System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            };
+
             // Calculate the image boundaries
             PreviewImage.Loaded += (s, e) => UpdateImageBounds();
             PreviewImage.SizeChanged += (s, e) => UpdateImageBounds();
@@ -1168,6 +1178,13 @@ namespace GI_Subtitles.Views
                 return;
             }
 
+            if (_matcher == null || !_matcher.Loaded)
+            {
+                MessageBox.Show("翻译字典尚未加载。请先在主设置窗口加载数据，再进行视频字幕提取。",
+                    "无法匹配官方字幕", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
             // Get the setting parameters
             int detectionFps = 5;
             int minDurationMs = 200;
@@ -1183,10 +1200,11 @@ namespace GI_Subtitles.Views
             // Get the processing range
             bool limitToFirstMinute = ProcessFirstMinute.IsChecked == true;
 
-            // Generate the subtitle file name (the same as the video file name)
+            // Save recognition and dictionary-matched subtitles as two independent tracks.
             string videoDir = System.IO.Path.GetDirectoryName(_videoPath);
             string videoName = System.IO.Path.GetFileNameWithoutExtension(_videoPath);
-            string srtPath = System.IO.Path.Combine(videoDir, $"{videoName}.srt");
+            string originSrtPath = System.IO.Path.Combine(videoDir, $"{videoName}_origin.srt");
+            string officialSrtPath = System.IO.Path.Combine(videoDir, $"{videoName}_official.srt");
 
             // Clear the previous subtitle list
             Subtitles.Clear();
@@ -1236,96 +1254,124 @@ namespace GI_Subtitles.Views
                             ProgressCurrentTimeText.Text = FormatTimeSpan(currentSpan);
                             ProgressTotalTimeText.Text = FormatTimeSpan(totalSpan);
 
-                            // Add new subtitle to the list (using AddOrMergeSubtitle for filtering and merging)
                             if (info.LatestSubtitle != null)
                             {
-                                // Use the AddOrMergeSubtitle method for filtering and merging
-                                int entriesCountBefore = _currentSrtEntries.Count;
-                                var mergedEntry = AddOrMergeSubtitle(_currentSrtEntries,
-                                    info.LatestSubtitle.Text,
-                                    info.LatestSubtitle.StartTime.TotalSeconds,
-                                    info.LatestSubtitle.EndTime.TotalSeconds);
-
-                                // If null is returned, it means it has been filtered out, skip
-                                if (mergedEntry == null)
-                                {
-                                    return; // Use return instead of continue in lambda
-                                }
-
-                                // Check if it is merged into an existing entry or a new entry
-                                // If the number of entries does not increase, it means it is merged into an existing entry
-                                bool isNewEntry = (_currentSrtEntries.Count > entriesCountBefore);
-
-                                if (!isNewEntry)
-                                {
-                                    // Merge into an existing entry, update the UI
-                                    int entryIndex = _currentSrtEntries.IndexOf(mergedEntry);
-                                    if (entryIndex >= 0 && entryIndex < Subtitles.Count)
-                                    {
-                                        var existingItem = Subtitles[entryIndex];
-                                        existingItem.TimeRange = $"{FormatTimeSpan(mergedEntry.StartTime)} --> {FormatTimeSpan(mergedEntry.EndTime)}";
-                                        existingItem.EndTimeSeconds = mergedEntry.EndTime.TotalSeconds;
-
-                                        // Update the text (if the text has changed)
-                                        var newLines = mergedEntry.Text.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries).ToList();
-                                        if (newLines.Count == 0) newLines.Add(mergedEntry.Text); // If there is no line break, keep the original
-
-                                        if (newLines.Count != existingItem.Lines.Count ||
-                                            !newLines.SequenceEqual(existingItem.Lines))
-                                        {
-                                            existingItem.Lines.Clear();
-                                            existingItem.Lines.AddRange(newLines);
-                                        }
-
-                                        // Refresh the display
-                                        var collectionView = System.Windows.Data.CollectionViewSource.GetDefaultView(Subtitles);
-                                        collectionView.Refresh();
-                                    }
-                                }
-                                else
-                                {
-                                    // New entry, add to the UI
-                                    var newLines = mergedEntry.Text.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries).ToList();
-                                    if (newLines.Count == 0) newLines.Add(mergedEntry.Text); // If there is no line break, keep the original
-
-                                    var subtitleItem = new SubtitleItem
-                                    {
-                                        TimeRange = $"{FormatTimeSpan(mergedEntry.StartTime)} --> {FormatTimeSpan(mergedEntry.EndTime)}",
-                                        Lines = newLines,
-                                        StartTimeSeconds = mergedEntry.StartTime.TotalSeconds,
-                                        EndTimeSeconds = mergedEntry.EndTime.TotalSeconds
-                                    };
-                                    Subtitles.Add(subtitleItem);
-                                }
-
-                                // Automatically scroll to the bottom
-                                if (SubtitleListBox.Items.Count > 0)
-                                {
-                                    SubtitleListBox.ScrollIntoView(SubtitleListBox.Items[SubtitleListBox.Items.Count - 1]);
-                                }
+                                UpsertMatchedSubtitle(info.LatestSubtitle);
                             }
 
-                            // Processing completed
-                            if (info.IsFinished)
-                            {
-                                ProgressStatusText.Text = "Processing completed";
-                                ProgressBar.Value = 100;
-                                ProgressSpeedText.Foreground = new SolidColorBrush(Colors.Green);
-                                ExportSrtButton.Visibility = Visibility.Visible;
-                                ProcessVideo.IsEnabled = true;
-                            }
                         });
                     });
 
-                    generator.GenerateSrt(engine, srtPath, progress);
+                    var rawEntries = generator.GenerateSrt(engine, originSrtPath, progress);
+                    var matchedEntries = rawEntries
+                        .Where(entry => entry != null && ContainsValidLanguage(entry.Text))
+                        .Select(CreateMatchedSubtitle)
+                        .ToList();
 
-                    Logger.Log.Info($"Subtitles generated successfully!\nSave location: {srtPath}\nSubtitle count: {Subtitles.Count}");
+                    WriteSrtFile(originSrtPath, matchedEntries, officialTrack: false);
+                    WriteSrtFile(officialSrtPath, matchedEntries, officialTrack: true);
+
+                    Dispatcher.Invoke(() =>
+                    {
+                        _currentSrtEntries.Clear();
+                        _currentSrtEntries.AddRange(matchedEntries);
+                        RefreshSubtitleList();
+
+                        ProgressStatusText.Text = $"处理完成（{matchedEntries.Count} 条）";
+                        ProgressBar.Value = 100;
+                        ProgressSpeedText.Foreground = new SolidColorBrush(Colors.Green);
+                        ExportSrtButton.Visibility = matchedEntries.Count > 0
+                            ? Visibility.Visible
+                            : Visibility.Collapsed;
+                        ProcessVideo.IsEnabled = true;
+                    });
+
+                    Logger.Log.Info(
+                        $"Subtitles generated successfully!\nOrigin: {originSrtPath}\nOfficial: {officialSrtPath}\nSubtitle count: {Subtitles.Count}");
                 }
                 catch (Exception ex)
                 {
                     Logger.Log.Error($"Processing failed: {ex.Message}");
+                    Dispatcher.Invoke(() =>
+                    {
+                        ProgressStatusText.Text = "处理失败";
+                        ProcessVideo.IsEnabled = true;
+                        MessageBox.Show($"视频处理失败：{ex.Message}", "错误",
+                            MessageBoxButton.OK, MessageBoxImage.Error);
+                    });
                 }
             });
+        }
+
+        private void UpsertMatchedSubtitle(SrtEntry source)
+        {
+            if (source == null || !ContainsValidLanguage(source.Text))
+            {
+                return;
+            }
+
+            SrtEntry matched = CreateMatchedSubtitle(source);
+            int index = _currentSrtEntries.FindIndex(entry => entry.Index == matched.Index);
+
+            if (index >= 0)
+            {
+                _currentSrtEntries[index] = matched;
+            }
+            else
+            {
+                _currentSrtEntries.Add(matched);
+                _currentSrtEntries.Sort((left, right) => left.Index.CompareTo(right.Index));
+            }
+
+            RefreshSubtitleList();
+        }
+
+        private SrtEntry CreateMatchedSubtitle(SrtEntry source)
+        {
+            string key;
+            MatchResult match = _matcher.FindMatchWithHeaderSeparated(source.Text, out key);
+            string officialText = JoinSubtitleParts(match.MatchedHeader, match.MatchedContent);
+
+            return new SrtEntry
+            {
+                Index = source.Index,
+                StartTime = source.StartTime,
+                EndTime = source.EndTime,
+                Text = source.Text,
+                OfficialText = officialText,
+                MatchKey = officialText
+            };
+        }
+
+        private static string JoinSubtitleParts(string header, string content)
+        {
+            var parts = new[] { header, content }
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => value.Trim());
+            return string.Join("\n", parts);
+        }
+
+        private void RefreshSubtitleList()
+        {
+            Subtitles.Clear();
+            foreach (var entry in _currentSrtEntries)
+            {
+                Subtitles.Add(new SubtitleItem
+                {
+                    TimeRange = $"{FormatTimeSpan(entry.StartTime)} --> {FormatTimeSpan(entry.EndTime)}",
+                    RecognizedText = entry.Text,
+                    OfficialText = entry.OfficialText,
+                    MatchKey = entry.MatchKey,
+                    Lines = new List<string> { entry.Text, entry.OfficialText },
+                    StartTimeSeconds = entry.StartTime.TotalSeconds,
+                    EndTimeSeconds = entry.EndTime.TotalSeconds
+                });
+            }
+
+            if (SubtitleListBox.Items.Count > 0)
+            {
+                SubtitleListBox.ScrollIntoView(SubtitleListBox.Items[SubtitleListBox.Items.Count - 1]);
+            }
         }
 
         private string FormatTimeSpan(TimeSpan span)
@@ -1374,10 +1420,6 @@ namespace GI_Subtitles.Views
             var textBox = sender as TextBox;
             if (textBox == null) return;
 
-            // Get the original text (DataContext)
-            var originalText = textBox.DataContext as string;
-            if (originalText == null) return;
-
             // Find the ListBoxItem upwards to get the SubtitleItem
             var parent = System.Windows.Media.VisualTreeHelper.GetParent(textBox);
             while (parent != null && !(parent is ListBoxItem))
@@ -1390,19 +1432,19 @@ namespace GI_Subtitles.Views
                 var subtitleItem = listBoxItem.DataContext as SubtitleItem;
                 if (subtitleItem != null)
                 {
-                    // Update the subtitle text
-                    var newText = textBox.Text;
-                    var lineIndex = subtitleItem.Lines.IndexOf(originalText);
-
-                    if (lineIndex >= 0)
+                    bool isOfficial = string.Equals(textBox.Tag as string, "Official", StringComparison.Ordinal);
+                    var subtitleIndex = Subtitles.IndexOf(subtitleItem);
+                    if (subtitleIndex >= 0 && subtitleIndex < _currentSrtEntries.Count)
                     {
-                        subtitleItem.Lines[lineIndex] = newText;
-
-                        // Synchronize update _currentSrtEntries
-                        var subtitleIndex = Subtitles.IndexOf(subtitleItem);
-                        if (subtitleIndex >= 0 && subtitleIndex < _currentSrtEntries.Count)
+                        if (isOfficial)
                         {
-                            _currentSrtEntries[subtitleIndex].Text = string.Join("\n", subtitleItem.Lines);
+                            subtitleItem.OfficialText = textBox.Text;
+                            _currentSrtEntries[subtitleIndex].OfficialText = textBox.Text;
+                        }
+                        else
+                        {
+                            subtitleItem.RecognizedText = textBox.Text;
+                            _currentSrtEntries[subtitleIndex].Text = textBox.Text;
                         }
                     }
                 }
@@ -1529,15 +1571,25 @@ namespace GI_Subtitles.Views
             var dialog = new Microsoft.Win32.SaveFileDialog
             {
                 Filter = "Subtitle file|*.srt|All files|*.*",
-                FileName = System.IO.Path.GetFileNameWithoutExtension(_videoPath) + ".srt"
+                FileName = System.IO.Path.GetFileNameWithoutExtension(_videoPath) + "_origin.srt"
             };
 
             if (dialog.ShowDialog() == true)
             {
                 try
                 {
-                    WriteSrtFile(dialog.FileName, _currentSrtEntries);
-                    MessageBox.Show($"Subtitles exported to: {dialog.FileName}", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+                    string selectedDirectory = System.IO.Path.GetDirectoryName(dialog.FileName);
+                    string selectedName = System.IO.Path.GetFileNameWithoutExtension(dialog.FileName);
+                    string baseName = selectedName.EndsWith("_origin", StringComparison.OrdinalIgnoreCase)
+                        ? selectedName.Substring(0, selectedName.Length - "_origin".Length)
+                        : selectedName;
+                    string originPath = System.IO.Path.Combine(selectedDirectory, baseName + "_origin.srt");
+                    string officialPath = System.IO.Path.Combine(selectedDirectory, baseName + "_official.srt");
+
+                    WriteSrtFile(originPath, _currentSrtEntries, officialTrack: false);
+                    WriteSrtFile(officialPath, _currentSrtEntries, officialTrack: true);
+                    MessageBox.Show($"字幕已分别导出：\n{originPath}\n{officialPath}", "Success",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 catch (Exception ex)
                 {
@@ -1546,15 +1598,21 @@ namespace GI_Subtitles.Views
             }
         }
 
-        private void WriteSrtFile(string path, List<SrtEntry> entries)
+        private void WriteSrtFile(string path, List<SrtEntry> entries, bool officialTrack)
         {
             using var writer = new StreamWriter(path, false, Encoding.UTF8);
-            for (int i = 0; i < entries.Count; i++)
+            int outputIndex = 1;
+            foreach (var entry in entries)
             {
-                var entry = entries[i];
-                writer.WriteLine(i + 1);
+                string text = officialTrack ? entry.OfficialText : entry.Text;
+                if (string.IsNullOrWhiteSpace(text))
+                {
+                    continue;
+                }
+
+                writer.WriteLine(outputIndex++);
                 writer.WriteLine($"{entry.StartTime:hh\\:mm\\:ss\\,fff} --> {entry.EndTime:hh\\:mm\\:ss\\,fff}");
-                writer.WriteLine(entry.Text);
+                writer.WriteLine(text);
                 writer.WriteLine();
             }
         }
@@ -1705,18 +1763,21 @@ namespace GI_Subtitles.Views
             try
             {
                 string key;
-                string result = _matcher.FindClosestMatch(input, out key);
+                MatchResult match = _matcher.FindMatchWithHeaderSeparated(input, out key);
+                string result = JoinSubtitleParts(match.Header, match.Content);
+                string officialText = JoinSubtitleParts(match.MatchedHeader, match.MatchedContent);
 
-                if (string.IsNullOrEmpty(result))
+                if (string.IsNullOrEmpty(officialText))
                 {
+                    ManualMatchResultTextBox.Text = string.Empty;
                     ManualOutputTextBox.Text = "No matching result found.";
                     ManualOutputTextBox.ToolTip = null;
                 }
                 else
                 {
                     ManualOutputTextBox.Text = result;
-                    ManualMatchResultTextBox.Text = key;
-                    ManualOutputTextBox.ToolTip = string.IsNullOrEmpty(key) ? null : $"匹配键：{key}";
+                    ManualMatchResultTextBox.Text = officialText;
+                    ManualOutputTextBox.ToolTip = $"匹配键：{officialText.Replace("\n", " / ")}";
                 }
             }
             catch (Exception ex)
@@ -1727,10 +1788,10 @@ namespace GI_Subtitles.Views
 
         private void AddToSubtitleButton_Click(object sender, RoutedEventArgs e)
         {
-            string inputText = ManualMatchResultTextBox.Text?.Trim();
-            string outputText = ManualOutputTextBox.Text?.Trim();
+            string recognizedText = ManualInputTextBox.Text?.Trim();
+            string officialText = ManualMatchResultTextBox.Text?.Trim();
 
-            if (string.IsNullOrEmpty(outputText) || outputText == "No matching result found.")
+            if (string.IsNullOrEmpty(recognizedText) || string.IsNullOrEmpty(officialText))
             {
                 MessageBox.Show("Please match first, ensure there is a valid output result before adding to the subtitle.", "Note",
                     MessageBoxButton.OK, MessageBoxImage.Information);
@@ -1758,43 +1819,28 @@ namespace GI_Subtitles.Views
 
             try
             {
-                // Build bilingual subtitles: input language + output language
-                var entriesToAdd = new List<SrtEntry>();
-
-                if (!string.IsNullOrWhiteSpace(inputText))
-                {
-                    entriesToAdd.Add(new SrtEntry
-                    {
-                        StartTime = TimeSpan.FromSeconds(startTime),
-                        EndTime = TimeSpan.FromSeconds(endTime),
-                        Text = inputText
-                    });
-                }
-
-                entriesToAdd.Add(new SrtEntry
+                var entry = new SrtEntry
                 {
                     StartTime = TimeSpan.FromSeconds(startTime),
                     EndTime = TimeSpan.FromSeconds(endTime),
-                    Text = outputText
-                });
+                    Text = recognizedText,
+                    OfficialText = officialText,
+                    MatchKey = officialText
+                };
 
                 // Find insert position based on time so list stays sorted
-                foreach (var entry in entriesToAdd)
-                {
-                    int insertIndex = _currentSrtEntries.FindIndex(e =>
-                        e.StartTime > entry.StartTime ||
-                        (Math.Abs(e.StartTime.TotalSeconds - entry.StartTime.TotalSeconds) < 0.0001 &&
-                         e.EndTime > entry.EndTime));
+                int insertIndex = _currentSrtEntries.FindIndex(e =>
+                    e.StartTime > entry.StartTime ||
+                    (Math.Abs(e.StartTime.TotalSeconds - entry.StartTime.TotalSeconds) < 0.0001 &&
+                     e.EndTime > entry.EndTime));
 
-                    if (insertIndex < 0)
-                    {
-                        // Append at end
-                        _currentSrtEntries.Add(entry);
-                    }
-                    else
-                    {
-                        _currentSrtEntries.Insert(insertIndex, entry);
-                    }
+                if (insertIndex < 0)
+                {
+                    _currentSrtEntries.Add(entry);
+                }
+                else
+                {
+                    _currentSrtEntries.Insert(insertIndex, entry);
                 }
 
                 // Reassign indices for all entries (index is only used when exporting)
@@ -1803,21 +1849,7 @@ namespace GI_Subtitles.Views
                     _currentSrtEntries[i].Index = i + 1;
                 }
 
-                // Sync UI list with new Srt entries (sorted by time)
-                Subtitles.Clear();
-                foreach (var item in _currentSrtEntries)
-                {
-                    var lines = item.Text.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries).ToList();
-                    if (lines.Count == 0) lines.Add(item.Text);
-
-                    Subtitles.Add(new SubtitleItem
-                    {
-                        TimeRange = $"{FormatTimeSpan(item.StartTime)} --> {FormatTimeSpan(item.EndTime)}",
-                        Lines = lines,
-                        StartTimeSeconds = item.StartTime.TotalSeconds,
-                        EndTimeSeconds = item.EndTime.TotalSeconds
-                    });
-                }
+                RefreshSubtitleList();
 
                 // Automatically scroll to the last added subtitle
                 if (SubtitleListBox.Items.Count > 0)
@@ -1833,7 +1865,7 @@ namespace GI_Subtitles.Views
                 }
 
                 // Update the time information display
-                ManualMatchTimeInfo.Text = $"Time axis: {FormatTimeString(startTime)} --> {FormatTimeString(endTime)} (Added, bilingual)";
+                ManualMatchTimeInfo.Text = $"Time axis: {FormatTimeString(startTime)} --> {FormatTimeString(endTime)} (已添加识别/官方双行字幕)";
 
                 MessageBox.Show($"Subtitle added to the time axis: {FormatTimeString(startTime)} --> {FormatTimeString(endTime)}", "Success",
                     MessageBoxButton.OK, MessageBoxImage.Information);
