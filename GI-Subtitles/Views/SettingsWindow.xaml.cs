@@ -497,28 +497,26 @@ namespace GI_Subtitles.Views
 
         private static string MigrateGenshinRepositoryUrl(string url, ref bool configChanged)
         {
-            const string oldRepository = "https://gitlab.com/Dimbreath/AnimeGameData";
             const string newRepository = "https://gitlab.com/Dimbreath/animegamedata2";
+            const string repositoryPattern = @"^https://gitlab\.com/Dimbreath/AnimeGameData2*(?=/|$)";
 
             if (string.IsNullOrEmpty(url))
             {
                 return url;
             }
 
-            string migratedUrl = url;
-            int repositoryIndex = migratedUrl.IndexOf(oldRepository, StringComparison.OrdinalIgnoreCase);
-            if (repositoryIndex >= 0)
-            {
-                migratedUrl = migratedUrl.Substring(0, repositoryIndex)
-                    + newRepository
-                    + migratedUrl.Substring(repositoryIndex + oldRepository.Length);
-            }
-
-            if (migratedUrl.IndexOf(newRepository, StringComparison.OrdinalIgnoreCase) < 0)
+            if (!Regex.IsMatch(url, repositoryPattern, RegexOptions.IgnoreCase))
             {
                 return url;
             }
 
+            // Match the complete repository path segment. This also repairs URLs
+            // corrupted by the previous non-idempotent migration (animegamedata22...).
+            string migratedUrl = Regex.Replace(
+                url,
+                repositoryPattern,
+                newRepository,
+                RegexOptions.IgnoreCase);
             migratedUrl = Regex.Replace(migratedUrl, "/-/raw/master/", "/-/raw/main/", RegexOptions.IgnoreCase);
             migratedUrl = Regex.Replace(migratedUrl, "/-/refs/master/", "/-/refs/main/", RegexOptions.IgnoreCase);
 
