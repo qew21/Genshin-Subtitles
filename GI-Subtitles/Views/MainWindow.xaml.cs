@@ -127,6 +127,8 @@ namespace GI_Subtitles.Views
         private IWavePlayer waveOut;
         private MediaFoundationReader mediaReader;
         private string tempFilePath;
+        private const int AudioTempCleanupThreshold = 60;
+        private const int AudioTempFilesToKeep = 10;
         private int failedCount = 0;
         private bool usingRegion2 = false;
         private bool _isUserMovingWindow = false;
@@ -135,6 +137,7 @@ namespace GI_Subtitles.Views
         public MainWindow()
         {
             Logger.Log.Debug("Start App");
+            Task.Run(() => CleanupOldAudioTempFiles());
             InitializeComponent();
             // Start with the main window fully transparent to avoid showing incomplete UI during heavy startup work.
             // Using Opacity instead of Visibility to ensure Loaded is still raised and initialization runs as usual.
@@ -910,6 +913,86 @@ namespace GI_Subtitles.Views
                 return;
             }
             MoveWindowByUserDrag();
+        }
+
+        private static void CleanupOldAudioTempFiles()
+        {
+            try
+            {
+                string tempDirectory = Path.GetTempPath();
+                Regex legacyAudioFileName = new Regex(
+                    @"^tmp[0-9a-f]{1,4}\.tmp$",
+                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+                List<FileInfo> audioTempFiles = Directory
+                    .EnumerateFiles(tempDirectory, "tmp*.tmp", SearchOption.TopDirectoryOnly)
+                    .Select(path => new FileInfo(path))
+                    .Where(file => legacyAudioFileName.IsMatch(file.Name) && IsAudioTempFile(file.FullName))
+                    .OrderByDescending(file => file.CreationTimeUtc)
+                    .ToList();
+
+                if (audioTempFiles.Count <= AudioTempCleanupThreshold)
+                {
+                    return;
+                }
+
+                int deletedCount = 0;
+                foreach (FileInfo file in audioTempFiles.Skip(AudioTempFilesToKeep))
+                {
+                    try
+                    {
+                        file.Delete();
+                        deletedCount++;
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Log.Warn($"Failed to delete audio temp file {file.FullName}: {ex.Message}");
+                    }
+                }
+
+                Logger.Log.Info(
+                    $"Audio temp cleanup completed: found {audioTempFiles.Count}, " +
+                    $"kept {AudioTempFilesToKeep}, deleted {deletedCount}.");
+            }
+            catch (Exception ex)
+            {
+                Logger.Log.Warn($"Audio temp cleanup failed: {ex.Message}");
+            }
+        }
+
+        private static bool IsAudioTempFile(string filePath)
+        {
+            try
+            {
+                byte[] header = new byte[12];
+                int bytesRead;
+                using (FileStream stream = new FileStream(
+                    filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+                {
+                    bytesRead = stream.Read(header, 0, header.Length);
+                }
+
+                if (bytesRead >= 3 && header[0] == (byte)'I' && header[1] == (byte)'D' && header[2] == (byte)'3')
+                {
+                    return true;
+                }
+
+                // MPEG audio frame sync, including MP3 and ADTS AAC returned by the voice server.
+                if (bytesRead >= 2 && header[0] == 0xFF && (header[1] & 0xE0) == 0xE0)
+                {
+                    return true;
+                }
+
+                return bytesRead >= 12 &&
+                       header[0] == (byte)'R' && header[1] == (byte)'I' &&
+                       header[2] == (byte)'F' && header[3] == (byte)'F' &&
+                       header[8] == (byte)'W' && header[9] == (byte)'A' &&
+                       header[10] == (byte)'V' && header[11] == (byte)'E';
+            }
+            catch
+            {
+                return false;
+            }
         }
 
 
