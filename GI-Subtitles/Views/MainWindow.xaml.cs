@@ -38,6 +38,7 @@ using NAudio.Wave;
 using System.Net;
 using Microsoft.Win32;
 using System.Diagnostics;
+using GI_Subtitles.Services.Audio;
 using System.Web;
 using System.Runtime.InteropServices.ComTypes;
 using Newtonsoft.Json;
@@ -127,6 +128,7 @@ namespace GI_Subtitles.Views
         private IWavePlayer waveOut;
         private MediaFoundationReader mediaReader;
         private string tempFilePath;
+        private readonly AudioTempFileTracker _audioTempFileTracker = new AudioTempFileTracker();
         private const int AudioTempCleanupThreshold = 60;
         private const int AudioTempFilesToKeep = 10;
         private int failedCount = 0;
@@ -143,6 +145,7 @@ namespace GI_Subtitles.Views
             // Using Opacity instead of Visibility to ensure Loaded is still raised and initialization runs as usual.
             this.Opacity = 0;
             Loaded += MainWindow_Loaded;
+            Closing += MainWindow_Closing;
             CheckAndUpdate(Update);
             DispatcherTimer _hideButtonTimer = new DispatcherTimer
             {
@@ -620,7 +623,7 @@ namespace GI_Subtitles.Views
                         {
                             lastContent = content;
                             SubtitleText.Text = content;
-                            int fontSize = Config.Get<int>("Size");
+                            int fontSize = Config.Get("Size", 16);
                             SubtitleText.FontSize = fontSize;
                             // Delay updating header position until content layout is completed
                             if (HeaderText.Visibility == Visibility.Visible && !string.IsNullOrEmpty(lastHeader))
@@ -630,11 +633,18 @@ namespace GI_Subtitles.Views
                         }
 
                         // Play audio (only when content changes, to avoid repeated playback)
-                        if (Config.Get<bool>("PlayVoice", false) && contentChanged && !AudioList.Contains(key) && !string.IsNullOrEmpty(key))
+                        bool playVoice = Config.Get<bool>("PlayVoice", false);
+                        if (playVoice && contentChanged && !AudioList.Contains(key) && !string.IsNullOrEmpty(key))
                         {
                             string audioKey = VoiceContentHelper.CalculateMd5Hash(key);
-                            PlayAudioFromUrl($"{server}?md5={audioKey}&token={token}");
+                            string audioUrl = $"{server}?md5={audioKey}&token={token}";
+                            Logger.Log.Debug($"[AUDIO] Trigger playback: key={key}, url={audioUrl}");
+                            PlayAudioFromUrl(audioUrl);
                             AudioList.Add(key);
+                        }
+                        else
+                        {
+                            Logger.Log.Debug($"[AUDIO] Skip playback: playVoice={playVoice}, contentChanged={contentChanged}, audioListContains={AudioList.Contains(key)}, keyEmpty={string.IsNullOrEmpty(key)}");
                         }
 
                         // Adapt window height and position when text changes
@@ -1002,6 +1012,9 @@ namespace GI_Subtitles.Views
             notifyIcon = null;
             data.UnregisterAllHotkeys();
             data.RealClose();
+
+            // Clean up all audio temp files created during this session.
+            _audioTempFileTracker.CleanupAll();
         }
 
         private void MainWindow_LocationChanged(object sender, EventArgs e)
@@ -1134,56 +1147,87 @@ namespace GI_Subtitles.Views
 
         public void PlayAudioFromUrl(string url)
         {
-            Console.WriteLine(url);
+            Logger.Log.Debug($"[AUDIO] PlayAudioFromUrl: {url}");
             try
             {
-                if (waveOut == null)
-                {
-                    waveOut = new WaveOutEvent();
-                }
-
-                // Download the file to a temporary file
                 using (var webClient = new WebClient())
                 {
                     try
                     {
                         webClient.OpenRead(url).Close();
+                        Logger.Log.Debug("[AUDIO] URL reachable, start download");
                     }
                     catch (WebException ex)
                     {
-                        if (ex.Response is HttpWebResponse response &&
-                            response.StatusCode == HttpStatusCode.NotFound)
+                        if (ex.Response is HttpWebResponse response)
                         {
-                            return;
+                            Logger.Log.Warn($"[AUDIO] URL check failed: {response.StatusCode} - {ex.Message}");
+                            if (response.StatusCode == HttpStatusCode.NotFound)
+                            {
+                                return;
+                            }
                         }
-                        Console.WriteLine($"Error: {ex.Message}");
+                        else
+                        {
+                            Logger.Log.Warn($"[AUDIO] URL check failed (no response): {ex.Message}");
+                        }
                         return;
                     }
-                    string tempFile = Path.GetTempFileName();
-                    if (tempFile != tempFilePath)
-                    {
-                        webClient.DownloadFile(url, tempFile);
-                        StopAudio();
-                        tempFilePath = tempFile;
 
-                        // Use MediaFoundationReader to read from the file
-                        mediaReader = new MediaFoundationReader(tempFile);
-                        waveOut.Init(mediaReader);
-                        waveOut.Play();
-                        //StopAudio();
-                    }
+                    string newTempFile = Path.GetTempFileName();
+                    Logger.Log.Debug($"[AUDIO] Downloading to {newTempFile}");
+                    webClient.DownloadFile(url, newTempFile);
+                    Logger.Log.Debug($"[AUDIO] Download completed, file size={new FileInfo(newTempFile).Length}");
+
+                    // Stop previous playback. PlaybackStopped event will clean up old tempFilePath.
+                    StopAudio();
+
+                    tempFilePath = newTempFile;
+                    _audioTempFileTracker.Track(newTempFile);
+
+                    Logger.Log.Debug("[AUDIO] Initializing NAudio playback");
+                    waveOut = new WaveOutEvent();
+                    mediaReader = new MediaFoundationReader(tempFilePath);
+                    waveOut.Init(mediaReader);
+                    waveOut.PlaybackStopped += OnPlaybackStopped;
+                    waveOut.Play();
+                    Logger.Log.Debug("[AUDIO] Playback started");
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error: {ex.Message}");
+                Logger.Log.Error($"[AUDIO] Playback error: {ex}");
             }
         }
 
         public void StopAudio()
         {
             waveOut?.Stop();
-            mediaReader?.Dispose();
+        }
+
+        private void OnPlaybackStopped(object sender, StoppedEventArgs e)
+        {
+            CleanupCurrentAudioPlayer();
+        }
+
+        private void CleanupCurrentAudioPlayer()
+        {
+            try
+            {
+                mediaReader?.Dispose();
+                mediaReader = null;
+
+                waveOut?.Dispose();
+                waveOut = null;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error cleaning up audio player: {ex.Message}");
+            }
+            finally
+            {
+                tempFilePath = null;
+            }
         }
 
         public static double GetScaleForScreen(Screen screen)
