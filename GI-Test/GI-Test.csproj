@@ -93,6 +93,7 @@
     <Compile Include="TestContent.cs" />
     <Compile Include="TestVideo.cs" />
     <Compile Include="TestOCR.cs" />
+    <Compile Include="AudioTempFileTrackerTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

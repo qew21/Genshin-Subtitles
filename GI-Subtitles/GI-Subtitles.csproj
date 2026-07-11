@@ -126,6 +126,7 @@
     <Compile Include="Models\GameConfig.cs" />
     <Compile Include="Models\GameMetadata.cs" />
     <Compile Include="Services\OCR\ImageProcessor.cs" />
+    <Compile Include="Services\Audio\AudioTempFileTracker.cs" />
     <Compile Include="Core\UI\INotifyIcon.cs" />
     <Compile Include="Services\Translation\OptimizedMatcher.cs" />
     <Compile Include="Core\Screen\ScreenInfo.cs" />
