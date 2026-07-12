@@ -1145,24 +1145,31 @@ namespace GI_Subtitles.Views
                 // Download the file to a temporary file
                 using (var webClient = new WebClient())
                 {
-                    try
-                    {
-                        webClient.OpenRead(url).Close();
-                    }
-                    catch (WebException ex)
-                    {
-                        if (ex.Response is HttpWebResponse response &&
-                            response.StatusCode == HttpStatusCode.NotFound)
-                        {
-                            return;
-                        }
-                        Console.WriteLine($"Error: {ex.Message}");
-                        return;
-                    }
+                    // Set a user agent so the CDN / server does not block the request.
+                    webClient.Headers[HttpRequestHeader.UserAgent] = "GI-Subtitles/1.0";
+
                     string tempFile = Path.GetTempFileName();
                     if (tempFile != tempFilePath)
                     {
-                        webClient.DownloadFile(url, tempFile);
+                        try
+                        {
+                            webClient.DownloadFile(url, tempFile);
+                        }
+                        catch (WebException ex) when (ex.Response is HttpWebResponse response &&
+                                                      response.StatusCode == HttpStatusCode.NotFound)
+                        {
+                            Console.WriteLine($"Audio not found: {url}");
+                            try
+                            {
+                                File.Delete(tempFile);
+                            }
+                            catch
+                            {
+                                // ignore cleanup failure
+                            }
+                            return;
+                        }
+
                         StopAudio();
                         tempFilePath = tempFile;
 
@@ -1170,7 +1177,6 @@ namespace GI_Subtitles.Views
                         mediaReader = new MediaFoundationReader(tempFile);
                         waveOut.Init(mediaReader);
                         waveOut.Play();
-                        //StopAudio();
                     }
                 }
             }
