@@ -159,25 +159,31 @@
                                         <Run Text="{DynamicResource Repo_Last_Modified}"/>
                                         <TextBlock Name="RepoModifiedDate" Margin="6,0,0,0" VerticalAlignment="Center"/>
                                     </TextBlock>
-                                    <TextBlock Margin="0,4,0,0">
-                                        <Run Text="{DynamicResource Download_Input_Lang}"/>
+                                    <DockPanel Margin="0,4,0,0" LastChildFill="True">
+                                        <CheckBox x:Name="DownloadInputCheckBox"
+                                                  Content="{DynamicResource Download_Input_Lang}"
+                                                  IsChecked="True" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                         <TextBox x:Name="InputLangDownloadUrl" Style="{StaticResource LinkTextBox}" Text="" 
                                                  Cursor="Hand" MouseLeftButtonUp="UrlTextBox_MouseLeftButtonUp" IsReadOnly="True"
                                                  ToolTip="Click to copy URL"/>
-                                    </TextBlock>
-                                    <TextBlock Margin="0,4,0,0">
-                                        <Run Text="{DynamicResource Download_Output_Lang}"/>
+                                    </DockPanel>
+                                    <DockPanel Margin="0,4,0,0" LastChildFill="True">
+                                        <CheckBox x:Name="DownloadOutputCheckBox"
+                                                  Content="{DynamicResource Download_Output_Lang}"
+                                                  IsChecked="True" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                         <TextBox x:Name="OutputLangDownloadUrl" Style="{StaticResource LinkTextBox}" Text="" 
                                                  Cursor="Hand" MouseLeftButtonUp="UrlTextBox_MouseLeftButtonUp" IsReadOnly="True"
                                                  ToolTip="Click to copy URL"/>
-                                    </TextBlock>
+                                    </DockPanel>
                                     <!-- Optional second output language download link (when multi-output is enabled) -->
-                                    <TextBlock Margin="0,4,0,0">
-                                        <Run Text="{DynamicResource Download_Output_Lang}"/>
+                                    <DockPanel x:Name="SecondOutputDownloadPanel" Margin="0,4,0,0" LastChildFill="True">
+                                        <CheckBox x:Name="DownloadOutput2CheckBox"
+                                                  Content="{DynamicResource Download_Output_Lang}"
+                                                  IsChecked="True" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                         <TextBox x:Name="OutputLangDownloadUrl2" Style="{StaticResource LinkTextBox}" Text="" 
                                                  Cursor="Hand" MouseLeftButtonUp="UrlTextBox_MouseLeftButtonUp" IsReadOnly="True"
                                                  ToolTip="Click to copy URL"/>
-                                    </TextBlock>
+                                    </DockPanel>
                                 </StackPanel>
                             </GroupBox>
                         </StackPanel>

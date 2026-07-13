@@ -69,6 +69,7 @@ namespace GI_Subtitles.Views
             };
         private List<GameMetadata> _supportedGames = new List<GameMetadata>();
         private GameConfig _currentGameConfig;
+        private bool _isInitializingOutputSelection = true;
 
         readonly Stopwatch sw = new Stopwatch();
         readonly static string dataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GI-Subtitles");
@@ -197,6 +198,8 @@ namespace GI_Subtitles.Views
             {
                 OutputSelector.SelectedItems.Add(secondName);
             }
+            _isInitializingOutputSelection = false;
+            OutputConfirmButton.IsEnabled = false;
 
             DisplayLocalFileDates();
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
@@ -442,27 +445,12 @@ namespace GI_Subtitles.Views
         {
             string configPath = Path.Combine(dataDir, $"{gameName}.json");
             bool fileExists = File.Exists(configPath);
-            if (fileExists)
-            {
-                try
-                {
-                    _currentGameConfig = JsonConvert.DeserializeObject<GameConfig>(File.ReadAllText(configPath));
-                }
-                catch (Exception ex)
-                {
-                    Logger.Log.Error($"Failed to load {gameName}.json: {ex.Message}");
-                }
-            }
+            _currentGameConfig = GameConfigStore.LoadOrCreate(
+                configPath,
+                () => CreateDefaultGameConfig(gameName),
+                ex => Logger.Log.Error($"Failed to load {gameName}.json: {ex.Message}"));
 
-            if (_currentGameConfig == null)
-            {
-                _currentGameConfig = CreateDefaultGameConfig(gameName);
-                if (!fileExists)
-                {
-                    File.WriteAllText(configPath, JsonConvert.SerializeObject(_currentGameConfig, Formatting.Indented));
-                }
-            }
-            else if (gameName == "Genshin")
+            if (fileExists && gameName == "Genshin")
             {
                 bool configChanged = false;
                 string mediumUrl = "https://gitlab.com/Dimbreath/animegamedata2/-/raw/main/TextMap/TextMap_Medium{Language}.json?inline=false";
@@ -492,7 +480,68 @@ namespace GI_Subtitles.Views
                 }
             }
 
+            MigrateLanguageMappings(gameName, configPath);
+
             repoUrl = _currentGameConfig.RepoUrl;
+        }
+
+        private void MigrateLanguageMappings(string gameName, string configPath)
+        {
+            bool configChanged = false;
+            if (_currentGameConfig.LanguageMapping == null)
+            {
+                _currentGameConfig.LanguageMapping = new Dictionary<string, string>();
+            }
+
+            if (gameName == "StarRail" &&
+                (!_currentGameConfig.LanguageMapping.TryGetValue("KR", out string starRailKorean) ||
+                 starRailKorean == "KR" || starRailKorean == "MainKR"))
+            {
+                // The regular Korean TextMap is split upstream into KR_0 and
+                // KR_1. KR_0 is used as the displayed URL and KR_1 is merged by
+                // DownloadFileAsync. TextMapMainKR is a separate data set.
+                _currentGameConfig.LanguageMapping["KR"] = "KR_0";
+                configChanged = true;
+            }
+            else if (gameName == "Zenless" &&
+                     (!_currentGameConfig.LanguageMapping.TryGetValue("KR", out string zenlessKorean) || zenlessKorean == "_KR"))
+            {
+                // Zenless uses KO in its TextMap filenames, while the app uses KR.
+                _currentGameConfig.LanguageMapping["KR"] = "_KO";
+                configChanged = true;
+            }
+
+            if (gameName == "StarRail" && IsGenshinRepositoryConfig(_currentGameConfig))
+            {
+                // Older builds could carry the previously selected game's
+                // object into a newly created StarRail.json. Repair that known
+                // corrupted shape without overwriting legitimate custom repos.
+                _currentGameConfig.RepoUrl = "https://gitlab.com/Dimbreath/turnbasedgamedata/-/refs/main/logs_tree/?format=json&offset=0&ref_type=HEADS";
+                _currentGameConfig.RepoType = "GitLab";
+                _currentGameConfig.InputUrlTemplate = "https://gitlab.com/Dimbreath/turnbasedgamedata/-/raw/main/TextMap/TextMap{Language}.json?inline=false";
+                _currentGameConfig.OutputUrlTemplate = "https://gitlab.com/Dimbreath/turnbasedgamedata/-/raw/main/TextMap/TextMap{Language}.json?inline=false";
+                _currentGameConfig.MediumUrlTemplate = null;
+                configChanged = true;
+            }
+
+            if (!configChanged) return;
+
+            try
+            {
+                File.WriteAllText(configPath, JsonConvert.SerializeObject(_currentGameConfig, Formatting.Indented));
+                Logger.Log.Info($"Migrated Korean language mapping in {gameName}.json");
+            }
+            catch (Exception ex)
+            {
+                Logger.Log.Error($"Failed to update Korean language mapping in {gameName}.json: {ex.Message}");
+            }
+        }
+
+        private static bool IsGenshinRepositoryConfig(GameConfig config)
+        {
+            return (config.RepoUrl?.IndexOf("animegamedata", StringComparison.OrdinalIgnoreCase) >= 0) ||
+                   (config.InputUrlTemplate?.IndexOf("animegamedata", StringComparison.OrdinalIgnoreCase) >= 0) ||
+                   (config.OutputUrlTemplate?.IndexOf("animegamedata", StringComparison.OrdinalIgnoreCase) >= 0);
         }
 
         private static string MigrateGenshinRepositoryUrl(string url, ref bool configChanged)
@@ -541,6 +590,7 @@ namespace GI_Subtitles.Views
                     config.RepoType = "GitLab";
                     config.InputUrlTemplate = "https://gitlab.com/Dimbreath/turnbasedgamedata/-/raw/main/TextMap/TextMap{Language}.json?inline=false";
                     config.OutputUrlTemplate = "https://gitlab.com/Dimbreath/turnbasedgamedata/-/raw/main/TextMap/TextMap{Language}.json?inline=false";
+                    config.LanguageMapping["KR"] = "KR_0";
                     break;
                 case "Zenless":
                     config.RepoUrl = "https://git.mero.moe/dimbreath/ZenlessData";
@@ -552,7 +602,7 @@ namespace GI_Subtitles.Views
                         ["CHS"] = "",
                         ["JP"] = "_JA",
                         ["EN"] = "_EN",
-                        ["KR"] = "_KR",
+                        ["KR"] = "_KO",
                         ["PT"] = "_PT",
                         ["RU"] = "_RU",
                         ["TH"] = "_TH",
@@ -623,14 +673,16 @@ namespace GI_Subtitles.Views
             if (!string.IsNullOrEmpty(OutputLanguage2))
             {
                 OutputLangDownloadUrl2.Text = _currentGameConfig.GetDownloadUrl(OutputLanguage2, false);
+                SecondOutputDownloadPanel.Visibility = Visibility.Visible;
             }
             else
             {
                 OutputLangDownloadUrl2.Text = string.Empty;
+                SecondOutputDownloadPanel.Visibility = Visibility.Collapsed;
             }
         }
 
-        private async void OnGameSelectorChanged(object sender, SelectionChangedEventArgs e)
+        private void OnGameSelectorChanged(object sender, SelectionChangedEventArgs e)
         {
             if (!(sender is System.Windows.Controls.ComboBox comboBox))
             {
@@ -655,14 +707,13 @@ namespace GI_Subtitles.Views
                     }
 
                     DisplayLocalFileDates();
-                    Config.Set("Game", newValue);
-                    await CheckDataAsync(true);
+                    OutputConfirmButton.IsEnabled = true;
                 }
             }
         }
 
 
-        private async void OnInputSelectorChanged(object sender, SelectionChangedEventArgs e)
+        private void OnInputSelectorChanged(object sender, SelectionChangedEventArgs e)
         {
             if (!(sender is System.Windows.Controls.ComboBox comboBox))
             {
@@ -676,20 +727,13 @@ namespace GI_Subtitles.Views
                 {
                     InputLanguage = newValue;
                     DisplayLocalFileDates();
-                    Config.Set("Input", InputLanguage);
-                    await CheckDataAsync(true);
+                    OutputConfirmButton.IsEnabled = true;
                 }
             }
         }
 
         private void OutputSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            // Enable confirm button when selection changes
-            if (OutputConfirmButton != null)
-            {
-                OutputConfirmButton.IsEnabled = true;
-            }
-
             // Enforce max 2 selected languages
             var listBox = sender as System.Windows.Controls.ListBox;
             if (listBox == null)
@@ -708,6 +752,13 @@ namespace GI_Subtitles.Views
                         break;
                     }
                 }
+            }
+
+            // Output selection is pending only. Loading and config updates are
+            // intentionally deferred until the user clicks Apply.
+            if (!_isInitializingOutputSelection && OutputConfirmButton != null)
+            {
+                OutputConfirmButton.IsEnabled = true;
             }
         }
         public bool FileExists()
@@ -976,20 +1027,39 @@ namespace GI_Subtitles.Views
             string inputFilePath = $"{Path.Combine(dataDir, Game)}\\TextMap{InputLanguage}.json";
             string outputFilePath = $"{Path.Combine(dataDir, Game)}\\TextMap{OutputLanguage}.json";
 
-            await DownloadFileAsync(InputLangDownloadUrl.Text, inputFilePath, Game, InputLanguage);
-            await DownloadFileAsync(OutputLangDownloadUrl.Text, outputFilePath, Game, OutputLanguage);
+            bool downloaded = false;
+            if (DownloadInputCheckBox.IsChecked == true)
+            {
+                await DownloadFileAsync(InputLangDownloadUrl.Text, inputFilePath, Game, InputLanguage);
+                downloaded = true;
+            }
+            if (DownloadOutputCheckBox.IsChecked == true)
+            {
+                await DownloadFileAsync(OutputLangDownloadUrl.Text, outputFilePath, Game, OutputLanguage);
+                downloaded = true;
+            }
 
-            if (!string.IsNullOrEmpty(OutputLanguage2))
+            if (!string.IsNullOrEmpty(OutputLanguage2) && DownloadOutput2CheckBox.IsChecked == true)
             {
                 string outputFilePath2 = $"{Path.Combine(dataDir, Game)}\\TextMap{OutputLanguage2}.json";
                 await DownloadFileAsync(OutputLangDownloadUrl2.Text, outputFilePath2, Game, OutputLanguage2);
+                downloaded = true;
             }
-            await CheckDataAsync(true);
+
+            if (downloaded)
+            {
+                await CheckDataAsync(true);
+            }
+            else
+            {
+                Status.Content = "Please select at least one language to download.";
+            }
         }
 
         private async void OutputConfirmButton_Click(object sender, RoutedEventArgs e)
         {
-            // Commit selected output languages (max 2) and reload data
+            // Commit the pending game, input language and output languages in
+            // one operation. Selection changes never load data on their own.
             var selectedItems = OutputSelector.SelectedItems.Cast<string>().ToList();
             if (selectedItems.Count == 0)
             {
@@ -1022,7 +1092,9 @@ namespace GI_Subtitles.Views
             OutputLanguage = primaryCode;
             OutputLanguage2 = secondCode;
 
-            // Persist config
+            // Persist all pending selections
+            Config.Set("Game", Game);
+            Config.Set("Input", InputLanguage);
             Config.Set("Output", OutputLanguage);
             Config.Set("Output2", OutputLanguage2 ?? "");
 
@@ -1078,6 +1150,10 @@ namespace GI_Subtitles.Views
                                 if (File.Exists(mediumFilePath)) File.Delete(mediumFilePath);
                                 File.Move(tmpMediumFile, mediumFilePath);
                             }
+                        }
+                        else if (gameName == "StarRail" && language == "KR")
+                        {
+                            await DownloadAndMergeStarRailKoreanPartAsync(uri, tmpUpdateFile);
                         }
 
                         if (File.Exists(fullPath)) File.Delete(fullPath);
@@ -1140,6 +1216,32 @@ namespace GI_Subtitles.Views
                 }
             }
         }
+
+        private async Task DownloadAndMergeStarRailKoreanPartAsync(Uri firstPartUri, string destinationPath)
+        {
+            string firstPartUrl = firstPartUri.AbsoluteUri;
+            if (!firstPartUrl.Contains("TextMapKR_0.json"))
+            {
+                throw new InvalidOperationException("Unexpected Star Rail Korean TextMap URL.");
+            }
+
+            string secondPartUrl = firstPartUrl.Replace("TextMapKR_0.json", "TextMapKR_1.json");
+            string secondPartPath = destinationPath + ".part1";
+            try
+            {
+                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    Status.Content = "Downloading Korean data part 2/2...";
+                });
+                await PerformDownloadAsync(new Uri(secondPartUrl), secondPartPath);
+                await Task.Run(() => VoiceContentHelper.MergeJsonFiles(secondPartPath, destinationPath));
+            }
+            finally
+            {
+                if (File.Exists(secondPartPath)) File.Delete(secondPartPath);
+            }
+        }
+
         private async Task PerformDownloadAsync(Uri uri, string destinationPath)
         {
             Logger.Log.Info($"Starting download from {uri.AbsoluteUri} to {destinationPath}");

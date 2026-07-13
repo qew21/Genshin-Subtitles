@@ -124,6 +124,7 @@
     <Compile Include="Common\OCRSummary.cs" />
     <Compile Include="Core\Input\HotkeySettings.cs" />
     <Compile Include="Models\GameConfig.cs" />
+    <Compile Include="Models\GameConfigStore.cs" />
     <Compile Include="Models\GameMetadata.cs" />
     <Compile Include="Services\OCR\ImageProcessor.cs" />
     <Compile Include="Core\UI\INotifyIcon.cs" />
