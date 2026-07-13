@@ -4,6 +4,17 @@ on:
   push:
     tags:
       - "*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Version to build, for example 1.6.10
+        required: true
+        type: string
+      publish:
+        description: Create GitHub Release and deploy to website
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -13,7 +24,7 @@ env:
   BUILD_CONFIGURATION: Release
   BUILD_PLATFORM: x64
   BASE_VERSION: 1.6.3
-  RELEASE_TAG: ${{ github.ref_name }}
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
 
 jobs:
   release:
@@ -117,6 +128,18 @@ jobs:
             throw "WiX Toolset CLI was installed but could not be executed."
           }
 
+          # WixSharp otherwise resolves the latest UI extension on a clean
+          # runner. Pin it to WiX 6 to avoid accidentally pulling WiX 7.
+          & (Join-Path $wixToolDirectory "wix.exe") extension add -g WixToolset.UI.wixext/6.0.1
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to install WixToolset.UI.wixext 6.0.1."
+          }
+
+          $installedExtensions = & (Join-Path $wixToolDirectory "wix.exe") extension list -g
+          if ($installedExtensions -notcontains "WixToolset.UI.wixext 6.0.1") {
+            throw "WixToolset.UI.wixext 6.0.1 was not found in the WiX extension cache."
+          }
+
       - name: Build MSI
         shell: pwsh
         run: |
@@ -146,6 +169,7 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+          MANUAL_TEST: ${{ github.event_name == 'workflow_dispatch' && inputs.publish == false }}
         run: |
           $notes = ""
 
@@ -158,7 +182,7 @@ jobs:
 
           # When a tag/release is created on github.com, its description is the
           # Release body rather than an annotated Git tag message.
-          if ([string]::IsNullOrWhiteSpace($notes)) {
+          if ([string]::IsNullOrWhiteSpace($notes) -and $env:MANUAL_TEST -ne "true") {
             # The tag push event can be queued just before the Release API has
             # finished publishing the new Release, so retry briefly.
             for ($attempt = 1; $attempt -le 5; $attempt++) {
@@ -173,6 +197,10 @@ jobs:
                 Start-Sleep -Seconds 3
               }
             }
+          }
+
+          if ([string]::IsNullOrWhiteSpace($notes) -and $env:MANUAL_TEST -eq "true") {
+            $notes = "Manual test build for version ${env:RELEASE_TAG}."
           }
 
           # Lightweight tags without a description still get useful notes.
@@ -216,30 +244,31 @@ jobs:
       - name: Upload workflow artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: GI-Subtitles-${{ github.ref_name }}
+          name: GI-Subtitles-${{ env.RELEASE_TAG }}
           path: |
-            GI-Subtitles-${{ github.ref_name }}.zip
-            GI-Subtitles-${{ github.ref_name }}.msi
-            GI-Subtitles-${{ github.ref_name }}-SHA256.txt
+            GI-Subtitles-${{ env.RELEASE_TAG }}.zip
+            GI-Subtitles-${{ env.RELEASE_TAG }}.msi
+            GI-Subtitles-${{ env.RELEASE_TAG }}-SHA256.txt
             release-manifest.json
           retention-days: 30
 
       - name: Create GitHub Release
+        if: ${{ github.event_name == 'push' || inputs.publish }}
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
+          tag_name: ${{ env.RELEASE_TAG }}
           target_commitish: ${{ github.sha }}
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          prerelease: ${{ contains(env.RELEASE_TAG, '-') }}
           body_path: github-release-notes.md
           fail_on_unmatched_files: true
           files: |
-            GI-Subtitles-${{ github.ref_name }}.zip
-            GI-Subtitles-${{ github.ref_name }}.msi
-            GI-Subtitles-${{ github.ref_name }}-SHA256.txt
+            GI-Subtitles-${{ env.RELEASE_TAG }}.zip
+            GI-Subtitles-${{ env.RELEASE_TAG }}.msi
+            GI-Subtitles-${{ env.RELEASE_TAG }}-SHA256.txt
 
   deploy-website:
     name: Deploy website downloads
-    if: ${{ !contains(github.ref_name, '-') }}
+    if: ${{ (github.event_name == 'push' || inputs.publish) && !contains(github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name, '-') }}
     needs: release
     runs-on: ubuntu-24.04
     environment: production
@@ -247,7 +276,7 @@ jobs:
       - name: Download release artifacts
         uses: actions/download-artifact@v4
         with:
-          name: GI-Subtitles-${{ github.ref_name }}
+          name: GI-Subtitles-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
           path: release-artifacts
 
       - name: Upload installer and checksum
@@ -257,7 +286,7 @@ jobs:
           port: ${{ secrets.DEPLOY_PORT || 22 }}
           username: release-deploy
           password: ${{ secrets.DEPLOY_PASSWORD }}
-          source: release-artifacts/GI-Subtitles-${{ github.ref_name }}.msi,release-artifacts/GI-Subtitles-${{ github.ref_name }}-SHA256.txt
+          source: release-artifacts/GI-Subtitles-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}.msi,release-artifacts/GI-Subtitles-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}-SHA256.txt
           target: /srv/2langs/data
           strip_components: 1
           overwrite: true
