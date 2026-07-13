@@ -73,9 +73,10 @@ namespace GI_Subtitles.Views
         private Mat _lastBinaryFrame = null;       // last frame for stability check
         private Mat _lastOcrBinaryFrame = null;    // frame at last OCR for subtitle-change check
         private bool _isOcrRunning = false;
-        private const double ChangeThreshold = 0.01;
+        private readonly double ChangeThreshold = Math.Max(0, Math.Min(1, Config.Get<double>("OCRThreshold", 0.01)));
         private DateTime _lastOcrTime = DateTime.MinValue;
-        private static readonly TimeSpan MinOcrInterval = TimeSpan.FromMilliseconds(400);
+        private readonly TimeSpan MinOcrInterval = TimeSpan.FromMilliseconds(
+            Math.Max(1, Config.Get<int>("OCRInterval", 400)));
         string ocrText = "";
         private NotifyIcon notifyIcon;
         string lastHeader = null;
