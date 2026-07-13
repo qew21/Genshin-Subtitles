@@ -23,6 +23,9 @@ namespace GI_Subtitles.Core.UI
         ToolStripMenuItem languageSelector;
         ToolStripMenuItem settingItem;
         ToolStripMenuItem exitItem;
+        ToolStripMenuItem availableUpdateItem;
+        private EventHandler availableUpdateClick;
+        private string availableUpdateVersion;
         private int Size = Config.Config.Get<int>("Size");
         private bool AutoStart = Config.Config.Get("AutoStart", false);
         public string[] Region = Config.Config.Get<string>("Region", "").Split(',');
@@ -63,12 +66,18 @@ namespace GI_Subtitles.Core.UI
             {
                 Enabled = false
             };
+            availableUpdateItem = new ToolStripMenuItem
+            {
+                Visible = false
+            };
+            availableUpdateItem.Click += (sender, e) => availableUpdateClick?.Invoke(sender, e);
             settingItem.Click += (sender, e) =>
             {
                 data.ShowDialog();
             };
             exitItem.Click += (sender, e) => { System.Windows.Application.Current.Shutdown(); };
             contextMenuStrip.Items.Add(versionItem);
+            contextMenuStrip.Items.Add(availableUpdateItem);
             contextMenuStrip.Items.Add(new ToolStripSeparator());
             contextMenuStrip.Items.Add(languageSelector);
             contextMenuStrip.Items.Add(fontSizeSelector);
@@ -115,6 +124,28 @@ namespace GI_Subtitles.Core.UI
             this.data = data;
         }
 
+        public void ShowAvailableUpdate(string updateVersion, EventHandler clickHandler)
+        {
+            if (availableUpdateItem == null)
+                return;
+
+            availableUpdateVersion = updateVersion;
+            availableUpdateClick = clickHandler;
+            availableUpdateItem.Text = string.Format(
+                GetLocalizedString("Tray_UpdateAvailable", "New version {0}"), updateVersion);
+            availableUpdateItem.Visible = true;
+        }
+
+        public void HideAvailableUpdate()
+        {
+            if (availableUpdateItem == null)
+                return;
+
+            availableUpdateItem.Visible = false;
+            availableUpdateClick = null;
+            availableUpdateVersion = null;
+        }
+
         /// <summary>
         /// Refresh tray menu texts based on current language resources
         /// </summary>
@@ -143,6 +174,14 @@ namespace GI_Subtitles.Core.UI
                 // Update exit menu item text
                 string trayExit = GetLocalizedString("Tray_Exit", "退出程序");
                 exitItem.Text = trayExit;
+
+                if (availableUpdateItem != null && availableUpdateItem.Visible &&
+                    !string.IsNullOrWhiteSpace(availableUpdateVersion))
+                {
+                    availableUpdateItem.Text = string.Format(
+                        GetLocalizedString("Tray_UpdateAvailable", "New version {0}"),
+                        availableUpdateVersion);
+                }
             }
             catch (Exception ex)
             {
@@ -373,4 +412,3 @@ namespace GI_Subtitles.Core.UI
         }
     }
 }
-

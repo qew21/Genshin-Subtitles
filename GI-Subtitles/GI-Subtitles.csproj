@@ -144,10 +144,12 @@
     <Compile Include="Models\SubtitleItem.cs" />
     <Compile Include="Models\MatchResult.cs" />
     <Compile Include="Models\ProgressInfo.cs" />
+    <Compile Include="Models\ReleaseManifest.cs" />
     <Compile Include="Models\SrtEntry.cs" />
     <Compile Include="Models\RegionInfo.cs" />
     <Compile Include="Models\HotkeyData.cs" />
     <Compile Include="Models\OCRTestResult.cs" />
+    <Compile Include="Services\Update\UpdateChecker.cs" />
     <Page Include="Views\MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>

@@ -74,6 +74,10 @@
     <sys:String x:Key="Tray_FontSize" xmlns:sys="clr-namespace:System;assembly=mscorlib">Font Size</sys:String>
     <sys:String x:Key="Tray_Settings" xmlns:sys="clr-namespace:System;assembly=mscorlib">Settings</sys:String>
     <sys:String x:Key="Tray_Exit" xmlns:sys="clr-namespace:System;assembly=mscorlib">Exit</sys:String>
+    <sys:String x:Key="Tray_UpdateAvailable" xmlns:sys="clr-namespace:System;assembly=mscorlib">New version {0}</sys:String>
+    <sys:String x:Key="Update_Title" xmlns:sys="clr-namespace:System;assembly=mscorlib">Software Update</sys:String>
+    <sys:String x:Key="Update_Message" xmlns:sys="clr-namespace:System;assembly=mscorlib">Version {0} is available.&#10;&#10;Published: {1}&#10;&#10;What's new:&#10;{2}&#10;&#10;Choose Yes to download and install, or No to ignore this version.</sys:String>
+    <sys:String x:Key="Update_Error" xmlns:sys="clr-namespace:System;assembly=mscorlib">The update could not be downloaded or verified. Please try again later.</sys:String>
 
     <!-- Hotkey descriptions -->
     <sys:String x:Key="Hotkey_9000_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">Start / Stop subtitle recognition</sys:String>

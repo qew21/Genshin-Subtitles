@@ -74,6 +74,10 @@
     <sys:String x:Key="Tray_FontSize" xmlns:sys="clr-namespace:System;assembly=mscorlib">フォントサイズ</sys:String>
     <sys:String x:Key="Tray_Settings" xmlns:sys="clr-namespace:System;assembly=mscorlib">設定</sys:String>
     <sys:String x:Key="Tray_Exit" xmlns:sys="clr-namespace:System;assembly=mscorlib">終了</sys:String>
+    <sys:String x:Key="Tray_UpdateAvailable" xmlns:sys="clr-namespace:System;assembly=mscorlib">新しいバージョン {0}</sys:String>
+    <sys:String x:Key="Update_Title" xmlns:sys="clr-namespace:System;assembly=mscorlib">アップデート</sys:String>
+    <sys:String x:Key="Update_Message" xmlns:sys="clr-namespace:System;assembly=mscorlib">新しいバージョン {0} があります。&#10;&#10;公開日時：{1}&#10;&#10;更新内容：&#10;{2}&#10;&#10;「はい」でダウンロードしてインストールし、「いいえ」でこのバージョンを無視します。</sys:String>
+    <sys:String x:Key="Update_Error" xmlns:sys="clr-namespace:System;assembly=mscorlib">アップデートのダウンロードまたは検証に失敗しました。後でもう一度お試しください。</sys:String>
 
     <!-- ホットキー説明 -->
     <sys:String x:Key="Hotkey_9000_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕認識の開始 / 停止</sys:String>

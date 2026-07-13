@@ -91,6 +91,7 @@
   <ItemGroup>
     <Compile Include="Config.cs" />
     <Compile Include="TestGameConfigStore.cs" />
+    <Compile Include="TestUpdateChecker.cs" />
     <Compile Include="TestContent.cs" />
     <Compile Include="TestVideo.cs" />
     <Compile Include="TestOCR.cs" />

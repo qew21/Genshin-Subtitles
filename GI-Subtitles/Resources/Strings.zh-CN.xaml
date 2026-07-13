@@ -82,6 +82,10 @@
     <sys:String x:Key="Tray_FontSize" xmlns:sys="clr-namespace:System;assembly=mscorlib">字号选择</sys:String>
     <sys:String x:Key="Tray_Settings" xmlns:sys="clr-namespace:System;assembly=mscorlib">程序设定</sys:String>
     <sys:String x:Key="Tray_Exit" xmlns:sys="clr-namespace:System;assembly=mscorlib">退出程序</sys:String>
+    <sys:String x:Key="Tray_UpdateAvailable" xmlns:sys="clr-namespace:System;assembly=mscorlib">发现新版本 {0}</sys:String>
+    <sys:String x:Key="Update_Title" xmlns:sys="clr-namespace:System;assembly=mscorlib">版本更新</sys:String>
+    <sys:String x:Key="Update_Message" xmlns:sys="clr-namespace:System;assembly=mscorlib">发现新版本 {0}。&#10;&#10;发布时间：{1}&#10;&#10;更新内容：&#10;{2}&#10;&#10;选择“是”下载并安装，选择“否”忽略此版本。</sys:String>
+    <sys:String x:Key="Update_Error" xmlns:sys="clr-namespace:System;assembly=mscorlib">更新下载或校验失败，请稍后重试。</sys:String>
 
     <!-- Hotkey Descriptions -->
     <sys:String x:Key="Hotkey_9000_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">开始/停止识别字幕</sys:String>

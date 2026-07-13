@@ -54,7 +54,7 @@ jobs:
           msbuild ${{ env.SOLUTION_FILE }} -t:GI-Test:Rebuild -p:Configuration=${{ env.BUILD_CONFIGURATION }} -p:Platform=${{ env.BUILD_PLATFORM }}
 
       - name: Run unit tests
-        run: dotnet vstest GI-Test/bin/Release/GI-Test.dll /Tests:MissingTargetConfig_CreatesFreshConfigInsteadOfReusingPreviousGame /logger:trx /ResultsDirectory:test-results
+        run: dotnet vstest GI-Test/bin/Release/GI-Test.dll /Tests:MissingTargetConfig_CreatesFreshConfigInsteadOfReusingPreviousGame,NewManifestVersion_IsOfferedOnlyWhenNotIgnored,ZeroRollout_DoesNotOfferUpdate /logger:trx /ResultsDirectory:test-results
 
       - name: Download base release
         shell: pwsh

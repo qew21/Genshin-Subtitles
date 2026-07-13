@@ -50,6 +50,7 @@ using GI_Subtitles.Core.UI;
 using GI_Subtitles.Models;
 using GI_Subtitles.Services.OCR;
 using GI_Subtitles.Services.Translation;
+using GI_Subtitles.Services.Update;
 using GI_Subtitles.Common;
 using GI_Subtitles.Core.Screen;
 using static GI_Subtitles.Core.Config.Config;
@@ -116,7 +117,6 @@ namespace GI_Subtitles.Views
         string InputLanguage = Config.Get<string>("Input");
         string OutputLanguage = Config.Get<string>("Output");
         string Game = Config.Get<string>("Game");
-        string Update = Config.Get<string>("Update");
         string version = Assembly.GetExecutingAssembly().GetName().Version.ToString();
         string dataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GI-Subtitles");
         INotifyIcon notify;
@@ -133,6 +133,7 @@ namespace GI_Subtitles.Views
         private int failedCount = 0;
         private bool usingRegion2 = false;
         private bool _isUserMovingWindow = false;
+        private ReleaseManifest availableUpdate;
 
 
         public MainWindow()
@@ -144,7 +145,6 @@ namespace GI_Subtitles.Views
             // Using Opacity instead of Visibility to ensure Loaded is still raised and initialization runs as usual.
             this.Opacity = 0;
             Loaded += MainWindow_Loaded;
-            CheckAndUpdate(Update);
             DispatcherTimer _hideButtonTimer = new DispatcherTimer
             {
                 Interval = TimeSpan.FromSeconds(2),
@@ -177,6 +177,7 @@ namespace GI_Subtitles.Views
             data = new SettingsWindow(version, notify, Scale);
             data.InitializeKey(handle);
             notify.SetData(data);
+            _ = CheckForUpdateAsync();
             if (!data.FileExists())
             {
                 if (Game == "Genshin")
@@ -1213,57 +1214,129 @@ namespace GI_Subtitles.Views
         }
 
 
-        async void CheckAndUpdate(string url)
+        private async Task CheckForUpdateAsync()
         {
-            Dictionary<string, string> remote = new Dictionary<string, string>();
             try
             {
-                HttpClient client = new HttpClient();
-                HttpResponseMessage response = await client.GetAsync(url);
-                response.EnsureSuccessStatusCode();
-                string responseText = await response.Content.ReadAsStringAsync();
-                remote = JsonConvert.DeserializeObject<Dictionary<string, string>>(responseText);
+                var manifestUrl = Config.Get("ReleaseManifest", UpdateChecker.DefaultManifestUrl);
+                string responseText;
+                using (var client = new HttpClient())
+                {
+                    responseText = await client.GetStringAsync(manifestUrl);
+                }
+
+                var manifest = UpdateChecker.ParseManifest(responseText);
+                var installationId = Config.Get<string>("UpdateInstallationId", null);
+                if (string.IsNullOrWhiteSpace(installationId))
+                {
+                    installationId = Guid.NewGuid().ToString("N");
+                    Config.Set("UpdateInstallationId", installationId);
+                }
+
+                var ignoredVersion = Config.Get<string>("IgnoredUpdateVersion", null);
+                if (!UpdateChecker.ShouldOfferUpdate(manifest, version, ignoredVersion, installationId))
+                {
+                    return;
+                }
+
+                availableUpdate = manifest;
+                await Dispatcher.InvokeAsync(() =>
+                    notify.ShowAvailableUpdate(manifest.Version, async (sender, args) =>
+                        await ShowAvailableUpdateAsync()));
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex);
+                // Update checks must never interrupt application startup.
+                Logger.Log.Error($"Failed to check for application updates: {ex}");
             }
+        }
 
-            if (remote == null || !remote.ContainsKey("version"))
+        private async Task ShowAvailableUpdateAsync()
+        {
+            var manifest = availableUpdate;
+            if (manifest == null || !manifest.Assets.TryGetValue(UpdateChecker.WindowsMsiAsset, out var asset))
             {
                 return;
             }
-            if (new Version(remote["version"]) > new Version(version))
+
+            var title = GetLocalizedText("Update_Title", "Software Update");
+            var template = GetLocalizedText(
+                "Update_Message",
+                "Version {0} is available.\n\nPublished: {1}\n\nWhat's new:\n{2}\n\nChoose Yes to download and install, or No to ignore this version.");
+            var result = System.Windows.Forms.MessageBox.Show(
+                string.Format(template, manifest.Version, manifest.PublishedAt, manifest.ReleaseNotes),
+                title,
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Information);
+
+            if (result == System.Windows.Forms.DialogResult.No)
             {
-                System.Windows.Forms.DialogResult dr = System.Windows.Forms.MessageBox.Show($"New version {remote["version"]} found, update?\nUpdate date: {remote["date"]}\nUpdate content:\n{remote["info"]}",
-                                                  "Update notification", System.Windows.Forms.MessageBoxButtons.YesNo);
-                if (dr == System.Windows.Forms.DialogResult.Yes)
-                {
-                    try
-                    {
-                        var msi = Path.GetTempFileName() + ".msi";
-                        new WebClient().DownloadFile(remote["url"], msi);
-
-                        var startInfo = new ProcessStartInfo
-                        {
-                            FileName = "msiexec.exe",
-                            // Use /i to install the new version, /quiet for silent install, /norestart to prevent automatic restart
-                            Arguments = $"/i \"{msi}\" /quiet /norestart",
-                            UseShellExecute = true,
-                            Verb = "runas"  // Request administrator privileges (if MSI requires it)
-                        };
-
-                        Process updaterProcess = Process.Start(startInfo);
-                        Logger.Log.Debug($"Start installation: msiexec {startInfo.Arguments}");
-                        System.Windows.Application.Current.Shutdown();
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Log.Error(ex);
-                    }
-                }
+                Config.Set("IgnoredUpdateVersion", manifest.Version);
+                notify.HideAvailableUpdate();
+                availableUpdate = null;
+                return;
             }
 
+            try
+            {
+                var msi = Path.Combine(
+                    Path.GetTempPath(),
+                    $"GI-Subtitles-{manifest.Version}-{Guid.NewGuid():N}.msi");
+                using (var client = new WebClient())
+                {
+                    await client.DownloadFileTaskAsync(new Uri(asset.Url), msi);
+                }
+
+                var downloaded = new FileInfo(msi);
+                if (downloaded.Length != asset.Size ||
+                    !string.Equals(GetSha256(msi), asset.Sha256, StringComparison.OrdinalIgnoreCase))
+                {
+                    File.Delete(msi);
+                    throw new InvalidDataException("The downloaded installer did not match the release manifest.");
+                }
+
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = "msiexec.exe",
+                    Arguments = $"/i \"{msi}\" /quiet /norestart",
+                    UseShellExecute = true,
+                    Verb = "runas"
+                };
+
+                Process.Start(startInfo);
+                Logger.Log.Debug($"Start installation: msiexec {startInfo.Arguments}");
+                System.Windows.Application.Current.Shutdown();
+            }
+            catch (Exception ex)
+            {
+                Logger.Log.Error($"Failed to install application update: {ex}");
+                System.Windows.Forms.MessageBox.Show(
+                    GetLocalizedText("Update_Error", "The update could not be downloaded or verified. Please try again later."),
+                    title,
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
+        private static string GetSha256(string file)
+        {
+            using (var stream = File.OpenRead(file))
+            using (var sha256 = SHA256.Create())
+            {
+                return BitConverter.ToString(sha256.ComputeHash(stream)).Replace("-", string.Empty).ToLowerInvariant();
+            }
+        }
+
+        private static string GetLocalizedText(string key, string fallback)
+        {
+            try
+            {
+                return System.Windows.Application.Current?.TryFindResource(key) as string ?? fallback;
+            }
+            catch
+            {
+                return fallback;
+            }
         }
         private void DragButton_MouseDown(object sender, MouseButtonEventArgs e)
         {
