@@ -1,0 +1,156 @@
+name: Build Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag, for example 1.6.11
+        required: true
+        type: string
+      prerelease:
+        description: Mark as a prerelease
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+env:
+  SOLUTION_FILE: GI-Subtitles.sln
+  BUILD_CONFIGURATION: Release
+  BUILD_PLATFORM: x64
+  BASE_VERSION: 1.6.3
+  RELEASE_TAG: ${{ inputs.tag }}
+
+jobs:
+  release:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - uses: microsoft/setup-msbuild@v2
+      - uses: NuGet/setup-nuget@v2
+        with:
+          nuget-version: 6.x
+
+      - name: Validate release version
+        shell: pwsh
+        run: |
+          $tagVersion = $env:RELEASE_TAG.TrimStart('v')
+          $assemblyInfo = Get-Content "GI-Subtitles/Properties/AssemblyInfo.cs" -Raw
+          if ($assemblyInfo -notmatch 'AssemblyVersion\("([0-9.]+)"\)') {
+            throw "AssemblyVersion was not found."
+          }
+          $assemblyVersion = [Version]$Matches[1]
+          $requestedVersion = [Version]$tagVersion
+          if ($assemblyVersion.ToString(3) -ne $requestedVersion.ToString(3)) {
+            throw "Tag version $requestedVersion does not match AssemblyVersion $assemblyVersion."
+          }
+
+      - name: Restore packages
+        run: |
+          nuget restore ${{ env.SOLUTION_FILE }}
+          dotnet restore "WixSharp Setup/WixSharp Setup.csproj"
+
+      - name: Build application and tests
+        run: |
+          msbuild ${{ env.SOLUTION_FILE }} -t:GI-Subtitles:Rebuild -p:Configuration=${{ env.BUILD_CONFIGURATION }} -p:Platform=${{ env.BUILD_PLATFORM }}
+          msbuild ${{ env.SOLUTION_FILE }} -t:GI-Test:Rebuild -p:Configuration=${{ env.BUILD_CONFIGURATION }} -p:Platform=${{ env.BUILD_PLATFORM }}
+
+      - name: Run unit tests
+        run: dotnet vstest GI-Test/bin/Release/GI-Test.dll /Tests:MissingTargetConfig_CreatesFreshConfigInsteadOfReusingPreviousGame /logger:trx /ResultsDirectory:test-results
+
+      - name: Download base release
+        shell: pwsh
+        run: |
+          $baseZip = "${{ env.BASE_VERSION }}.zip"
+          $baseUri = "https://github.com/qew21/Genshin-Subtitles/releases/download/${{ env.BASE_VERSION }}/$baseZip"
+          Invoke-WebRequest -Uri $baseUri -OutFile $baseZip -UseBasicParsing
+          Expand-Archive -Path $baseZip -DestinationPath base-release -Force
+
+      - name: Assemble release directory
+        shell: pwsh
+        run: |
+          $releaseDir = "release-package"
+          $buildDir = "GI-Subtitles/bin/Release"
+          New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
+          Copy-Item -Path "base-release/*" -Destination $releaseDir -Recurse -Force
+
+          Copy-Item -Path "$buildDir/GI-Subtitles.exe" -Destination $releaseDir -Force
+          Copy-Item -Path "$buildDir/GI-Subtitles.exe.config" -Destination $releaseDir -Force
+          $preserveFromBase = @(
+            "onnxruntime.dll",
+            "opencv_videoio_ffmpeg4110_64.dll",
+            "OpenCvSharp4.runtime.dll",
+            "Microsoft.ML.OnnxRuntime.dll",
+            "Microsoft.ML.OnnxRuntime.Managed.dll",
+            "Microsoft.ML.OnnxRuntime.CSharp.dll"
+          )
+          Get-ChildItem -Path $buildDir -Filter "*.dll" | ForEach-Object {
+            if ($preserveFromBase -notcontains $_.Name) {
+              Copy-Item -Path $_.FullName -Destination $releaseDir -Force
+            }
+          }
+
+          $required = @(
+            "GI-Subtitles.exe",
+            "Config.json",
+            "inference",
+            "x64",
+            "onnxruntime.dll",
+            "opencv_videoio_ffmpeg4110_64.dll"
+          )
+          foreach ($item in $required) {
+            if (-not (Test-Path (Join-Path $releaseDir $item))) {
+              throw "Required release item is missing: $item"
+            }
+          }
+
+      - name: Build MSI
+        shell: pwsh
+        run: |
+          $installerFiles = "WixSharp Setup/bin/Files"
+          New-Item -ItemType Directory -Force -Path $installerFiles | Out-Null
+          Copy-Item -Path "release-package/*" -Destination $installerFiles -Recurse -Force
+          dotnet build "WixSharp Setup/WixSharp Setup.csproj" --configuration Release --no-restore
+
+          $msi = Get-Item "WixSharp Setup/GI-Subtitles.msi"
+          if ($msi.Length -lt 1MB) {
+            throw "Generated MSI is unexpectedly small: $($msi.Length) bytes"
+          }
+          Copy-Item $msi.FullName "GI-Subtitles-${env:RELEASE_TAG}.msi" -Force
+
+      - name: Create ZIP and checksums
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "release-package/*" -DestinationPath "GI-Subtitles-${env:RELEASE_TAG}.zip" -Force
+          Get-FileHash "GI-Subtitles-${env:RELEASE_TAG}.zip", "GI-Subtitles-${env:RELEASE_TAG}.msi" -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash.ToLower())  $([IO.Path]::GetFileName($_.Path))" } |
+            Set-Content "GI-Subtitles-${env:RELEASE_TAG}-SHA256.txt"
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: GI-Subtitles-${{ inputs.tag }}
+          path: |
+            GI-Subtitles-${{ inputs.tag }}.zip
+            GI-Subtitles-${{ inputs.tag }}.msi
+            GI-Subtitles-${{ inputs.tag }}-SHA256.txt
+          retention-days: 30
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag }}
+          target_commitish: ${{ github.sha }}
+          prerelease: ${{ inputs.prerelease }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            GI-Subtitles-${{ inputs.tag }}.zip
+            GI-Subtitles-${{ inputs.tag }}.msi
+            GI-Subtitles-${{ inputs.tag }}-SHA256.txt
