@@ -1,17 +1,9 @@
 name: Build Release
 
 on:
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: Release tag, for example 1.6.11
-        required: true
-        type: string
-      prerelease:
-        description: Mark as a prerelease
-        required: true
-        default: false
-        type: boolean
+  push:
+    tags:
+      - "*"
 
 permissions:
   contents: write
@@ -21,7 +13,7 @@ env:
   BUILD_CONFIGURATION: Release
   BUILD_PLATFORM: x64
   BASE_VERSION: 1.6.3
-  RELEASE_TAG: ${{ inputs.tag }}
+  RELEASE_TAG: ${{ github.ref_name }}
 
 jobs:
   release:
@@ -132,25 +124,135 @@ jobs:
             ForEach-Object { "$($_.Hash.ToLower())  $([IO.Path]::GetFileName($_.Path))" } |
             Set-Content "GI-Subtitles-${env:RELEASE_TAG}-SHA256.txt"
 
+      - name: Generate release notes
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $notes = ""
+
+          # An annotated tag keeps the message entered with `git tag -a`.
+          $tagType = git cat-file -t "refs/tags/${env:RELEASE_TAG}" 2>$null
+          if ($LASTEXITCODE -eq 0 -and $tagType -eq "tag") {
+            $notes = (git for-each-ref "refs/tags/${env:RELEASE_TAG}" --format="%(contents)") -join "`n"
+            $notes = $notes.Trim()
+          }
+
+          # When a tag/release is created on github.com, its description is the
+          # Release body rather than an annotated Git tag message.
+          if ([string]::IsNullOrWhiteSpace($notes)) {
+            # The tag push event can be queued just before the Release API has
+            # finished publishing the new Release, so retry briefly.
+            for ($attempt = 1; $attempt -le 5; $attempt++) {
+              $existingNotes = gh api "repos/${{ github.repository }}/releases/tags/${env:RELEASE_TAG}" --jq .body 2>$null
+              if ($LASTEXITCODE -eq 0) {
+                $notes = ($existingNotes -join "`n").Trim()
+                if (-not [string]::IsNullOrWhiteSpace($notes)) {
+                  break
+                }
+              }
+              if ($attempt -lt 5) {
+                Start-Sleep -Seconds 3
+              }
+            }
+          }
+
+          # Lightweight tags without a description still get useful notes.
+          if ([string]::IsNullOrWhiteSpace($notes)) {
+            $generatedNotes = gh api --method POST "repos/${{ github.repository }}/releases/generate-notes" `
+              -f "tag_name=${env:RELEASE_TAG}" `
+              -f "target_commitish=${{ github.sha }}" `
+              --jq .body
+            if ($LASTEXITCODE -ne 0) {
+              throw "Failed to generate release notes."
+            }
+            $notes = ($generatedNotes -join "`n").Trim()
+          }
+
+          Set-Content "github-release-notes.md" -Value $notes -Encoding utf8
+
+      - name: Create website release manifest
+        shell: pwsh
+        run: |
+          $version = $env:RELEASE_TAG.TrimStart('v')
+          $msiName = "GI-Subtitles-${env:RELEASE_TAG}.msi"
+          $msi = Get-Item $msiName
+          $manifest = [ordered]@{
+            schemaVersion = 1
+            version = $version
+            publishedAt = (Get-Date).ToUniversalTime().ToString("o")
+            channel = "stable"
+            rollout = 0
+            minimumVersion = $null
+            releaseNotes = (Get-Content "github-release-notes.md" -Raw).Trim()
+            assets = [ordered]@{
+              "windows-x64-msi" = [ordered]@{
+                url = "https://2langs.com/data/$msiName"
+                sha256 = (Get-FileHash $msiName -Algorithm SHA256).Hash.ToLowerInvariant()
+                size = $msi.Length
+              }
+            }
+          }
+          $manifest | ConvertTo-Json -Depth 5 | Set-Content "release-manifest.json" -Encoding utf8
+
       - name: Upload workflow artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: GI-Subtitles-${{ inputs.tag }}
+          name: GI-Subtitles-${{ github.ref_name }}
           path: |
-            GI-Subtitles-${{ inputs.tag }}.zip
-            GI-Subtitles-${{ inputs.tag }}.msi
-            GI-Subtitles-${{ inputs.tag }}-SHA256.txt
+            GI-Subtitles-${{ github.ref_name }}.zip
+            GI-Subtitles-${{ github.ref_name }}.msi
+            GI-Subtitles-${{ github.ref_name }}-SHA256.txt
+            release-manifest.json
           retention-days: 30
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ inputs.tag }}
+          tag_name: ${{ github.ref_name }}
           target_commitish: ${{ github.sha }}
-          prerelease: ${{ inputs.prerelease }}
-          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          body_path: github-release-notes.md
           fail_on_unmatched_files: true
           files: |
-            GI-Subtitles-${{ inputs.tag }}.zip
-            GI-Subtitles-${{ inputs.tag }}.msi
-            GI-Subtitles-${{ inputs.tag }}-SHA256.txt
+            GI-Subtitles-${{ github.ref_name }}.zip
+            GI-Subtitles-${{ github.ref_name }}.msi
+            GI-Subtitles-${{ github.ref_name }}-SHA256.txt
+
+  deploy-website:
+    name: Deploy website downloads
+    if: ${{ !contains(github.ref_name, '-') }}
+    needs: release
+    runs-on: ubuntu-24.04
+    environment: production
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: GI-Subtitles-${{ github.ref_name }}
+          path: release-artifacts
+
+      - name: Upload installer and checksum
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          username: release-deploy
+          password: ${{ secrets.DEPLOY_PASSWORD }}
+          source: release-artifacts/GI-Subtitles-${{ github.ref_name }}.msi,release-artifacts/GI-Subtitles-${{ github.ref_name }}-SHA256.txt
+          target: /srv/2langs/data
+          strip_components: 1
+          overwrite: true
+
+      # Publish the manifest last so clients never see a release before its MSI exists.
+      - name: Publish release manifest
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          username: release-deploy
+          password: ${{ secrets.DEPLOY_PASSWORD }}
+          source: release-artifacts/release-manifest.json
+          target: /srv/2langs/data
+          strip_components: 1
+          overwrite: true
