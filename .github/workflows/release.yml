@@ -102,6 +102,21 @@ jobs:
             }
           }
 
+      - name: Install WiX Toolset CLI
+        shell: pwsh
+        run: |
+          $wixToolDirectory = Join-Path $env:RUNNER_TEMP "wix-tool"
+          dotnet tool install wix --version 6.0.1 --tool-path $wixToolDirectory
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to install WiX Toolset CLI."
+          }
+
+          $wixToolDirectory | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          & (Join-Path $wixToolDirectory "wix.exe") --version
+          if ($LASTEXITCODE -ne 0) {
+            throw "WiX Toolset CLI was installed but could not be executed."
+          }
+
       - name: Build MSI
         shell: pwsh
         run: |
@@ -109,6 +124,9 @@ jobs:
           New-Item -ItemType Directory -Force -Path $installerFiles | Out-Null
           Copy-Item -Path "release-package/*" -Destination $installerFiles -Recurse -Force
           dotnet build "WixSharp Setup/WixSharp Setup.csproj" --configuration Release --no-restore
+          if ($LASTEXITCODE -ne 0) {
+            throw "MSI project build failed."
+          }
 
           $msi = Get-Item "WixSharp Setup/GI-Subtitles.msi"
           if ($msi.Length -lt 1MB) {
