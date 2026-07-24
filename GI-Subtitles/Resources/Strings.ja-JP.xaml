@@ -85,6 +85,7 @@
     <sys:String x:Key="Hotkey_9002_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">二言語字幕を非表示</sys:String>
     <sys:String x:Key="Hotkey_9003_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">認識領域を表示</sys:String>
     <sys:String x:Key="Hotkey_9004_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">現在の字幕を再認識して音声を再生</sys:String>
+    <sys:String x:Key="Hotkey_9005_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">音声の再生速度を切り替え</sys:String>
 
     <!-- Data Warnings -->
     <sys:String x:Key="Incomplete_Data_Warning" xmlns:sys="clr-namespace:System;assembly=mscorlib">現在使用中の『原神』言語パックに Medium データが不足しています。このままでは一部のテキストを認識できません。下のボタンから Medium データをダウンロードして結合してください。</sys:String>

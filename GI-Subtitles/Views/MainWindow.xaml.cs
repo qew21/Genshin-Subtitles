@@ -53,6 +53,7 @@ using GI_Subtitles.Services.Translation;
 using GI_Subtitles.Services.Update;
 using GI_Subtitles.Common;
 using GI_Subtitles.Core.Screen;
+using GI_Subtitles.Services.Audio;
 using static GI_Subtitles.Core.Config.Config;
 using System.Windows.Threading;
 
@@ -105,6 +106,7 @@ namespace GI_Subtitles.Views
         private const int HOTKEY_ID_3 = 9002; // Custom hotkey ID
         private const int HOTKEY_ID_4 = 9003;
         private const int HOTKEY_ID_REFRESH = 9004;
+        private const int HOTKEY_ID_PLAYBACK_SPEED = 9005;
         private const uint MOD_CTRL = 0x0002; // Ctrl key
         private const uint MOD_SHIFT = 0x0004; // Shift key
         private const uint VK_S = 0x53; // Virtual key code for S
@@ -129,6 +131,8 @@ namespace GI_Subtitles.Views
         private IWavePlayer waveOut;
         private MediaFoundationReader mediaReader;
         private string tempFilePath;
+        private static readonly double[] VoicePlaybackSpeeds = { 1.0, 1.25, 1.5, 2.0 };
+        private double _voicePlaybackSpeed = NormalizePlaybackSpeed(Config.Get<double>("VoicePlaybackSpeed", 1.0));
         private const int AudioTempCleanupThreshold = 60;
         private const int AudioTempFilesToKeep = 10;
         private int failedCount = 0;
@@ -1184,6 +1188,11 @@ namespace GI_Subtitles.Views
                     ForceRefreshCurrentSubtitle();
                     handled = true;
                 }
+                else if (wParam.ToInt32() == HOTKEY_ID_PLAYBACK_SPEED)
+                {
+                    CycleVoicePlaybackSpeed();
+                    handled = true;
+                }
             }
             return IntPtr.Zero;
         }
@@ -1206,11 +1215,6 @@ namespace GI_Subtitles.Views
             Console.WriteLine(url);
             try
             {
-                if (waveOut == null)
-                {
-                    waveOut = new WaveOutEvent();
-                }
-
                 // Download the file to a temporary file
                 using (var webClient = new WebClient())
                 {
@@ -1239,13 +1243,8 @@ namespace GI_Subtitles.Views
                             return;
                         }
 
-                        StopAudio();
                         tempFilePath = tempFile;
-
-                        // Use MediaFoundationReader to read from the file
-                        mediaReader = new MediaFoundationReader(tempFile);
-                        waveOut.Init(mediaReader);
-                        waveOut.Play();
+                        StartAudioPlayback(tempFile);
                     }
                 }
             }
@@ -1258,7 +1257,54 @@ namespace GI_Subtitles.Views
         public void StopAudio()
         {
             waveOut?.Stop();
+            waveOut?.Dispose();
+            waveOut = null;
             mediaReader?.Dispose();
+            mediaReader = null;
+        }
+
+        private void StartAudioPlayback(string filePath)
+        {
+            StopAudio();
+            mediaReader = new MediaFoundationReader(filePath);
+            IWaveProvider playbackSource = Math.Abs(_voicePlaybackSpeed - 1.0) < 0.001
+                ? (IWaveProvider)mediaReader
+                : new PlaybackRateWaveProvider(mediaReader, _voicePlaybackSpeed);
+
+            waveOut = new WaveOutEvent();
+            waveOut.Init(playbackSource);
+            waveOut.Play();
+        }
+
+        private void CycleVoicePlaybackSpeed()
+        {
+            int currentIndex = Array.FindIndex(
+                VoicePlaybackSpeeds,
+                speed => Math.Abs(speed - _voicePlaybackSpeed) < 0.001);
+            int nextIndex = (currentIndex + 1) % VoicePlaybackSpeeds.Length;
+            _voicePlaybackSpeed = VoicePlaybackSpeeds[nextIndex];
+            Config.Set("VoicePlaybackSpeed", _voicePlaybackSpeed);
+
+            bool restartCurrentAudio = waveOut?.PlaybackState == PlaybackState.Playing &&
+                                       !string.IsNullOrEmpty(tempFilePath) &&
+                                       File.Exists(tempFilePath);
+            if (restartCurrentAudio)
+            {
+                StartAudioPlayback(tempFilePath);
+            }
+
+            notifyIcon?.ShowBalloonTip(
+                1200,
+                "GI-Subtitles",
+                $"Voice playback speed: {_voicePlaybackSpeed:0.##}x",
+                ToolTipIcon.Info);
+        }
+
+        private static double NormalizePlaybackSpeed(double speed)
+        {
+            return VoicePlaybackSpeeds
+                .OrderBy(candidate => Math.Abs(candidate - speed))
+                .First();
         }
 
         public static double GetScaleForScreen(Screen screen)

@@ -138,6 +138,11 @@ namespace GI_Subtitles.Core.Input
                     {
                         Id = 9004, IsCtrl = true, IsShift = true, SelectedKey = 'F',
                         Description = GetLocalizedString("Hotkey_9004_Description", "刷新当前字幕并重新播放语音")
+                    },
+                    new HotkeyData
+                    {
+                        Id = 9005, IsCtrl = true, IsShift = true, SelectedKey = 'V',
+                        Description = GetLocalizedString("Hotkey_9005_Description", "切换语音播放倍速")
                     }
                 }
             };
