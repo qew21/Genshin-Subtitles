@@ -115,8 +115,9 @@ namespace GI_Subtitles.Services.OCR
             using var resized = new OpenCvSharp.Mat();
             Cv2.Resize(cropped, resized, new OpenCvSharp.Size(9, 8), 0, 0, InterpolationFlags.Area);
 
-            // 4. Compute hash (resized is derived from a binary image but becomes grayscale due to Area interpolation)
-            var hash = new StringBuilder(64);
+            // Include geometry and foreground density to avoid collisions between different
+            // lines that happen to have a similar normalized dHash.
+            var hash = new StringBuilder(80);
 
             unsafe
             {
@@ -134,7 +135,24 @@ namespace GI_Subtitles.Services.OCR
                 }
             }
 
+            double aspectRatio = roi.Height > 0 ? roi.Width / (double)roi.Height : 0;
+            byte aspectSignature = (byte)Math.Max(0, Math.Min(255, Math.Round(aspectRatio * 16)));
+            double density = cropped.Total() > 0
+                ? Cv2.CountNonZero(cropped) / (double)cropped.Total()
+                : 0;
+            byte densitySignature = (byte)Math.Max(0, Math.Min(255, Math.Round(density * 255)));
+            AppendByte(hash, aspectSignature);
+            AppendByte(hash, densitySignature);
+
             return hash.ToString();
+        }
+
+        private static void AppendByte(StringBuilder builder, byte value)
+        {
+            for (int bit = 7; bit >= 0; bit--)
+            {
+                builder.Append((value & (1 << bit)) != 0 ? '1' : '0');
+            }
         }
 
         /// <summary>

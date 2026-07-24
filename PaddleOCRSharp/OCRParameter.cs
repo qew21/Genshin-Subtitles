@@ -96,6 +96,12 @@ namespace PaddleOCRSharp
         public int rec_img_w { get; set; } = 320;
 
         /// <summary>
+        /// Minimum average character confidence included in merged OCR text.
+        /// Text blocks remain available to callers for diagnostics.
+        /// </summary>
+        public float rec_score_thresh { get; set; } = 0.45f;
+
+        /// <summary>
         /// Whether to display image visualization result
         /// </summary>
         public bool show_img_vis { get; set; } = false;

@@ -329,8 +329,8 @@ namespace PaddleOCRSharp
                         var originalIndex = validRectIndices[i];
                         var textBlock = new TextBlock
                         {
-                            Text = results[i],
-                            Score = 1.0f,
+                            Text = results[i].Text,
+                            Score = results[i].Score,
                             BoxPoints = GetBoxPoints(rects[originalIndex])
                         };
                         textBlocks.Add(textBlock);
@@ -346,7 +346,9 @@ namespace PaddleOCRSharp
             return new OCRResult
             {
                 TextBlocks = textBlocks,
-                Text = string.Join("\n", textBlocks.Select(tb => tb.Text))
+                Text = string.Join("\n", textBlocks
+                    .Where(tb => tb.Score >= _parameter.rec_score_thresh)
+                    .Select(tb => tb.Text))
             };
         }
 
@@ -421,17 +423,17 @@ namespace PaddleOCRSharp
         /// <summary>
         /// Text recognition
         /// </summary>
-        private List<string> RecognizeText(Mat[] srcs)
+        private List<TextRecognitionResult> RecognizeText(Mat[] srcs)
         {
             if (srcs.Length == 0)
-                return new List<string>();
+                return new List<TextRecognitionResult>();
 
-            var results = new List<string>();
+            var results = new List<TextRecognitionResult>();
             foreach (var src in srcs)
             {
                 if (src == null || src.IsDisposed || src.Empty())
                 {
-                    results.Add(string.Empty);
+                    results.Add(new TextRecognitionResult(string.Empty, 0f));
                     continue;
                 }
 
@@ -480,7 +482,7 @@ namespace PaddleOCRSharp
         /// <summary>
         /// Decode recognition result
         /// </summary>
-        private string DecodeText(Tensor<float> output)
+        private TextRecognitionResult DecodeText(Tensor<float> output)
         {
             var dimensions = output.Dimensions;
             var charCount = dimensions[1];
@@ -529,7 +531,20 @@ namespace PaddleOCRSharp
                 lastIndex = maxIdx;
             }
 
-            return text;
+            float averageScore = validChars > 0 ? score / validChars : 0f;
+            return new TextRecognitionResult(text, averageScore);
+        }
+
+        private sealed class TextRecognitionResult
+        {
+            public TextRecognitionResult(string text, float score)
+            {
+                Text = text;
+                Score = score;
+            }
+
+            public string Text { get; }
+            public float Score { get; }
         }
 
         /// <summary>
