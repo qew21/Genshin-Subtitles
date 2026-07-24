@@ -242,6 +242,7 @@ namespace GI_Subtitles.Views
             // Boolean flags
             AutoStartCheckBox.IsChecked = Config.Get("AutoStart", false);
             PlayVoiceCheckBox.IsChecked = Config.Get("PlayVoice", true);
+            RecognizeDialogueOptionsCheckBox.IsChecked = Config.Get("RecognizeDialogueOptions", true);
         }
 
         private void ResetLocation_Click(object sender, RoutedEventArgs e)
@@ -1894,6 +1895,18 @@ namespace GI_Subtitles.Views
                 Config.Set("Server", "https://mp3.2langs.com/download");
                 Config.Set("Token", "ENGI");
             }
+        }
+
+        private void RecognizeDialogueOptionsCheckBox_Checked(object sender, RoutedEventArgs e)
+        {
+            if (!_uiLangInitialized)
+            {
+                return;
+            }
+
+            Config.Set(
+                "RecognizeDialogueOptions",
+                RecognizeDialogueOptionsCheckBox.IsChecked == true);
         }
 
         private void Hyperlink_RequestNavigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)

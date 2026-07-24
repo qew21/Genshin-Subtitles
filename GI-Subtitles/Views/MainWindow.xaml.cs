@@ -140,6 +140,11 @@ namespace GI_Subtitles.Views
         private bool _isUserMovingWindow = false;
         private bool _forceVoiceReplayRequested = false;
         private bool _forceRefreshPending = false;
+        private DateTime _lastDialogueOptionScanTime = DateTime.MinValue;
+        private string _lastDialogueOptionHash;
+        private List<DialogueOptionCandidate> _lastDialogueOptions = new List<DialogueOptionCandidate>();
+        private int _dialogueOptionMissCount;
+        private static readonly TimeSpan DialogueOptionScanInterval = TimeSpan.FromMilliseconds(400);
         private ReleaseManifest availableUpdate;
 
 
@@ -264,6 +269,10 @@ namespace GI_Subtitles.Views
         public void GetOCR(object sender, EventArgs e)
         {
             if (notify.isContextMenuOpen)
+            {
+                return;
+            }
+            if (TryScanDialogueOptions())
             {
                 return;
             }
@@ -941,6 +950,196 @@ namespace GI_Subtitles.Views
             return region != null && region.Length == 4 &&
                    int.TryParse(region[2], out int width) && width > 0 &&
                    int.TryParse(region[3], out int height) && height > 0;
+        }
+
+        private bool TryScanDialogueOptions()
+        {
+            if (!string.Equals(Game, "Genshin", StringComparison.OrdinalIgnoreCase) ||
+                !Config.Get("RecognizeDialogueOptions", true) ||
+                DateTime.UtcNow - _lastDialogueOptionScanTime < DialogueOptionScanInterval)
+            {
+                return false;
+            }
+
+            _lastDialogueOptionScanTime = DateTime.UtcNow;
+            if (_isOcrRunning || !IsValidRegion(notify.Region))
+            {
+                return false;
+            }
+
+            Bitmap screenBitmap = null;
+            Mat screenMat = null;
+            try
+            {
+                var anchor = new System.Drawing.Point(
+                    int.Parse(notify.Region[0]),
+                    int.Parse(notify.Region[1]));
+                System.Drawing.Rectangle bounds = Screen.GetBounds(anchor);
+                screenBitmap = CaptureRectangle(bounds);
+                screenMat = screenBitmap.ToMat();
+
+                double threshold = Config.Get("DialogueOptionTemplateThreshold", 0.74);
+                if (!DialogueOptionDetector.TryFindTextRegion(
+                        screenMat,
+                        out OpenCvSharp.Rect relativeTextRegion,
+                        out double confidence,
+                        threshold))
+                {
+                    HandleDialogueOptionsMissing();
+                    return false;
+                }
+
+                _dialogueOptionMissCount = 0;
+                var bitmapRegion = new System.Drawing.Rectangle(
+                    relativeTextRegion.X,
+                    relativeTextRegion.Y,
+                    relativeTextRegion.Width,
+                    relativeTextRegion.Height);
+                Bitmap optionBitmap = screenBitmap.Clone(
+                    bitmapRegion,
+                    System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+                Mat optionFrame = optionBitmap.ToMat();
+                string optionHash = ImageProcessor.ComputeRobustHash(optionFrame);
+                if (string.Equals(optionHash, _lastDialogueOptionHash, StringComparison.Ordinal))
+                {
+                    optionFrame.Dispose();
+                    optionBitmap.Dispose();
+                    return true;
+                }
+
+                _lastDialogueOptionHash = optionHash;
+                var absoluteOrigin = new System.Drawing.Point(
+                    bounds.Left + relativeTextRegion.X,
+                    bounds.Top + relativeTextRegion.Y);
+                _ = RecognizeDialogueOptionsAsync(optionFrame, optionBitmap, absoluteOrigin, confidence);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logger.Log.Warn($"Dialogue option scan failed: {ex.Message}");
+                return false;
+            }
+            finally
+            {
+                screenMat?.Dispose();
+                screenBitmap?.Dispose();
+            }
+        }
+
+        private async Task RecognizeDialogueOptionsAsync(
+            Mat frame,
+            Bitmap bitmap,
+            System.Drawing.Point absoluteOrigin,
+            double templateConfidence)
+        {
+            _isOcrRunning = true;
+            try
+            {
+                OCRResult result = await Task.Run(() => data.engine.DetectTextFromMat(frame));
+                var candidates = new List<DialogueOptionCandidate>();
+                foreach (PaddleOCRSharp.TextBlock block in result.TextBlocks
+                    .Where(block => !string.IsNullOrWhiteSpace(block.Text) && block.Score >= 0.45f))
+                {
+                    float minX = block.BoxPoints.Min(point => point.X);
+                    float minY = block.BoxPoints.Min(point => point.Y);
+                    float maxX = block.BoxPoints.Max(point => point.X);
+                    float maxY = block.BoxPoints.Max(point => point.Y);
+                    var bounds = System.Drawing.Rectangle.FromLTRB(
+                        absoluteOrigin.X + (int)Math.Floor(minX),
+                        absoluteOrigin.Y + (int)Math.Floor(minY),
+                        absoluteOrigin.X + (int)Math.Ceiling(maxX),
+                        absoluteOrigin.Y + (int)Math.Ceiling(maxY));
+                    bounds.Inflate(24, 14);
+                    candidates.Add(new DialogueOptionCandidate(block.Text.Trim(), bounds, block.Score));
+                }
+
+                _lastDialogueOptions = candidates;
+                if (candidates.Count == 0)
+                {
+                    // Retry unchanged frames when OCR temporarily returns no usable text.
+                    _lastDialogueOptionHash = null;
+                }
+                Logger.Log.Debug(
+                    $"Dialogue options detected: count={candidates.Count}, templateConfidence={templateConfidence:F3}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Log.Warn($"Dialogue option OCR failed: {ex.Message}");
+            }
+            finally
+            {
+                frame?.Dispose();
+                bitmap?.Dispose();
+                _isOcrRunning = false;
+            }
+        }
+
+        private void HandleDialogueOptionsMissing()
+        {
+            if (_lastDialogueOptions.Count == 0)
+            {
+                _lastDialogueOptionHash = null;
+                _dialogueOptionMissCount = 0;
+                return;
+            }
+
+            _dialogueOptionMissCount++;
+            if (_dialogueOptionMissCount < 2)
+            {
+                return;
+            }
+
+            System.Drawing.Point cursor = System.Windows.Forms.Cursor.Position;
+            DialogueOptionCandidate selected = _lastDialogueOptions
+                .OrderByDescending(candidate => candidate.Score)
+                .FirstOrDefault(candidate => candidate.Bounds.Contains(cursor));
+
+            _lastDialogueOptions = new List<DialogueOptionCandidate>();
+            _lastDialogueOptionHash = null;
+            _dialogueOptionMissCount = 0;
+
+            if (selected == null)
+            {
+                return;
+            }
+
+            Logger.Log.Debug($"Selected dialogue option: {selected.Text}");
+            ocrText = selected.Text;
+            _forceVoiceReplayRequested = true;
+            UpdateText(null, EventArgs.Empty);
+        }
+
+        private static Bitmap CaptureRectangle(System.Drawing.Rectangle bounds)
+        {
+            var bitmap = new Bitmap(
+                bounds.Width,
+                bounds.Height,
+                System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+            using (Graphics graphics = Graphics.FromImage(bitmap))
+            {
+                graphics.CopyFromScreen(
+                    bounds.Left,
+                    bounds.Top,
+                    0,
+                    0,
+                    bounds.Size,
+                    CopyPixelOperation.SourceCopy);
+            }
+            return bitmap;
+        }
+
+        private sealed class DialogueOptionCandidate
+        {
+            public DialogueOptionCandidate(string text, System.Drawing.Rectangle bounds, float score)
+            {
+                Text = text;
+                Bounds = bounds;
+                Score = score;
+            }
+
+            public string Text { get; }
+            public System.Drawing.Rectangle Bounds { get; }
+            public float Score { get; }
         }
 
         /// <summary>
