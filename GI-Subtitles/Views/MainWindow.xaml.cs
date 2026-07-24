@@ -104,6 +104,7 @@ namespace GI_Subtitles.Views
         private const int HOTKEY_ID_2 = 9001; // Custom hotkey ID
         private const int HOTKEY_ID_3 = 9002; // Custom hotkey ID
         private const int HOTKEY_ID_4 = 9003;
+        private const int HOTKEY_ID_REFRESH = 9004;
         private const uint MOD_CTRL = 0x0002; // Ctrl key
         private const uint MOD_SHIFT = 0x0004; // Shift key
         private const uint VK_S = 0x53; // Virtual key code for S
@@ -133,6 +134,8 @@ namespace GI_Subtitles.Views
         private int failedCount = 0;
         private bool usingRegion2 = false;
         private bool _isUserMovingWindow = false;
+        private bool _forceVoiceReplayRequested = false;
+        private bool _forceRefreshPending = false;
         private ReleaseManifest availableUpdate;
 
 
@@ -314,7 +317,7 @@ namespace GI_Subtitles.Views
                                 if (IsOcrIntervalReady())
                                 {
                                     SetWindowPos(new WindowInteropHelper(this).Handle, -1, 0, 0, 0, 0, 1 | 2);
-                                    TriggerOcrAsync(frameMat.Clone(), target);
+                                    _ = TriggerOcrAsync(frameMat.Clone(), target);
                                     passedToOcr = true;
                                 }
                                 else
@@ -410,7 +413,7 @@ namespace GI_Subtitles.Views
 
                                     Logger.Log.Debug("Subtitle changed vs OCR and stabilized vs previous, start OCR");
                                     SetWindowPos(new WindowInteropHelper(this).Handle, -1, 0, 0, 0, 0, 1 | 2);
-                                    TriggerOcrAsync(frameMat.Clone(), target);
+                                    _ = TriggerOcrAsync(frameMat.Clone(), target);
                                     passedToOcr = true;
                                 }
                                 else
@@ -596,7 +599,8 @@ namespace GI_Subtitles.Views
                     }
 
                     // Check whether the content has changed (mainly check content, which is the main text)
-                    bool contentChanged = content != lastContent;
+                    bool forceVoiceReplay = _forceVoiceReplayRequested;
+                    bool contentChanged = forceVoiceReplay || content != lastContent;
                     bool headerChanged = header != lastHeader;
 
                     if (contentChanged || headerChanged)
@@ -632,16 +636,22 @@ namespace GI_Subtitles.Views
                         }
 
                         // Play audio (only when content changes, to avoid repeated playback)
-                        if (Config.Get<bool>("PlayVoice", false) && contentChanged && !AudioList.Contains(key) && !string.IsNullOrEmpty(key))
+                        if (Config.Get<bool>("PlayVoice", false) && contentChanged &&
+                            (forceVoiceReplay || !AudioList.Contains(key)) && !string.IsNullOrEmpty(key))
                         {
                             string audioKey = VoiceContentHelper.CalculateMd5Hash(key);
                             PlayAudioFromUrl($"{server}?md5={audioKey}&token={token}");
-                            AudioList.Add(key);
+                            if (!AudioList.Contains(key))
+                            {
+                                AudioList.Add(key);
+                            }
                         }
 
                         // Adapt window height and position when text changes
                         UpdateWindowHeightAndTop();
                     }
+
+                    _forceVoiceReplayRequested = false;
                 }
                 catch (Exception ex)
                 {
@@ -780,7 +790,7 @@ namespace GI_Subtitles.Views
         /// </summary>
         /// <param name="frameToProcess">Image Mat for OCR (caller has already Clone)</param>
         /// <param name="target">Original screenshot Bitmap, used for debugging and setting preview image</param>
-        private async void TriggerOcrAsync(Mat frameToProcess, Bitmap target)
+        private async Task TriggerOcrAsync(Mat frameToProcess, Bitmap target, bool forceRefresh = false)
         {
             _isOcrRunning = true;
             try
@@ -796,13 +806,15 @@ namespace GI_Subtitles.Views
 
                         string bitStr = ImageProcessor.ComputeRobustHash(frameToProcess);
 
-                        if (BitmapDict.TryGetValue(bitStr, out string cachedOcrText))
+                        if (!forceRefresh && BitmapDict.TryGetValue(bitStr, out string cachedOcrText))
                         {
                             ocrText = cachedOcrText;
                         }
                         else
                         {
-                            string matchedImageHash = ImageProcessor.FindSimilarImageHash(bitStr, BitmapDict, maxDistance: distant);
+                            string matchedImageHash = forceRefresh
+                                ? null
+                                : ImageProcessor.FindSimilarImageHash(bitStr, BitmapDict, maxDistance: distant);
                             if (matchedImageHash != null)
                             {
                                 ocrText = BitmapDict[matchedImageHash];
@@ -862,6 +874,12 @@ namespace GI_Subtitles.Views
                             // If not needed, release the screenshot resource immediately
                             target?.Dispose();
                         }
+
+                        if (forceRefresh)
+                        {
+                            _forceVoiceReplayRequested = true;
+                            UpdateText(null, EventArgs.Empty);
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -873,7 +891,51 @@ namespace GI_Subtitles.Views
             {
                 _isOcrRunning = false;
                 frameToProcess?.Dispose();
+
+                if (_forceRefreshPending)
+                {
+                    _forceRefreshPending = false;
+                    _ = Dispatcher.BeginInvoke(new Action(ForceRefreshCurrentSubtitle));
+                }
             }
+        }
+
+        private void ForceRefreshCurrentSubtitle()
+        {
+            if (_isOcrRunning)
+            {
+                _forceRefreshPending = true;
+                return;
+            }
+
+            try
+            {
+                string[] region = usingRegion2 && IsValidRegion(notify.Region2)
+                    ? notify.Region2
+                    : notify.Region;
+
+                if (!IsValidRegion(region))
+                {
+                    notify.ChooseRegion();
+                    return;
+                }
+
+                Bitmap target = CaptureRegion(region);
+                Mat frame = target.ToMat();
+                _lastOcrTime = DateTime.MinValue;
+                _ = TriggerOcrAsync(frame, target, forceRefresh: true);
+            }
+            catch (Exception ex)
+            {
+                Logger.Log.Error($"Failed to force refresh current subtitle: {ex}");
+            }
+        }
+
+        private static bool IsValidRegion(string[] region)
+        {
+            return region != null && region.Length == 4 &&
+                   int.TryParse(region[2], out int width) && width > 0 &&
+                   int.TryParse(region[3], out int height) && height > 0;
         }
 
         /// <summary>
@@ -1115,6 +1177,11 @@ namespace GI_Subtitles.Views
                 else if (wParam.ToInt32() == HOTKEY_ID_4)
                 {
                     notify.ShowRegionOverlay();
+                    handled = true;
+                }
+                else if (wParam.ToInt32() == HOTKEY_ID_REFRESH)
+                {
+                    ForceRefreshCurrentSubtitle();
                     handled = true;
                 }
             }

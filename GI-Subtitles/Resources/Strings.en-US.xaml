@@ -84,6 +84,7 @@
     <sys:String x:Key="Hotkey_9001_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">Select subtitle region (first line)</sys:String>
     <sys:String x:Key="Hotkey_9002_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">Hide bilingual subtitles</sys:String>
     <sys:String x:Key="Hotkey_9003_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">Show recognition region</sys:String>
+    <sys:String x:Key="Hotkey_9004_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">Refresh current subtitle and replay voice</sys:String>
 
     <!-- Data Warnings -->
     <sys:String x:Key="Incomplete_Data_Warning" xmlns:sys="clr-namespace:System;assembly=mscorlib">Detected that the currently used Genshin language packs are missing Medium data. Some text cannot be recognized until you download and merge the Medium files.</sys:String>

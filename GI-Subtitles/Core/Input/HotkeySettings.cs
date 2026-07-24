@@ -41,13 +41,36 @@ namespace GI_Subtitles.Core.Input
                 using (var reader = new StreamReader(_settingsPath))
                 {
                     var serializer = new XmlSerializer(typeof(HotkeySettings));
-                    return (HotkeySettings)serializer.Deserialize(reader);
+                    var settings = (HotkeySettings)serializer.Deserialize(reader);
+                    MergeMissingDefaults(settings);
+                    return settings;
                 }
             }
             catch
             {
                 // Return default settings when reading fails
                 return GetDefaultSettings();
+            }
+        }
+
+        private static void MergeMissingDefaults(HotkeySettings settings)
+        {
+            if (settings == null)
+            {
+                return;
+            }
+
+            if (settings.Hotkeys == null)
+            {
+                settings.Hotkeys = new List<HotkeyData>();
+            }
+
+            foreach (var defaultHotkey in GetDefaultSettings().Hotkeys)
+            {
+                if (!settings.Hotkeys.Exists(h => h.Id == defaultHotkey.Id))
+                {
+                    settings.Hotkeys.Add(defaultHotkey);
+                }
             }
         }
 
@@ -110,6 +133,11 @@ namespace GI_Subtitles.Core.Input
                     {
                         Id = 9003, IsCtrl = true, IsShift = true, SelectedKey = 'D',
                         Description = GetLocalizedString("Hotkey_9003_Description", "展示识别区域")
+                    },
+                    new HotkeyData
+                    {
+                        Id = 9004, IsCtrl = true, IsShift = true, SelectedKey = 'F',
+                        Description = GetLocalizedString("Hotkey_9004_Description", "刷新当前字幕并重新播放语音")
                     }
                 }
             };
