@@ -148,6 +148,7 @@ namespace GI_Subtitles.Views
             Logger.Log.Debug("Start App");
             Task.Run(() => CleanupOldAudioTempFiles());
             InitializeComponent();
+            UpdatePlaybackSpeedIndicator();
             // Start with the main window fully transparent to avoid showing incomplete UI during heavy startup work.
             // Using Opacity instead of Visibility to ensure Loaded is still raised and initialization runs as usual.
             this.Opacity = 0;
@@ -544,7 +545,7 @@ namespace GI_Subtitles.Views
                     }
 
                     this.Top = newTop;
-                    this.Height = desiredHeight + HeaderText.ActualHeight;
+                    this.Height = desiredHeight + HeaderPanel.ActualHeight;
                     SubtitleText.MaxHeight = desiredHeight;
                 }
                 catch (Exception ex)
@@ -675,7 +676,7 @@ namespace GI_Subtitles.Views
             {
                 try
                 {
-                    if (HeaderText.Visibility != Visibility.Visible || string.IsNullOrEmpty(lastHeader))
+                    if (HeaderPanel.Visibility != Visibility.Visible)
                         return;
 
                     // Force layout update to get accurate ActualHeight
@@ -691,15 +692,15 @@ namespace GI_Subtitles.Views
                     }
 
                     // Get the actual height of the header
-                    HeaderText.UpdateLayout();
-                    double headerHeight = HeaderText.ActualHeight;
+                    HeaderPanel.UpdateLayout();
+                    double headerHeight = HeaderPanel.ActualHeight;
                     if (headerHeight <= 0)
                     {
                         headerHeight = 14; // Header font size is 14
                     }
 
                     // Calculate upward offset: half of content height + half of header height + spacing
-                    var transform = (System.Windows.Media.TranslateTransform)HeaderText.RenderTransform;
+                    var transform = (System.Windows.Media.TranslateTransform)HeaderPanel.RenderTransform;
                     transform.Y = -(contentHeight / 2.0 + headerHeight / 2.0 + 4); // 4 is the spacing
                 }
                 catch (Exception ex)
@@ -1169,6 +1170,7 @@ namespace GI_Subtitles.Views
                     ShowText = !ShowText;
                     SubtitleText.Visibility = ShowText ? Visibility.Visible : Visibility.Collapsed;
                     HeaderText.Visibility = ShowText ? Visibility.Visible : Visibility.Collapsed;
+                    HeaderPanel.Visibility = ShowText ? Visibility.Visible : Visibility.Collapsed;
                     if (ShowText)
                     {
                         SystemSounds.Hand.Play();
@@ -1284,6 +1286,7 @@ namespace GI_Subtitles.Views
             int nextIndex = (currentIndex + 1) % VoicePlaybackSpeeds.Length;
             _voicePlaybackSpeed = VoicePlaybackSpeeds[nextIndex];
             Config.Set("VoicePlaybackSpeed", _voicePlaybackSpeed);
+            UpdatePlaybackSpeedIndicator();
 
             bool restartCurrentAudio = waveOut?.PlaybackState == PlaybackState.Playing &&
                                        !string.IsNullOrEmpty(tempFilePath) &&
@@ -1298,6 +1301,18 @@ namespace GI_Subtitles.Views
                 "GI-Subtitles",
                 $"Voice playback speed: {_voicePlaybackSpeed:0.##}x",
                 ToolTipIcon.Info);
+        }
+
+        private void UpdatePlaybackSpeedIndicator()
+        {
+            if (PlaybackSpeedText == null)
+            {
+                return;
+            }
+
+            PlaybackSpeedText.Text = $"{_voicePlaybackSpeed:0.##}×";
+            PlaybackSpeedBadge.ToolTip = $"Voice playback speed: {_voicePlaybackSpeed:0.##}x";
+            UpdateHeaderPosition();
         }
 
         private static double NormalizePlaybackSpeed(double speed)

@@ -32,15 +32,37 @@
                  IsReadOnly="True"
                  AcceptsReturn="True"/>
         
-        <!-- Header displayed above the content, centered display, using negative Margin to locate above the content -->
-        <TextBlock x:Name="HeaderText" TextWrapping="Wrap" Foreground="White" 
-                   TextAlignment="Center" FontWeight="Bold" FontSize="14" 
-                   HorizontalAlignment="Center" VerticalAlignment="Center"
-                   Margin="0,0,0,0" Visibility="Collapsed">
-            <TextBlock.RenderTransform>
+        <!-- Header and persistent voice-speed badge displayed above the subtitle content. -->
+        <StackPanel x:Name="HeaderPanel"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
+            <StackPanel.RenderTransform>
                 <TranslateTransform Y="-20"/>
-            </TextBlock.RenderTransform>
-        </TextBlock>
+            </StackPanel.RenderTransform>
+            <TextBlock x:Name="HeaderText"
+                       TextWrapping="Wrap"
+                       Foreground="White"
+                       TextAlignment="Center"
+                       FontWeight="Bold"
+                       FontSize="14"
+                       VerticalAlignment="Center"
+                       Visibility="Collapsed"/>
+            <Border x:Name="PlaybackSpeedBadge"
+                    Margin="8,0,0,0"
+                    Padding="6,2"
+                    CornerRadius="7"
+                    Background="#B3202020"
+                    BorderBrush="#CCFFB347"
+                    BorderThickness="1"
+                    VerticalAlignment="Center">
+                <TextBlock x:Name="PlaybackSpeedText"
+                           Foreground="#FFFFC66D"
+                           FontWeight="Bold"
+                           FontSize="12"
+                           Text="1×"/>
+            </Border>
+        </StackPanel>
     </Grid>
 </Window>
 
