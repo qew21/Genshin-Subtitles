@@ -43,14 +43,15 @@ jobs:
         shell: pwsh
         run: |
           $tagVersion = $env:RELEASE_TAG.TrimStart('v')
+          $numericTagVersion = ($tagVersion -split '-', 2)[0]
           $assemblyInfo = Get-Content "GI-Subtitles/Properties/AssemblyInfo.cs" -Raw
           if ($assemblyInfo -notmatch 'AssemblyVersion\("([0-9.]+)"\)') {
             throw "AssemblyVersion was not found."
           }
           $assemblyVersion = [Version]$Matches[1]
-          $requestedVersion = [Version]$tagVersion
+          $requestedVersion = [Version]$numericTagVersion
           if ($assemblyVersion.ToString(3) -ne $requestedVersion.ToString(3)) {
-            throw "Tag version $requestedVersion does not match AssemblyVersion $assemblyVersion."
+            throw "Tag version $tagVersion does not match AssemblyVersion $assemblyVersion."
           }
 
       - name: Restore packages
