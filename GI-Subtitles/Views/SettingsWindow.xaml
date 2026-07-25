@@ -320,6 +320,16 @@
 
                     <!-- Boolean Flags -->
                     <StackPanel Grid.Row="2" Margin="0,0,0,12">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBlock Text="{DynamicResource Config_OcrModel}" Width="200" VerticalAlignment="Center"/>
+                            <ComboBox x:Name="OcrModelSelector"
+                                      Width="230"
+                                      SelectionChanged="OcrModelSelector_SelectionChanged"
+                                      ToolTip="{DynamicResource Config_OcrModel_Tooltip}">
+                                <ComboBoxItem Tag="V6" Content="{DynamicResource Config_OcrModel_V6}"/>
+                                <ComboBoxItem Tag="V4" Content="{DynamicResource Config_OcrModel_V4}"/>
+                            </ComboBox>
+                        </StackPanel>
                         <CheckBox x:Name="AutoStartCheckBox" Checked="AutoStartCheckBox_Checked" Unchecked="AutoStartCheckBox_Checked" Content="{DynamicResource Config_AutoStart}" Margin="0,0,0,6"/>
                         <CheckBox x:Name="PlayVoiceCheckBox" Checked="PlayVoiceCheckBox_Checked" Unchecked="PlayVoiceCheckBox_Checked" Content="{DynamicResource Config_PlayVoice}" Margin="0,0,0,6"/>
                         <CheckBox x:Name="RecognizeDialogueOptionsCheckBox"

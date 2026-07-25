@@ -57,6 +57,7 @@ namespace GI_Subtitles.Views
         string InputLanguage = Config.Get<string>("Input");
         string OutputLanguage = Config.Get<string>("Output");
         string OutputLanguage2 = Config.Get<string>("Output2");
+        string OcrModelVersion = NormalizeOcrModelVersion(Config.Get("OCRModelVersion", "V6"));
         private const int MaxRetries = 1; // Maximum number of retries
         private static readonly HttpClient client = new HttpClient();
         public Dictionary<string, string> contentDict = new Dictionary<string, string>();
@@ -103,6 +104,7 @@ namespace GI_Subtitles.Views
         public OptimizedMatcher Matcher;
         // Used to suppress initial UILangSelector SelectionChanged events triggered by XAML default selection
         private bool _uiLangInitialized = false;
+        private bool _ocrModelInitialized = false;
 
         public bool IsDataIncomplete
         {
@@ -243,6 +245,12 @@ namespace GI_Subtitles.Views
             AutoStartCheckBox.IsChecked = Config.Get("AutoStart", false);
             PlayVoiceCheckBox.IsChecked = Config.Get("PlayVoice", true);
             RecognizeDialogueOptionsCheckBox.IsChecked = Config.Get("RecognizeDialogueOptions", true);
+
+            var selectedOcrModel = OcrModelSelector.Items.Cast<ComboBoxItem>()
+                .FirstOrDefault(item =>
+                    string.Equals(item.Tag as string, OcrModelVersion, StringComparison.OrdinalIgnoreCase));
+            OcrModelSelector.SelectedItem = selectedOcrModel ?? OcrModelSelector.Items[0];
+            _ocrModelInitialized = true;
         }
 
         private void ResetLocation_Click(object sender, RoutedEventArgs e)
@@ -1319,48 +1327,94 @@ namespace GI_Subtitles.Views
             {
                 engine.Dispose();
             }
-            engine = LoadEngine(InputLanguage);
+            engine = LoadEngine(InputLanguage, OcrModelVersion);
         }
 
-        public static PaddleOCREngine LoadEngine(string input)
+        public static PaddleOCREngine LoadEngine(
+            string input,
+            string modelVersion = "V6",
+            OCRExecutionProvider executionProvider = OCRExecutionProvider.Auto)
         {
-            OCRModelConfig config = null;
+            string requestedVersion = NormalizeOcrModelVersion(modelVersion);
             OCRParameter oCRParameter = new OCRParameter
             {
                 cpu_math_library_num_threads = 3,//Prediction concurrent thread count
                 enable_mkldnn = true,//If you deploy on the web, it is recommended to set this value to 0, otherwise it will error. If the memory is used very large, it is recommended to set this value to 0.
                 use_angle_cls = false,//Whether to enable direction detection, used to detect 180 degree rotation
                 det_db_score_mode = false,//Whether to use multiple segments, that is, whether the text area is used with multiple segments or with rectangles,
-                max_side_len = 960
+                max_side_len = 960,
+                execution_provider = executionProvider
             };
 
-            if (input == "JP")
-            {
-                config = new OCRModelConfig();
-                string root = System.IO.Path.GetDirectoryName(typeof(OCRModelConfig).Assembly.Location);
-                string modelPathroot = root + @"\inference";
-                config.det_infer = modelPathroot + @"\Det\V4\PP-OCRv4_mobile_det_infer\slim.onnx";
-                config.rec_infer = modelPathroot + @"\Rec\V4\jp_PP-OCRv4_mobile_rec_infer\slim.onnx";
-                config.keys = modelPathroot + @"\Rec\V4\jp_PP-OCRv4_mobile_rec_infer\dict.txt";
-            }
-            else
-            {
-                config = new OCRModelConfig();
-                string root = System.IO.Path.GetDirectoryName(typeof(OCRModelConfig).Assembly.Location);
-                string modelPathroot = root + @"\inference";
-                config.det_infer = modelPathroot + @"\Det\V4\PP-OCRv4_mobile_det_infer\slim.onnx";
-                config.rec_infer = modelPathroot + @"\Rec\V4\PP-OCRv4_mobile_rec_infer\slim.onnx";
-                config.keys = modelPathroot + @"\Rec\V4\PP-OCRv4_mobile_rec_infer\dict.txt";
-            }
             try
             {
-                return new PaddleOCREngine(config, oCRParameter);
+                return new PaddleOCREngine(CreateModelConfig(input, requestedVersion), oCRParameter);
             }
             catch (Exception ex)
             {
-                Logger.Log.Error($"Error loading engine: {ex.Message}");
-                throw new Exception("Failed to load engine.");
+                if (requestedVersion == "V6")
+                {
+                    Logger.Log.Warn(
+                        $"PP-OCRv6 failed to initialize; falling back to PP-OCRv4: {ex}");
+                    return new PaddleOCREngine(CreateModelConfig(input, "V4"), oCRParameter);
+                }
+
+                Logger.Log.Error($"Error loading OCR engine: {ex}");
+                throw new Exception("Failed to load OCR engine.", ex);
             }
+        }
+
+        private static OCRModelConfig CreateModelConfig(string input, string modelVersion)
+        {
+            string root = System.IO.Path.GetDirectoryName(typeof(OCRModelConfig).Assembly.Location);
+            string modelRoot = Path.Combine(root, "inference");
+            var config = new OCRModelConfig();
+
+            if (modelVersion == "V6")
+            {
+                config.det_infer = Path.Combine(
+                    modelRoot,
+                    @"Det\V6\PP-OCRv6_small_det_infer\slim.onnx");
+                config.rec_infer = Path.Combine(
+                    modelRoot,
+                    @"Rec\V6\PP-OCRv6_small_rec_infer\slim.onnx");
+                config.keys = null;
+                config.model_version = "V6";
+                return config;
+            }
+
+            config.det_infer = Path.Combine(
+                modelRoot,
+                @"Det\V4\PP-OCRv4_mobile_det_infer\slim.onnx");
+            if (input == "JP")
+            {
+                config.rec_infer = Path.Combine(
+                    modelRoot,
+                    @"Rec\V4\jp_PP-OCRv4_mobile_rec_infer\slim.onnx");
+                config.keys = Path.Combine(
+                    modelRoot,
+                    @"Rec\V4\jp_PP-OCRv4_mobile_rec_infer\dict.txt");
+                config.model_version = "V4-JP";
+            }
+            else
+            {
+                config.rec_infer = Path.Combine(
+                    modelRoot,
+                    @"Rec\V4\PP-OCRv4_mobile_rec_infer\slim.onnx");
+                config.keys = Path.Combine(
+                    modelRoot,
+                    @"Rec\V4\PP-OCRv4_mobile_rec_infer\dict.txt");
+                config.model_version = "V4";
+            }
+
+            return config;
+        }
+
+        private static string NormalizeOcrModelVersion(string modelVersion)
+        {
+            return string.Equals(modelVersion, "V4", StringComparison.OrdinalIgnoreCase)
+                ? "V4"
+                : "V6";
         }
         private void TestButton_Click(object sender, RoutedEventArgs e)
         {
@@ -1907,6 +1961,29 @@ namespace GI_Subtitles.Views
             Config.Set(
                 "RecognizeDialogueOptions",
                 RecognizeDialogueOptionsCheckBox.IsChecked == true);
+        }
+
+        private void OcrModelSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (!_ocrModelInitialized ||
+                !(OcrModelSelector.SelectedItem is ComboBoxItem selectedItem) ||
+                !(selectedItem.Tag is string selectedVersion))
+            {
+                return;
+            }
+
+            string normalizedVersion = NormalizeOcrModelVersion(selectedVersion);
+            if (OcrModelVersion == normalizedVersion)
+            {
+                return;
+            }
+
+            OcrModelVersion = normalizedVersion;
+            Config.Set("OCRModelVersion", OcrModelVersion);
+            if (engine != null)
+            {
+                LoadEngine();
+            }
         }
 
         private void Hyperlink_RequestNavigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)

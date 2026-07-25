@@ -253,5 +253,6 @@
   </Target>
   <Import Project="..\packages\Microsoft.ML.OnnxRuntime.Managed.1.24.1\build\netstandard2.0\Microsoft.ML.OnnxRuntime.Managed.targets" Condition="Exists('..\packages\Microsoft.ML.OnnxRuntime.Managed.1.24.1\build\netstandard2.0\Microsoft.ML.OnnxRuntime.Managed.targets')" />
   <Import Project="..\OpenVinoRuntime.targets" />
+  <Import Project="..\PaddleOcrModelRuntime.targets" />
   <Import Project="..\packages\System.ValueTuple.4.6.1\build\net471\System.ValueTuple.targets" Condition="Exists('..\packages\System.ValueTuple.4.6.1\build\net471\System.ValueTuple.targets')" />
 </Project>

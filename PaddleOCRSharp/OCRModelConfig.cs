@@ -27,6 +27,11 @@ namespace PaddleOCRSharp
         /// </summary>
         public string keys { get; set; }
 
+        /// <summary>
+        /// Human-readable model version for diagnostics.
+        /// </summary>
+        public string model_version { get; set; }
+
         public OCRModelConfig()
         {
             var root = GetRootDirectory();
@@ -35,6 +40,7 @@ namespace PaddleOCRSharp
             cls_infer = Path.Combine(modelPathRoot, "ch_ppocr_mobile_v2.0_cls_infer"); // Optional, not used
             rec_infer = Path.Combine(modelPathRoot, "Rec", "V5", "PP-OCRv5_mobile_rec_infer", "slim.onnx");
             keys = Path.Combine(modelPathRoot, "ppocr_keys.txt"); // Optional, character dictionary from inference.yml
+            model_version = "V5";
         }
 
         /// <summary>

@@ -41,6 +41,11 @@ namespace PaddleOCRSharp
                 ? "OpenVINO CPU"
                 : "ONNX Runtime CPU";
 
+        /// <summary>
+        /// Human-readable OCR model version supplied by the model configuration.
+        /// </summary>
+        public string ModelVersionName { get; private set; }
+
         // Detection model parameters
         private const int DetMaxSize = 960;
         private const float DetBoxScoreThreshold = 0.7f;
@@ -173,7 +178,7 @@ namespace PaddleOCRSharp
                     var match = regex.Match(line);
                     if (match.Success)
                     {
-                        var label = match.Groups[1].Value.Trim();
+                        var label = ParseYamlScalar(match.Groups[1].Value.Trim());
                         labels.Add(label);
                     }
                     else if (!string.IsNullOrWhiteSpace(trimmed))
@@ -190,6 +195,26 @@ namespace PaddleOCRSharp
             }
 
             return labels;
+        }
+
+        private static string ParseYamlScalar(string value)
+        {
+            if (value.Length >= 2 && value[0] == '\'' && value[value.Length - 1] == '\'')
+            {
+                return value.Substring(1, value.Length - 2).Replace("''", "'");
+            }
+
+            if (value.Length >= 2 && value[0] == '"' && value[value.Length - 1] == '"')
+            {
+                return value.Substring(1, value.Length - 2)
+                    .Replace("\\\"", "\"")
+                    .Replace("\\\\", "\\")
+                    .Replace("\\n", "\n")
+                    .Replace("\\r", "\r")
+                    .Replace("\\t", "\t");
+            }
+
+            return value;
         }
 
         /// <summary>
@@ -249,7 +274,11 @@ namespace PaddleOCRSharp
 
             _detSession = detSession;
             _recSession = recSession;
-            Logger.Log.Info($"OCR execution provider: {ExecutionProviderName}");
+            ModelVersionName = string.IsNullOrWhiteSpace(config.model_version)
+                ? "Unknown"
+                : config.model_version;
+            Logger.Log.Info(
+                $"OCR model: {ModelVersionName}; execution provider: {ExecutionProviderName}");
         }
 
         private static bool ShouldTryOpenVino(OCRExecutionProvider requestedProvider)
