@@ -1,5 +1,9 @@
 # PP-OCRv6 model provenance
 
+Runtime model files are restored from the versioned bundle described by
+`models.json`. Run `scripts\Restore-OcrModels.ps1` after cloning the repository.
+The script verifies both the archive and every extracted file with SHA-256.
+
 The PP-OCRv6 tiny and small detection and recognition models in this directory were
 converted from the official PaddleOCR inference archives:
 

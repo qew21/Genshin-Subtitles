@@ -12,3 +12,6 @@ installer
 .idea
 *.msi
 *.zip/inference
+.model-cache/
+inference/Det/
+inference/Rec/

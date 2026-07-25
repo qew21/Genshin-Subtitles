@@ -13,7 +13,6 @@ env:
   SOLUTION_FILE: GI-Subtitles.sln
   BUILD_CONFIGURATION: Release
   BUILD_PLATFORM: x64
-  BASE_VERSION: 1.6.3
 
 jobs:
   build-and-test:
@@ -32,6 +31,16 @@ jobs:
       - name: Restore NuGet packages
         run: nuget restore ${{ env.SOLUTION_FILE }}
 
+      - name: Cache OCR model bundle
+        uses: actions/cache@v4
+        with:
+          path: .model-cache
+          key: ocr-models-${{ hashFiles('inference/models.json') }}
+
+      - name: Restore verified OCR models
+        shell: pwsh
+        run: .\scripts\Restore-OcrModels.ps1 -CacheDirectory ".model-cache"
+
       - name: Build application
         run: msbuild ${{ env.SOLUTION_FILE }} -t:GI-Subtitles:Rebuild -p:Configuration=${{ env.BUILD_CONFIGURATION }} -p:Platform=${{ env.BUILD_PLATFORM }}
 
@@ -41,13 +50,6 @@ jobs:
       - name: Download test data
         shell: pwsh
         run: |
-          $baseZip = "${{ env.BASE_VERSION }}.zip"
-          $baseUri = "https://github.com/qew21/Genshin-Subtitles/releases/download/${{ env.BASE_VERSION }}/$baseZip"
-          Invoke-WebRequest -Uri $baseUri -OutFile $baseZip -UseBasicParsing
-          Expand-Archive -Path $baseZip -DestinationPath temp_extract -Force
-          New-Item -ItemType Directory -Force -Path "GI-Test/bin/Release/inference" | Out-Null
-          Copy-Item -Path "temp_extract/inference/*" -Destination "GI-Test/bin/Release/inference" -Recurse -Force
-
           $dataDir = "$env:APPDATA/GI-Subtitles"
           New-Item -ItemType Directory -Force -Path "$dataDir/Genshin", "$dataDir/StarRail" | Out-Null
           Invoke-WebRequest -Uri "https://gitlab.com/Dimbreath/animegamedata2/-/raw/main/TextMap/TextMapCHS.json?inline=false" -OutFile "$dataDir/Genshin/TextMapCHS.json" -UseBasicParsing

@@ -23,7 +23,6 @@ env:
   SOLUTION_FILE: GI-Subtitles.sln
   BUILD_CONFIGURATION: Release
   BUILD_PLATFORM: x64
-  BASE_VERSION: 1.6.3
   RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
 
 jobs:
@@ -59,6 +58,16 @@ jobs:
           nuget restore ${{ env.SOLUTION_FILE }}
           dotnet restore "WixSharp Setup/WixSharp Setup.csproj"
 
+      - name: Cache OCR model bundle
+        uses: actions/cache@v4
+        with:
+          path: .model-cache
+          key: ocr-models-${{ hashFiles('inference/models.json') }}
+
+      - name: Restore verified OCR models
+        shell: pwsh
+        run: .\scripts\Restore-OcrModels.ps1 -CacheDirectory ".model-cache"
+
       - name: Build application and tests
         run: |
           msbuild ${{ env.SOLUTION_FILE }} -t:GI-Subtitles:Rebuild -p:Configuration=${{ env.BUILD_CONFIGURATION }} -p:Platform=${{ env.BUILD_PLATFORM }}
@@ -67,19 +76,9 @@ jobs:
       - name: Run unit tests
         run: dotnet vstest GI-Test/bin/Release/GI-Test.dll /Tests:MissingTargetConfig_CreatesFreshConfigInsteadOfReusingPreviousGame,NewManifestVersion_IsOfferedOnlyWhenNotIgnored,ZeroRollout_DoesNotOfferUpdate /logger:trx /ResultsDirectory:test-results
 
-      - name: Download base release
-        shell: pwsh
-        run: |
-          $baseZip = "${{ env.BASE_VERSION }}.zip"
-          $baseUri = "https://github.com/qew21/Genshin-Subtitles/releases/download/${{ env.BASE_VERSION }}/$baseZip"
-          Invoke-WebRequest -Uri $baseUri -OutFile $baseZip -UseBasicParsing
-          Expand-Archive -Path $baseZip -DestinationPath base-release -Force
-
       - name: Run OCR model smoke tests
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path "GI-Test/bin/Release/inference" | Out-Null
-          Copy-Item -Path "base-release/inference/*" -Destination "GI-Test/bin/Release/inference" -Recurse -Force
           dotnet vstest GI-Test/bin/Release/GI-Test.dll `
             /Tests:TestSettingsWindowLoadsV6ByDefault,TestV6UsesDedicatedV4RecognizerForJapanese,TestDetectionSettingsAreLoadedFromEachModelYaml `
             /logger:trx `
@@ -91,21 +90,7 @@ jobs:
           $releaseDir = "release-package"
           $buildDir = "GI-Subtitles/bin/Release"
           New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
-          Copy-Item -Path "base-release/*" -Destination $releaseDir -Recurse -Force
-
-          Copy-Item -Path "$buildDir/GI-Subtitles.exe" -Destination $releaseDir -Force
-          Copy-Item -Path "$buildDir/GI-Subtitles.exe.config" -Destination $releaseDir -Force
-          $preserveFromBase = @(
-            "opencv_videoio_ffmpeg4110_64.dll",
-            "OpenCvSharp4.runtime.dll"
-          )
-          Get-ChildItem -Path $buildDir -Filter "*.dll" | ForEach-Object {
-            if ($preserveFromBase -notcontains $_.Name) {
-              Copy-Item -Path $_.FullName -Destination $releaseDir -Force
-            }
-          }
-          New-Item -ItemType Directory -Force -Path "$releaseDir/inference" | Out-Null
-          Copy-Item -Path "$buildDir/inference/*" -Destination "$releaseDir/inference" -Recurse -Force
+          Copy-Item -Path "$buildDir/*" -Destination $releaseDir -Recurse -Force
 
           $required = @(
             "GI-Subtitles.exe",
@@ -118,7 +103,8 @@ jobs:
             "x64",
             "onnxruntime.dll",
             "onnxruntime_providers_openvino.dll",
-            "opencv_videoio_ffmpeg4110_64.dll"
+            "dll/x64/OpenCvSharpExtern.dll",
+            "dll/x64/opencv_videoio_ffmpeg4110_64.dll"
           )
           foreach ($item in $required) {
             if (-not (Test-Path (Join-Path $releaseDir $item))) {
