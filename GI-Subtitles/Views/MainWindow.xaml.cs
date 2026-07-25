@@ -131,6 +131,11 @@ namespace GI_Subtitles.Views
         private IWavePlayer waveOut;
         private MediaFoundationReader mediaReader;
         private string tempFilePath;
+        private readonly Queue<string> _audioPlaybackQueue = new Queue<string>();
+        private readonly object _audioPlaybackQueueLock = new object();
+        private bool _audioPlaybackQueueActive;
+        private int _audioPlaybackGeneration;
+        private EventHandler<StoppedEventArgs> _playbackStoppedHandler;
         private static readonly double[] VoicePlaybackSpeeds = { 1.0, 1.25, 1.5, 2.0 };
         private double _voicePlaybackSpeed = NormalizePlaybackSpeed(Config.Get<double>("VoicePlaybackSpeed", 1.0));
         private const int AudioTempCleanupThreshold = 60;
@@ -145,6 +150,10 @@ namespace GI_Subtitles.Views
         private List<DialogueOptionCandidate> _lastDialogueOptions = new List<DialogueOptionCandidate>();
         private int _dialogueOptionMissCount;
         private static readonly TimeSpan DialogueOptionScanInterval = TimeSpan.FromMilliseconds(400);
+        private readonly DispatcherTimer _dialogueChoiceDisplayTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(3)
+        };
         private ReleaseManifest availableUpdate;
 
 
@@ -153,6 +162,12 @@ namespace GI_Subtitles.Views
             Logger.Log.Debug("Start App");
             Task.Run(() => CleanupOldAudioTempFiles());
             InitializeComponent();
+            _dialogueChoiceDisplayTimer.Tick += (sender, args) =>
+            {
+                _dialogueChoiceDisplayTimer.Stop();
+                ClearDialogueChoiceHeader();
+                UpdateHeaderPosition();
+            };
             UpdatePlaybackSpeedIndicator();
             // Start with the main window fully transparent to avoid showing incomplete UI during heavy startup work.
             // Using Opacity instead of Visibility to ensure Loaded is still raised and initialization runs as usual.
@@ -619,6 +634,8 @@ namespace GI_Subtitles.Views
 
                     if (contentChanged || headerChanged)
                     {
+                        ClearDialogueChoiceHeader();
+
                         // Set header and content separately
                         if (headerChanged)
                         {
@@ -955,7 +972,7 @@ namespace GI_Subtitles.Views
         private bool TryScanDialogueOptions()
         {
             if (!string.Equals(Game, "Genshin", StringComparison.OrdinalIgnoreCase) ||
-                !Config.Get("RecognizeDialogueOptions", true) ||
+                !Config.Get("RecognizeDialogueOptions", false) ||
                 DateTime.UtcNow - _lastDialogueOptionScanTime < DialogueOptionScanInterval)
             {
                 return false;
@@ -1053,7 +1070,10 @@ namespace GI_Subtitles.Views
                     candidates.Add(new DialogueOptionCandidate(block.Text.Trim(), bounds, block.Score));
                 }
 
-                _lastDialogueOptions = candidates;
+                _lastDialogueOptions = candidates
+                    .OrderBy(candidate => candidate.Bounds.Top)
+                    .ThenBy(candidate => candidate.Bounds.Left)
+                    .ToList();
                 if (candidates.Count == 0)
                 {
                     // Retry unchanged frames when OCR temporarily returns no usable text.
@@ -1091,8 +1111,10 @@ namespace GI_Subtitles.Views
 
             System.Drawing.Point cursor = System.Windows.Forms.Cursor.Position;
             DialogueOptionCandidate selected = _lastDialogueOptions
-                .OrderByDescending(candidate => candidate.Score)
-                .FirstOrDefault(candidate => candidate.Bounds.Contains(cursor));
+                .Where(candidate => candidate.Bounds.Contains(cursor))
+                .OrderBy(candidate => DistanceSquared(candidate.Bounds, cursor))
+                .ThenByDescending(candidate => candidate.Score)
+                .FirstOrDefault();
 
             _lastDialogueOptions = new List<DialogueOptionCandidate>();
             _lastDialogueOptionHash = null;
@@ -1104,9 +1126,53 @@ namespace GI_Subtitles.Views
             }
 
             Logger.Log.Debug($"Selected dialogue option: {selected.Text}");
-            ocrText = selected.Text;
-            _forceVoiceReplayRequested = true;
-            UpdateText(null, EventArgs.Empty);
+            ShowDialogueChoice(selected.Text);
+        }
+
+        private void ShowDialogueChoice(string recognizedText)
+        {
+            MatchResult match = data.Matcher.FindMatchWithHeaderSeparated(recognizedText, out string key);
+            string displayText = string.IsNullOrWhiteSpace(match.Content)
+                ? recognizedText
+                : match.Content.Trim();
+
+            DialogueChoiceText.Text = $"◆ {displayText}";
+            DialogueChoiceText.Visibility = Visibility.Visible;
+            HeaderText.Visibility = Visibility.Collapsed;
+            _dialogueChoiceDisplayTimer.Stop();
+            _dialogueChoiceDisplayTimer.Start();
+            UpdateHeaderPosition();
+            UpdateWindowHeightAndTop();
+
+            if (Config.Get<bool>("PlayVoice", false) && !string.IsNullOrEmpty(key))
+            {
+                string audioKey = VoiceContentHelper.CalculateMd5Hash(key);
+                PlayAudioFromUrl($"{server}?md5={audioKey}&token={token}");
+            }
+        }
+
+        private void ClearDialogueChoiceHeader()
+        {
+            if (DialogueChoiceText.Visibility != Visibility.Visible)
+            {
+                return;
+            }
+
+            DialogueChoiceText.Text = string.Empty;
+            DialogueChoiceText.Visibility = Visibility.Collapsed;
+            _dialogueChoiceDisplayTimer.Stop();
+            HeaderText.Visibility = string.IsNullOrEmpty(lastHeader)
+                ? Visibility.Collapsed
+                : Visibility.Visible;
+        }
+
+        private static long DistanceSquared(
+            System.Drawing.Rectangle bounds,
+            System.Drawing.Point point)
+        {
+            long dx = bounds.Left + bounds.Width / 2L - point.X;
+            long dy = bounds.Top + bounds.Height / 2L - point.Y;
+            return dx * dx + dy * dy;
         }
 
         private static Bitmap CaptureRectangle(System.Drawing.Rectangle bounds)
@@ -1266,6 +1332,7 @@ namespace GI_Subtitles.Views
 
         private void MainWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
+            StopAudio();
             notifyIcon.Dispose();
             notifyIcon = null;
             data.UnregisterAllHotkeys();
@@ -1413,68 +1480,161 @@ namespace GI_Subtitles.Views
 
         public void PlayAudioFromUrl(string url)
         {
-            Console.WriteLine(url);
-            try
+            bool shouldStart;
+            int generation;
+            lock (_audioPlaybackQueueLock)
             {
-                // Download the file to a temporary file
-                using (var webClient = new WebClient())
-                {
-                    // Set a user agent so the CDN / server does not block the request.
-                    webClient.Headers[HttpRequestHeader.UserAgent] = "GI-Subtitles/1.0";
-
-                    string tempFile = Path.GetTempFileName();
-                    if (tempFile != tempFilePath)
-                    {
-                        try
-                        {
-                            webClient.DownloadFile(url, tempFile);
-                        }
-                        catch (WebException ex) when (ex.Response is HttpWebResponse response &&
-                                                      response.StatusCode == HttpStatusCode.NotFound)
-                        {
-                            Console.WriteLine($"Audio not found: {url}");
-                            try
-                            {
-                                File.Delete(tempFile);
-                            }
-                            catch
-                            {
-                                // ignore cleanup failure
-                            }
-                            return;
-                        }
-
-                        tempFilePath = tempFile;
-                        StartAudioPlayback(tempFile);
-                    }
-                }
+                _audioPlaybackQueue.Enqueue(url);
+                shouldStart = !_audioPlaybackQueueActive;
+                _audioPlaybackQueueActive = true;
+                generation = _audioPlaybackGeneration;
             }
-            catch (Exception ex)
+
+            if (shouldStart)
             {
-                Console.WriteLine($"Error: {ex.Message}");
+                _ = ProcessNextAudioAsync(generation);
             }
         }
 
         public void StopAudio()
         {
-            waveOut?.Stop();
-            waveOut?.Dispose();
-            waveOut = null;
-            mediaReader?.Dispose();
-            mediaReader = null;
+            lock (_audioPlaybackQueueLock)
+            {
+                _audioPlaybackQueue.Clear();
+                _audioPlaybackQueueActive = false;
+                _audioPlaybackGeneration++;
+            }
+
+            DisposeCurrentAudioPlayback();
         }
 
-        private void StartAudioPlayback(string filePath)
+        private void StartAudioPlayback(string filePath, int generation)
         {
-            StopAudio();
+            DisposeCurrentAudioPlayback();
             mediaReader = new MediaFoundationReader(filePath);
             IWaveProvider playbackSource = Math.Abs(_voicePlaybackSpeed - 1.0) < 0.001
                 ? (IWaveProvider)mediaReader
                 : new PlaybackRateWaveProvider(mediaReader, _voicePlaybackSpeed);
 
             waveOut = new WaveOutEvent();
+            IWavePlayer currentPlayer = waveOut;
+            _playbackStoppedHandler = (sender, args) =>
+            {
+                if (!ReferenceEquals(sender, currentPlayer))
+                {
+                    return;
+                }
+
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    if (!ReferenceEquals(waveOut, currentPlayer))
+                    {
+                        return;
+                    }
+
+                    DisposeCurrentAudioPlayback();
+                    _ = ProcessNextAudioAsync(generation);
+                }));
+            };
+            waveOut.PlaybackStopped += _playbackStoppedHandler;
             waveOut.Init(playbackSource);
             waveOut.Play();
+        }
+
+        private async Task ProcessNextAudioAsync(int generation)
+        {
+            while (true)
+            {
+                string url;
+                lock (_audioPlaybackQueueLock)
+                {
+                    if (generation != _audioPlaybackGeneration)
+                    {
+                        return;
+                    }
+
+                    if (_audioPlaybackQueue.Count == 0)
+                    {
+                        _audioPlaybackQueueActive = false;
+                        return;
+                    }
+
+                    url = _audioPlaybackQueue.Dequeue();
+                }
+
+                string tempFile = Path.GetTempFileName();
+                try
+                {
+                    using (var webClient = new WebClient())
+                    {
+                        webClient.Headers[HttpRequestHeader.UserAgent] = "GI-Subtitles/1.0";
+                        await webClient.DownloadFileTaskAsync(new Uri(url), tempFile);
+                    }
+
+                    if (!IsAudioTempFile(tempFile))
+                    {
+                        throw new InvalidDataException("Downloaded voice file has an unsupported format.");
+                    }
+
+                    await Dispatcher.InvokeAsync(() =>
+                    {
+                        lock (_audioPlaybackQueueLock)
+                        {
+                            if (generation != _audioPlaybackGeneration)
+                            {
+                                TryDeleteAudioTempFile(tempFile);
+                                return;
+                            }
+                        }
+
+                        tempFilePath = tempFile;
+                        StartAudioPlayback(tempFile, generation);
+                    });
+                    return;
+                }
+                catch (WebException ex) when (ex.Response is HttpWebResponse response &&
+                                              response.StatusCode == HttpStatusCode.NotFound)
+                {
+                    Logger.Log.Debug($"Audio not found: {url}");
+                }
+                catch (Exception ex)
+                {
+                    Logger.Log.Warn($"Voice playback preparation failed: {ex.Message}");
+                }
+
+                TryDeleteAudioTempFile(tempFile);
+            }
+        }
+
+        private void DisposeCurrentAudioPlayback()
+        {
+            IWavePlayer currentPlayer = waveOut;
+            if (currentPlayer != null && _playbackStoppedHandler != null)
+            {
+                currentPlayer.PlaybackStopped -= _playbackStoppedHandler;
+            }
+
+            _playbackStoppedHandler = null;
+            waveOut = null;
+            currentPlayer?.Stop();
+            currentPlayer?.Dispose();
+            mediaReader?.Dispose();
+            mediaReader = null;
+        }
+
+        private static void TryDeleteAudioTempFile(string filePath)
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(filePath) && File.Exists(filePath))
+                {
+                    File.Delete(filePath);
+                }
+            }
+            catch
+            {
+                // Old audio files are cleaned up at startup.
+            }
         }
 
         private void CycleVoicePlaybackSpeed()
@@ -1492,7 +1652,12 @@ namespace GI_Subtitles.Views
                                        File.Exists(tempFilePath);
             if (restartCurrentAudio)
             {
-                StartAudioPlayback(tempFilePath);
+                int generation;
+                lock (_audioPlaybackQueueLock)
+                {
+                    generation = _audioPlaybackGeneration;
+                }
+                StartAudioPlayback(tempFilePath, generation);
             }
 
             notifyIcon?.ShowBalloonTip(

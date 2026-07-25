@@ -242,7 +242,7 @@ namespace GI_Subtitles.Views
             // Boolean flags
             AutoStartCheckBox.IsChecked = Config.Get("AutoStart", false);
             PlayVoiceCheckBox.IsChecked = Config.Get("PlayVoice", true);
-            RecognizeDialogueOptionsCheckBox.IsChecked = Config.Get("RecognizeDialogueOptions", true);
+            RecognizeDialogueOptionsCheckBox.IsChecked = Config.Get("RecognizeDialogueOptions", false);
         }
 
         private void ResetLocation_Click(object sender, RoutedEventArgs e)
