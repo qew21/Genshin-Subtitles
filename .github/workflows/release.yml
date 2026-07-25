@@ -81,7 +81,7 @@ jobs:
         shell: pwsh
         run: |
           dotnet vstest GI-Test/bin/Release/GI-Test.dll `
-            /Tests:TestSettingsWindowLoadsV6ByDefault,TestV6UsesDedicatedV4RecognizerForJapanese,TestDetectionSettingsAreLoadedFromEachModelYaml `
+            /Tests:TestSettingsWindowLoadsV6ByDefault,TestLegacyChineseModelsAreNotAvailableAtRuntime,TestRuntimePackageContainsOnlyRequiredOcrModels,TestV6UsesDedicatedV4RecognizerForJapanese,TestDetectionSettingsAreLoadedFromEachModelYaml `
             /logger:trx `
             /ResultsDirectory:test-results
 
@@ -96,7 +96,6 @@ jobs:
           $required = @(
             "GI-Subtitles.exe",
             "Config.json",
-            "inference",
             "inference/Det/V6/PP-OCRv6_tiny_det_infer/slim.onnx",
             "inference/Rec/V6/PP-OCRv6_tiny_rec_infer/slim.onnx",
             "inference/Rec/V4/jp_PP-OCRv4_mobile_rec_infer/slim.onnx",
@@ -111,6 +110,16 @@ jobs:
             if (-not (Test-Path (Join-Path $releaseDir $item))) {
               throw "Required release item is missing: $item"
             }
+          }
+
+          $unexpectedModels = Get-ChildItem (Join-Path $releaseDir "inference") -Recurse -File |
+            Where-Object {
+              $_.Extension -eq ".onnx" -and
+              $_.FullName -notmatch "PP-OCRv6_tiny_(det|rec)_infer" -and
+              $_.FullName -notmatch "jp_PP-OCRv4_mobile_rec_infer"
+            }
+          if ($unexpectedModels) {
+            throw "Unexpected OCR models were included in the release: $($unexpectedModels.FullName -join ', ')"
           }
 
       - name: Install WiX Toolset CLI

@@ -10,26 +10,6 @@
   "license": "Apache-2.0",
   "files": [
     {
-      "path": "inference/Det/V4/PP-OCRv4_mobile_det_infer/inference.yml",
-      "size": 956,
-      "sha256": "7a71be98abcc1038fb0d10fad3efb58407fcd5ac4ac3fb45a5544c143bc4763e"
-    },
-    {
-      "path": "inference/Det/V4/PP-OCRv4_mobile_det_infer/slim.onnx",
-      "size": 4764885,
-      "sha256": "c0f2e256776e81d9e38f49e7cc2a37864a326ee8097e84adf30a8e0ebcc0b24b"
-    },
-    {
-      "path": "inference/Det/V6/PP-OCRv6_small_det_infer/inference.yml",
-      "size": 885,
-      "sha256": "193f435274bf9f0b5f71a929bbfbcf148282df7e633b34e7c373e8f44741b516"
-    },
-    {
-      "path": "inference/Det/V6/PP-OCRv6_small_det_infer/slim.onnx",
-      "size": 9917961,
-      "sha256": "5e37e91c022fa8061d07448f4c05ef6a8419681b4aaaba0d0a52c123c72f2f18"
-    },
-    {
       "path": "inference/Det/V6/PP-OCRv6_tiny_det_infer/inference.yml",
       "size": 883,
       "sha256": "3ac018be6f97499a08faa3bbdeb33640968d9307f6736d152902747a9f259593"
@@ -48,26 +28,6 @@
       "path": "inference/Rec/V4/jp_PP-OCRv4_mobile_rec_infer/slim.onnx",
       "size": 9753335,
       "sha256": "e1075a67dba758ecfc7ebc78a10ae61c95ac8fb66a9c86fab5541e33f085cb7a"
-    },
-    {
-      "path": "inference/Rec/V4/PP-OCRv4_mobile_rec_infer/dict.txt",
-      "size": 26249,
-      "sha256": "28b2362ad4ab2dc38769aa72feb535e3a9ddb3fd2a7585a05920e6393b1dc7f7"
-    },
-    {
-      "path": "inference/Rec/V4/PP-OCRv4_mobile_rec_infer/slim.onnx",
-      "size": 10826716,
-      "sha256": "df79157f86aa181ee0daa43364203cfc892f98e2a1b425614a1c98e0b96d7393"
-    },
-    {
-      "path": "inference/Rec/V6/PP-OCRv6_small_rec_infer/inference.yml",
-      "size": 150579,
-      "sha256": "ab078671bb49f06228eadccd34f1bb501e157f7a047095ffb943ba81512c77d1"
-    },
-    {
-      "path": "inference/Rec/V6/PP-OCRv6_small_rec_infer/slim.onnx",
-      "size": 21157195,
-      "sha256": "67f3ab66afbefb19a127761c7de264a3a9aaab159418a58b85fd6b6811b36d79"
     },
     {
       "path": "inference/Rec/V6/PP-OCRv6_tiny_rec_infer/inference.yml",

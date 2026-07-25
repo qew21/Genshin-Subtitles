@@ -57,7 +57,6 @@ namespace GI_Subtitles.Views
         string InputLanguage = Config.Get<string>("Input");
         string OutputLanguage = Config.Get<string>("Output");
         string OutputLanguage2 = Config.Get<string>("Output2");
-        string OcrModelVersion = NormalizeOcrModelVersion(Config.Get("OCRModelVersion", "V6"));
         private const int MaxRetries = 1; // Maximum number of retries
         private static readonly HttpClient client = new HttpClient();
         public Dictionary<string, string> contentDict = new Dictionary<string, string>();
@@ -104,7 +103,6 @@ namespace GI_Subtitles.Views
         public OptimizedMatcher Matcher;
         // Used to suppress initial UILangSelector SelectionChanged events triggered by XAML default selection
         private bool _uiLangInitialized = false;
-        private bool _ocrModelInitialized = false;
 
         public bool IsDataIncomplete
         {
@@ -245,12 +243,6 @@ namespace GI_Subtitles.Views
             AutoStartCheckBox.IsChecked = Config.Get("AutoStart", false);
             PlayVoiceCheckBox.IsChecked = Config.Get("PlayVoice", true);
             RecognizeDialogueOptionsCheckBox.IsChecked = Config.Get("RecognizeDialogueOptions", true);
-
-            var selectedOcrModel = OcrModelSelector.Items.Cast<ComboBoxItem>()
-                .FirstOrDefault(item =>
-                    string.Equals(item.Tag as string, OcrModelVersion, StringComparison.OrdinalIgnoreCase));
-            OcrModelSelector.SelectedItem = selectedOcrModel ?? OcrModelSelector.Items[0];
-            _ocrModelInitialized = true;
         }
 
         private void ResetLocation_Click(object sender, RoutedEventArgs e)
@@ -1327,7 +1319,7 @@ namespace GI_Subtitles.Views
             {
                 engine.Dispose();
             }
-            engine = LoadEngine(InputLanguage, OcrModelVersion);
+            engine = LoadEngine(InputLanguage);
         }
 
         public static PaddleOCREngine LoadEngine(
@@ -1335,7 +1327,12 @@ namespace GI_Subtitles.Views
             string modelVersion = "V6",
             OCRExecutionProvider executionProvider = OCRExecutionProvider.Auto)
         {
-            string requestedVersion = NormalizeOcrModelVersion(modelVersion);
+            if (!string.Equals(modelVersion, "V6", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new NotSupportedException(
+                    $"OCR model version '{modelVersion}' is no longer included. PP-OCRv6 tiny is required.");
+            }
+
             OCRParameter oCRParameter = new OCRParameter
             {
                 cpu_math_library_num_threads = 3,//Prediction concurrent thread count
@@ -1348,62 +1345,28 @@ namespace GI_Subtitles.Views
 
             try
             {
-                return new PaddleOCREngine(CreateModelConfig(input, requestedVersion), oCRParameter);
+                return new PaddleOCREngine(CreateModelConfig(input), oCRParameter);
             }
             catch (Exception ex)
             {
-                if (requestedVersion == "V6")
-                {
-                    Logger.Log.Warn(
-                        $"PP-OCRv6 failed to initialize; falling back to PP-OCRv4: {ex}");
-                    return new PaddleOCREngine(CreateModelConfig(input, "V4"), oCRParameter);
-                }
-
                 Logger.Log.Error($"Error loading OCR engine: {ex}");
                 throw new Exception("Failed to load OCR engine.", ex);
             }
         }
 
-        private static OCRModelConfig CreateModelConfig(string input, string modelVersion)
+        private static OCRModelConfig CreateModelConfig(string input)
         {
             string root = System.IO.Path.GetDirectoryName(typeof(OCRModelConfig).Assembly.Location);
             string modelRoot = Path.Combine(root, "inference");
-            var config = new OCRModelConfig();
-
-            if (modelVersion == "V6")
+            var config = new OCRModelConfig
             {
-                config.det_infer = Path.Combine(
-                    modelRoot,
-                    @"Det\V6\PP-OCRv6_tiny_det_infer\slim.onnx");
-
-                // PP-OCRv6 tiny intentionally excludes Japanese. Keep its
-                // faster detector, but route Japanese text to the dedicated
-                // V4 recognition model and dictionary.
-                if (input == "JP")
-                {
-                    config.rec_infer = Path.Combine(
-                        modelRoot,
-                        @"Rec\V4\jp_PP-OCRv4_mobile_rec_infer\slim.onnx");
-                    config.keys = Path.Combine(
-                        modelRoot,
-                        @"Rec\V4\jp_PP-OCRv4_mobile_rec_infer\dict.txt");
-                    config.model_version = "V6-Tiny-Det+V4-JP-Rec";
-                }
-                else
-                {
-                    config.rec_infer = Path.Combine(
-                        modelRoot,
-                        @"Rec\V6\PP-OCRv6_tiny_rec_infer\slim.onnx");
-                    config.keys = null;
-                    config.model_version = "V6";
-                }
-
-                return config;
-            }
-
-            config.det_infer = Path.Combine(
+                det_infer = Path.Combine(
                 modelRoot,
-                @"Det\V4\PP-OCRv4_mobile_det_infer\slim.onnx");
+                @"Det\V6\PP-OCRv6_tiny_det_infer\slim.onnx")
+            };
+
+            // PP-OCRv6 tiny intentionally excludes Japanese. Keep its faster
+            // detector and use only the dedicated V4 Japanese recognizer.
             if (input == "JP")
             {
                 config.rec_infer = Path.Combine(
@@ -1412,27 +1375,18 @@ namespace GI_Subtitles.Views
                 config.keys = Path.Combine(
                     modelRoot,
                     @"Rec\V4\jp_PP-OCRv4_mobile_rec_infer\dict.txt");
-                config.model_version = "V4-JP";
+                config.model_version = "V6-Tiny-Det+V4-JP-Rec";
             }
             else
             {
                 config.rec_infer = Path.Combine(
                     modelRoot,
-                    @"Rec\V4\PP-OCRv4_mobile_rec_infer\slim.onnx");
-                config.keys = Path.Combine(
-                    modelRoot,
-                    @"Rec\V4\PP-OCRv4_mobile_rec_infer\dict.txt");
-                config.model_version = "V4";
+                    @"Rec\V6\PP-OCRv6_tiny_rec_infer\slim.onnx");
+                config.keys = null;
+                config.model_version = "V6";
             }
 
             return config;
-        }
-
-        private static string NormalizeOcrModelVersion(string modelVersion)
-        {
-            return string.Equals(modelVersion, "V4", StringComparison.OrdinalIgnoreCase)
-                ? "V4"
-                : "V6";
         }
         private void TestButton_Click(object sender, RoutedEventArgs e)
         {
@@ -1979,29 +1933,6 @@ namespace GI_Subtitles.Views
             Config.Set(
                 "RecognizeDialogueOptions",
                 RecognizeDialogueOptionsCheckBox.IsChecked == true);
-        }
-
-        private void OcrModelSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (!_ocrModelInitialized ||
-                !(OcrModelSelector.SelectedItem is ComboBoxItem selectedItem) ||
-                !(selectedItem.Tag is string selectedVersion))
-            {
-                return;
-            }
-
-            string normalizedVersion = NormalizeOcrModelVersion(selectedVersion);
-            if (OcrModelVersion == normalizedVersion)
-            {
-                return;
-            }
-
-            OcrModelVersion = normalizedVersion;
-            Config.Set("OCRModelVersion", OcrModelVersion);
-            if (engine != null)
-            {
-                LoadEngine();
-            }
         }
 
         private void Hyperlink_RequestNavigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)

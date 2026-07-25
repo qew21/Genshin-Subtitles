@@ -56,13 +56,6 @@ namespace GI_Test
         }
 
         [TestMethod]
-        public void TestCpuAndOpenVinoProduceSameText()
-        {
-            string appDir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
-            AssertCpuAndOpenVinoProduceSameText(appDir, "V4");
-        }
-
-        [TestMethod]
         public void TestV6CpuAndOpenVinoProduceSameText()
         {
             string appDir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
@@ -76,6 +69,40 @@ namespace GI_Test
             {
                 Assert.AreEqual("V6", engine.ModelVersionName);
             }
+        }
+
+        [TestMethod]
+        public void TestLegacyChineseModelsAreNotAvailableAtRuntime()
+        {
+            Assert.ThrowsException<NotSupportedException>(() =>
+                SettingsWindow.LoadEngine(
+                    "CHS",
+                    "V4",
+                    OCRExecutionProvider.Cpu));
+        }
+
+        [TestMethod]
+        public void TestRuntimePackageContainsOnlyRequiredOcrModels()
+        {
+            string appDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+            string inferenceDirectory = Path.Combine(appDir, "inference");
+            string[] actualModels = Directory.GetFiles(
+                    inferenceDirectory,
+                    "*.onnx",
+                    SearchOption.AllDirectories)
+                .Select(path => path.Substring(inferenceDirectory.Length + 1)
+                    .Replace(Path.DirectorySeparatorChar, '/'))
+                .OrderBy(path => path, StringComparer.Ordinal)
+                .ToArray();
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "Det/V6/PP-OCRv6_tiny_det_infer/slim.onnx",
+                    "Rec/V4/jp_PP-OCRv4_mobile_rec_infer/slim.onnx",
+                    "Rec/V6/PP-OCRv6_tiny_rec_infer/slim.onnx"
+                },
+                actualModels);
         }
 
         [TestMethod]
@@ -109,11 +136,6 @@ namespace GI_Test
         public void TestDetectionSettingsAreLoadedFromEachModelYaml()
         {
             string appDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-            using (var v4 = CreateEngine(appDir, "V4", OCRExecutionProvider.Cpu))
-            {
-                AssertDetectionSettings(v4, 0.3f, 0.6f, 1.5f, false);
-            }
-
             using (var v6 = CreateEngine(appDir, "V6", OCRExecutionProvider.Cpu))
             {
                 AssertDetectionSettings(v6, 0.2f, 0.4f, 1.4f, false);
@@ -256,25 +278,17 @@ namespace GI_Test
             OCRExecutionProvider executionProvider)
         {
             string modelRoot = Path.Combine(appDir, "inference");
-            bool useV6 = modelVersion == "V6";
+            Assert.AreEqual("V6", modelVersion);
             var config = new OCRModelConfig
             {
                 det_infer = Path.Combine(
                     modelRoot,
-                    useV6
-                        ? @"Det\V6\PP-OCRv6_tiny_det_infer\slim.onnx"
-                        : @"Det\V4\PP-OCRv4_mobile_det_infer\slim.onnx"),
+                    @"Det\V6\PP-OCRv6_tiny_det_infer\slim.onnx"),
                 rec_infer = Path.Combine(
                     modelRoot,
-                    useV6
-                        ? @"Rec\V6\PP-OCRv6_tiny_rec_infer\slim.onnx"
-                        : @"Rec\V4\PP-OCRv4_mobile_rec_infer\slim.onnx"),
-                keys = useV6
-                    ? null
-                    : Path.Combine(
-                        modelRoot,
-                        @"Rec\V4\PP-OCRv4_mobile_rec_infer\dict.txt"),
-                model_version = modelVersion
+                    @"Rec\V6\PP-OCRv6_tiny_rec_infer\slim.onnx"),
+                keys = null,
+                model_version = "V6"
             };
             var parameter = new OCRParameter
             {

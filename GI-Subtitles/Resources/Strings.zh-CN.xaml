@@ -75,10 +75,6 @@
     <sys:String x:Key="Config_PlayVoice" xmlns:sys="clr-namespace:System;assembly=mscorlib">启用支线配音</sys:String>
     <sys:String x:Key="Config_RecognizeDialogueOptions" xmlns:sys="clr-namespace:System;assembly=mscorlib">识别并配音鼠标选择的对话选项</sys:String>
     <sys:String x:Key="Config_RecognizeDialogueOptions_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">自动定位右侧对话选项；鼠标选择后识别实际点击的选项并触发翻译和 AI 配音。</sys:String>
-    <sys:String x:Key="Config_OcrModel" xmlns:sys="clr-namespace:System;assembly=mscorlib">OCR 模型</sys:String>
-    <sys:String x:Key="Config_OcrModel_V6" xmlns:sys="clr-namespace:System;assembly=mscorlib">PP-OCRv6 tiny（推荐）</sys:String>
-    <sys:String x:Key="Config_OcrModel_V4" xmlns:sys="clr-namespace:System;assembly=mscorlib">PP-OCRv4 mobile（兼容）</sys:String>
-    <sys:String x:Key="Config_OcrModel_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">V6 tiny 用于中文、英文等语言；日文自动使用 V4 日文识别模型。初始化失败时会回退 V4。</sys:String>
     <sys:String x:Key="Btn_OpenFolder" xmlns:sys="clr-namespace:System;assembly=mscorlib">打开程序文件夹</sys:String>
     <sys:String x:Key="Btn_ResetLocation" xmlns:sys="clr-namespace:System;assembly=mscorlib">重设字幕位置</sys:String>
     <sys:String x:Key="Btn_SecondRegion" xmlns:sys="clr-namespace:System;assembly=mscorlib">添加第二识别区域</sys:String>
