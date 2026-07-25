@@ -11,6 +11,7 @@ using PaddleOCRSharp;
 namespace GI_Test
 {
     [TestClass]
+    [TestCategory("Benchmark")]
     [DoNotParallelize]
     public class OCRBenchmarkTests
     {

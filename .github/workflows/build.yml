@@ -57,8 +57,7 @@ jobs:
           Invoke-WebRequest -Uri "https://gitlab.com/Dimbreath/turnbasedgamedata/-/raw/main/TextMap/TextMapEN.json?inline=false" -OutFile "$dataDir/StarRail/TextMapEN.json" -UseBasicParsing
 
       - name: Run tests
-        run: dotnet vstest GI-Test/bin/Release/GI-Test.dll /logger:trx /ResultsDirectory:test-results
-        continue-on-error: true
+        run: dotnet vstest GI-Test/bin/Release/GI-Test.dll /TestCaseFilter:"TestCategory!=Benchmark&TestCategory!=Integration" /logger:trx /ResultsDirectory:test-results
 
       - name: Upload test results
         if: always()

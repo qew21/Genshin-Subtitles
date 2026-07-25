@@ -75,6 +75,16 @@ jobs:
           Invoke-WebRequest -Uri $baseUri -OutFile $baseZip -UseBasicParsing
           Expand-Archive -Path $baseZip -DestinationPath base-release -Force
 
+      - name: Run OCR model smoke tests
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "GI-Test/bin/Release/inference" | Out-Null
+          Copy-Item -Path "base-release/inference/*" -Destination "GI-Test/bin/Release/inference" -Recurse -Force
+          dotnet vstest GI-Test/bin/Release/GI-Test.dll `
+            /Tests:TestSettingsWindowLoadsV6ByDefault,TestV6UsesDedicatedV4RecognizerForJapanese,TestDetectionSettingsAreLoadedFromEachModelYaml `
+            /logger:trx `
+            /ResultsDirectory:test-results
+
       - name: Assemble release directory
         shell: pwsh
         run: |
@@ -86,25 +96,28 @@ jobs:
           Copy-Item -Path "$buildDir/GI-Subtitles.exe" -Destination $releaseDir -Force
           Copy-Item -Path "$buildDir/GI-Subtitles.exe.config" -Destination $releaseDir -Force
           $preserveFromBase = @(
-            "onnxruntime.dll",
             "opencv_videoio_ffmpeg4110_64.dll",
-            "OpenCvSharp4.runtime.dll",
-            "Microsoft.ML.OnnxRuntime.dll",
-            "Microsoft.ML.OnnxRuntime.Managed.dll",
-            "Microsoft.ML.OnnxRuntime.CSharp.dll"
+            "OpenCvSharp4.runtime.dll"
           )
           Get-ChildItem -Path $buildDir -Filter "*.dll" | ForEach-Object {
             if ($preserveFromBase -notcontains $_.Name) {
               Copy-Item -Path $_.FullName -Destination $releaseDir -Force
             }
           }
+          New-Item -ItemType Directory -Force -Path "$releaseDir/inference" | Out-Null
+          Copy-Item -Path "$buildDir/inference/*" -Destination "$releaseDir/inference" -Recurse -Force
 
           $required = @(
             "GI-Subtitles.exe",
             "Config.json",
             "inference",
+            "inference/Det/V6/PP-OCRv6_tiny_det_infer/slim.onnx",
+            "inference/Rec/V6/PP-OCRv6_tiny_rec_infer/slim.onnx",
+            "inference/Rec/V4/jp_PP-OCRv4_mobile_rec_infer/slim.onnx",
+            "inference/Rec/V4/jp_PP-OCRv4_mobile_rec_infer/dict.txt",
             "x64",
             "onnxruntime.dll",
+            "onnxruntime_providers_openvino.dll",
             "opencv_videoio_ffmpeg4110_64.dll"
           )
           foreach ($item in $required) {

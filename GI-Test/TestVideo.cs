@@ -16,6 +16,7 @@ using Newtonsoft.Json;
 namespace GI_Test
 {
     [TestClass]
+    [TestCategory("Integration")]
     public class VideoTests
     {
         /// <summary>
