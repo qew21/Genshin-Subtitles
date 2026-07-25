@@ -68,9 +68,9 @@
     <sys:String x:Key="Config_RecognizeDialogueOptions" xmlns:sys="clr-namespace:System;assembly=mscorlib">マウスで選択した会話選択肢を認識して読み上げる</sys:String>
     <sys:String x:Key="Config_RecognizeDialogueOptions_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">会話選択肢を自動検出し、マウスで選んだ項目を翻訳して AI 音声を再生します。</sys:String>
     <sys:String x:Key="Config_OcrModel" xmlns:sys="clr-namespace:System;assembly=mscorlib">OCR モデル</sys:String>
-    <sys:String x:Key="Config_OcrModel_V6" xmlns:sys="clr-namespace:System;assembly=mscorlib">PP-OCRv6 small（推奨）</sys:String>
+    <sys:String x:Key="Config_OcrModel_V6" xmlns:sys="clr-namespace:System;assembly=mscorlib">PP-OCRv6 tiny（推奨）</sys:String>
     <sys:String x:Key="Config_OcrModel_V4" xmlns:sys="clr-namespace:System;assembly=mscorlib">PP-OCRv4 mobile（互換）</sys:String>
-    <sys:String x:Key="Config_OcrModel_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">V6 は中国語・英語・日本語を統合認識し、初期化に失敗した場合は V4 に戻ります。</sys:String>
+    <sys:String x:Key="Config_OcrModel_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">V6 tiny は中国語・英語などに使用し、日本語では V4 日本語認識モデルへ自動的に切り替えます。初期化に失敗した場合も V4 に戻ります。</sys:String>
     <sys:String x:Key="Btn_OpenFolder" xmlns:sys="clr-namespace:System;assembly=mscorlib">アプリフォルダを開く</sys:String>
     <sys:String x:Key="Btn_ResetLocation" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕位置をリセット</sys:String>
     <sys:String x:Key="Btn_SecondRegion" xmlns:sys="clr-namespace:System;assembly=mscorlib">第2認識領域を追加</sys:String>

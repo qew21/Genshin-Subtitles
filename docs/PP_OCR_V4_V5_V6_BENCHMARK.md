@@ -11,41 +11,31 @@ Environment:
   - PP-OCRv4 mobile detection + recognition
   - PP-OCRv5 mobile detection + unified recognition
   - PP-OCRv6 small detection + unified recognition
+  - PP-OCRv6 tiny detection + unified recognition
 - Dataset: 11 manually transcribed game subtitle screenshots (10 Chinese, 1 English)
 - Excluded: the Japanese screenshot (`JP (1).jpg`)
 - Timing: 10 measured passes after warm-up, 110 OCR calls per configuration
 - Accuracy: whitespace-insensitive character error rate (CER); punctuation is retained
 - Memory: isolated `vstest` process per configuration
 
-## Results
+## Results after the shared detection-pipeline update
 
-| Model | Provider | Character accuracy | CER | Exact images | Average latency | Initialization | Warm private delta | Peak private delta |
+These are OpenVINO results after loading each detector's `inference.yml`,
+line-height-tolerant reading-order sorting, YAML-controlled dilation, and
+four-point perspective crops.
+
+| Detection | Recognition | Character accuracy | CER | Exact images | Average latency | Initialization | Warm private delta | Peak private delta |
 |---|---|---:|---:|---:|---:|---:|---:|---:|
-| V4 | ORT CPU | 98.036% | 1.964% | 4/11 | 227.233 ms | 468.044 ms | 92.551 MiB | 251.633 MiB |
-| V4 | OpenVINO CPU | 98.036% | 1.964% | 4/11 | 137.821 ms | 1048.841 ms | 316.000 MiB | 1246.660 MiB |
-| V5 | ORT CPU | 97.616% | 2.384% | 6/11 | 312.205 ms | 664.273 ms | 100.879 MiB | 258.531 MiB |
-| V5 | OpenVINO CPU | 97.616% | 2.384% | 6/11 | 214.091 ms | 1064.422 ms | 333.340 MiB | 1189.965 MiB |
-| V6 | ORT CPU | 99.299% | 0.701% | 9/11 | 374.667 ms | 666.324 ms | 109.488 MiB | 266.363 MiB |
-| V6 | OpenVINO CPU | 99.299% | 0.701% | 9/11 | 281.474 ms | 1131.544 ms | 375.270 MiB | 1161.199 MiB |
+| V4 mobile | V4 mobile | 97.896% | 2.104% | 3/11 | 170.216 ms | 1012.643 ms | 326.867 MiB | 1351.207 MiB |
+| V5 mobile | V5 mobile | 98.597% | 1.403% | 7/11 | 275.978 ms | 1130.954 ms | 359.570 MiB | 1255.215 MiB |
+| V6 small | V6 small | **99.158%** | **0.842%** | **8/11** | 344.274 ms | 1184.732 ms | 384.586 MiB | 1281.090 MiB |
+| V6 tiny | V6 tiny | 97.335% | 2.665% | 4/11 | **127.599 ms** | 810.941 ms | 260.430 MiB | 992.527 MiB |
+| V6 tiny | V4 mobile | 97.756% | 2.244% | 2/11 | 158.211 ms | 904.019 ms | 307.746 MiB | 1300.066 MiB |
+| V6 tiny | V6 small | 97.756% | 2.244% | 6/11 | 317.139 ms | 978.754 ms | 349.957 MiB | 1250.707 MiB |
 
-CPU and OpenVINO produced identical recognized text for every image with all
-three model versions.
-
-Compared with V4, V6 improves character accuracy by 1.263 percentage points and
-reduces total character errors by about 64%. Its two non-exact images only differ
-in leading/trailing ellipsis representation. V5 has more exact images than V4,
-but several larger omissions make its aggregate CER slightly worse on this
-small corpus. In particular, it drops characters in one Chinese subtitle and
-misspells several English words in the single long English screenshot.
-
-V6 is also heavier. Its average latency is about 65% higher with ORT CPU and
-104% higher with OpenVINO than V4 on this machine. V5 is about 37% and 55%
-slower than V4 respectively, without an accuracy gain on this corpus.
-OpenVINO reduces average latency by 39% for V4, 31% for V5, and 25% for V6,
-at the cost of much higher initialization and private memory. Peak values
-include native runtime memory arenas accumulated across variable image sizes
-and 110 calls, so they should not be interpreted as steady-state resident
-memory.
+CPU and OpenVINO still produce identical text in the regression corpus. Peak
+values include native runtime memory arenas accumulated across variable image
+sizes and should not be interpreted as steady-state resident memory.
 
 The ONNX file sizes are:
 
@@ -54,42 +44,31 @@ The ONNX file sizes are:
 | V4 mobile | 4.54 MiB | 10.33 MiB | 14.87 MiB |
 | V5 mobile | 4.55 MiB | 15.75 MiB | 20.30 MiB |
 | V6 small | 9.46 MiB | 20.18 MiB | 29.64 MiB |
+| V6 tiny | 1.73 MiB | 4.25 MiB | 5.99 MiB |
 
 ## Recommendation
 
-Use PP-OCRv6 as the default because subtitle correctness is the primary goal
-and the measured 281 ms OpenVINO latency remains suitable for subtitle refresh.
-Keep PP-OCRv4 available in settings for lower-latency or compatibility-sensitive
-systems. The current evidence does not justify exposing V5 as another runtime
-choice. If V6 initialization fails, the application automatically falls back
-to V4.
+Use PP-OCRv6 tiny detection and recognition as the default while the broader
+screenshot trial is in progress. It is about 25% faster than the updated V4
+pipeline and uses much smaller model files. V6 small remains the best measured
+accuracy option, but is substantially slower. Keep PP-OCRv4 available for
+compatibility. Japanese uses the V6 tiny detector with the dedicated V4
+Japanese recognizer because V6 tiny intentionally excludes Japanese; a failed
+V6 initialization still falls back to the full V4 path.
 
 This is a small game-subtitle corpus with only one English screenshot, so the
 numbers describe this workload rather than general OCR quality. Add more English
 screenshots before drawing a broad Chinese/English model-quality conclusion.
 
-## PP-OCRv6 tiny follow-up
+## Why the first tiny measurements were misleading
 
-Two additional OpenVINO configurations were measured with the same 11-image,
-10-round protocol. The existing V4 and V6 small measurements were reused.
-
-| Detection | Recognition | Character accuracy | CER | Exact images | Average latency | Initialization |
-|---|---|---:|---:|---:|---:|---:|
-| V4 mobile | V4 mobile | 98.036% | 1.964% | 4/11 | 137.821 ms | 1048.841 ms |
-| V6 tiny | V6 tiny | 92.707% | 7.293% | 4/11 | 107.444 ms | 866.254 ms |
-| V6 tiny | V4 mobile | 91.865% | 8.135% | 2/11 | 122.735 ms | 1016.065 ms |
-| V6 tiny | V6 small | 94.109% | 5.891% | 6/11 | 265.316 ms | 1042.100 ms |
-| V6 small | V6 small | 99.299% | 0.701% | 9/11 | 281.474 ms | 1131.544 ms |
-
-The full tiny pair is 22% faster than V4 but loses too much accuracy. Replacing
-only the detector reduces V6 small latency by just 6%, showing that recognition
-dominates this multi-line subtitle workload. It also introduces a serious line
-ordering error in `jql1.JPG`, and misses a complete English `Boss` line in
-`star.jpg`. Combining the tiny detector with V4 recognition is 11% faster than
-V4 but produces the lowest accuracy of all measured combinations: the detector
-errors remain and the older recognizer adds punctuation and rare-character
-errors. The tiny detector is therefore not recommended for the production
-subtitle path.
+The initial tiny runs used hard-coded V4-oriented thresholds and exact-Y
+sorting. That filtered valid tiny boxes and reversed two nearly aligned boxes
+in `jql1.JPG`. Loading the tiny model's official thresholds and grouping boxes
+with a line-height tolerance raised full-tiny accuracy from 92.707% to 97.335%;
+the two hybrid configurations rose from 91.865%/94.109% to 97.756%. Remaining
+tiny errors are primarily small unrelated UI boxes rather than the earlier
+detector omissions or reading-order reversal.
 
 ## Reproduce
 

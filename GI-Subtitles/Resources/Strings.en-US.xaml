@@ -68,9 +68,9 @@
     <sys:String x:Key="Config_RecognizeDialogueOptions" xmlns:sys="clr-namespace:System;assembly=mscorlib">Recognize and voice mouse-selected dialogue options</sys:String>
     <sys:String x:Key="Config_RecognizeDialogueOptions_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Automatically locates dialogue choices and voices the option selected with the mouse.</sys:String>
     <sys:String x:Key="Config_OcrModel" xmlns:sys="clr-namespace:System;assembly=mscorlib">OCR model</sys:String>
-    <sys:String x:Key="Config_OcrModel_V6" xmlns:sys="clr-namespace:System;assembly=mscorlib">PP-OCRv6 small (recommended)</sys:String>
+    <sys:String x:Key="Config_OcrModel_V6" xmlns:sys="clr-namespace:System;assembly=mscorlib">PP-OCRv6 tiny (recommended)</sys:String>
     <sys:String x:Key="Config_OcrModel_V4" xmlns:sys="clr-namespace:System;assembly=mscorlib">PP-OCRv4 mobile (compatible)</sys:String>
-    <sys:String x:Key="Config_OcrModel_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">V6 provides unified Chinese, English, and Japanese recognition and falls back to V4 if initialization fails.</sys:String>
+    <sys:String x:Key="Config_OcrModel_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">V6 tiny handles Chinese, English, and other supported languages; Japanese automatically uses the V4 Japanese recognizer. Initialization failures fall back to V4.</sys:String>
     <sys:String x:Key="Btn_OpenFolder" xmlns:sys="clr-namespace:System;assembly=mscorlib">Open App Folder</sys:String>
     <sys:String x:Key="Btn_ResetLocation" xmlns:sys="clr-namespace:System;assembly=mscorlib">Reset Subtitle Position</sys:String>
     <sys:String x:Key="Btn_SecondRegion" xmlns:sys="clr-namespace:System;assembly=mscorlib">Add Secondary Recognition Region</sys:String>

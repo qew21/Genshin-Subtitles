@@ -1374,12 +1374,30 @@ namespace GI_Subtitles.Views
             {
                 config.det_infer = Path.Combine(
                     modelRoot,
-                    @"Det\V6\PP-OCRv6_small_det_infer\slim.onnx");
-                config.rec_infer = Path.Combine(
-                    modelRoot,
-                    @"Rec\V6\PP-OCRv6_small_rec_infer\slim.onnx");
-                config.keys = null;
-                config.model_version = "V6";
+                    @"Det\V6\PP-OCRv6_tiny_det_infer\slim.onnx");
+
+                // PP-OCRv6 tiny intentionally excludes Japanese. Keep its
+                // faster detector, but route Japanese text to the dedicated
+                // V4 recognition model and dictionary.
+                if (input == "JP")
+                {
+                    config.rec_infer = Path.Combine(
+                        modelRoot,
+                        @"Rec\V4\jp_PP-OCRv4_mobile_rec_infer\slim.onnx");
+                    config.keys = Path.Combine(
+                        modelRoot,
+                        @"Rec\V4\jp_PP-OCRv4_mobile_rec_infer\dict.txt");
+                    config.model_version = "V6-Tiny-Det+V4-JP-Rec";
+                }
+                else
+                {
+                    config.rec_infer = Path.Combine(
+                        modelRoot,
+                        @"Rec\V6\PP-OCRv6_tiny_rec_infer\slim.onnx");
+                    config.keys = null;
+                    config.model_version = "V6";
+                }
+
                 return config;
             }
 
