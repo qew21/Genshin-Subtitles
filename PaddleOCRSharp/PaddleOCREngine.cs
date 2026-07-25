@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -27,6 +28,7 @@ namespace PaddleOCRSharp
         private readonly InferenceSession _recSession;
         private readonly List<string> _labels;
         private readonly OCRParameter _parameter;
+        private readonly DetectionModelSettings _detectionSettings;
 
         /// <summary>
         /// Execution provider that was successfully initialized.
@@ -47,11 +49,7 @@ namespace PaddleOCRSharp
         public string ModelVersionName { get; private set; }
 
         // Detection model parameters
-        private const int DetMaxSize = 960;
-        private const float DetBoxScoreThreshold = 0.7f;
-        private const float DetBoxThreshold = 0.3f;
         private const int DetMinSize = 3;
-        private const float DetUnclipRatio = 2.0f;
 
         // Recognition model parameters
         private const int RecImgHeight = 48;
@@ -217,6 +215,90 @@ namespace PaddleOCRSharp
             return value;
         }
 
+        private static DetectionModelSettings LoadDetectionSettings(
+            string yamlPath,
+            OCRParameter fallback)
+        {
+            var settings = new DetectionModelSettings
+            {
+                MaxSideLength = fallback.max_side_len,
+                PixelThreshold = fallback.det_db_thresh,
+                BoxThreshold = fallback.det_db_box_thresh,
+                UnclipRatio = fallback.det_db_unclip_ratio,
+                MaxCandidates = 1000,
+                UseDilation = fallback.use_dilation
+            };
+
+            if (!File.Exists(yamlPath))
+                return settings;
+
+            foreach (string line in File.ReadAllLines(yamlPath, System.Text.Encoding.UTF8))
+            {
+                string trimmed = line.Trim();
+                int separatorIndex = trimmed.IndexOf(':');
+                if (separatorIndex <= 0)
+                    continue;
+
+                string key = trimmed.Substring(0, separatorIndex).Trim();
+                string value = ParseYamlScalar(
+                    trimmed.Substring(separatorIndex + 1).Trim());
+                switch (key)
+                {
+                    case "resize_long":
+                    case "limit_side_len":
+                        if (int.TryParse(
+                                value,
+                                NumberStyles.Integer,
+                                CultureInfo.InvariantCulture,
+                                out int maxSideLength) &&
+                            maxSideLength > 0)
+                        {
+                            settings.MaxSideLength = maxSideLength;
+                        }
+                        break;
+                    case "thresh":
+                        if (TryParseYamlFloat(value, out float pixelThreshold))
+                            settings.PixelThreshold = pixelThreshold;
+                        break;
+                    case "box_thresh":
+                        if (TryParseYamlFloat(value, out float boxThreshold))
+                            settings.BoxThreshold = boxThreshold;
+                        break;
+                    case "unclip_ratio":
+                        if (TryParseYamlFloat(value, out float unclipRatio))
+                            settings.UnclipRatio = unclipRatio;
+                        break;
+                    case "max_candidates":
+                        if (int.TryParse(
+                                value,
+                                NumberStyles.Integer,
+                                CultureInfo.InvariantCulture,
+                                out int maxCandidates) &&
+                            maxCandidates > 0)
+                        {
+                            settings.MaxCandidates = maxCandidates;
+                        }
+                        break;
+                    case "use_dilation":
+                    case "dilation":
+                        if (bool.TryParse(value, out bool useDilation))
+                            settings.UseDilation = useDilation;
+                        break;
+                }
+            }
+
+            return settings;
+        }
+
+        private static bool TryParseYamlFloat(string value, out float result)
+        {
+            return float.TryParse(
+                value,
+                NumberStyles.Float,
+                CultureInfo.InvariantCulture,
+                out result);
+        }
+
         /// <summary>
         /// PaddleOCR Engine initialization
         /// </summary>
@@ -236,6 +318,11 @@ namespace PaddleOCRSharp
                 throw new FileNotFoundException($"Detection model file not found: {config.det_infer}");
             if (!File.Exists(config.rec_infer))
                 throw new FileNotFoundException($"Recognition model file not found: {config.rec_infer}");
+
+            var detectionYmlPath = Path.Combine(
+                Path.GetDirectoryName(config.det_infer),
+                "inference.yml");
+            _detectionSettings = LoadDetectionSettings(detectionYmlPath, parameter);
 
             // Load character dictionary - first from inference.yml, if not, from keys file
             var inferenceYmlPath = Path.Combine(Path.GetDirectoryName(config.rec_infer), "inference.yml");
@@ -260,6 +347,7 @@ namespace PaddleOCRSharp
                 TryCreateOpenVinoSessions(
                     config.det_infer,
                     config.rec_infer,
+                    _detectionSettings.MaxSideLength,
                     parameter.warm_up_openvino,
                     out detSession,
                     out recSession))
@@ -278,7 +366,11 @@ namespace PaddleOCRSharp
                 ? "Unknown"
                 : config.model_version;
             Logger.Log.Info(
-                $"OCR model: {ModelVersionName}; execution provider: {ExecutionProviderName}");
+                $"OCR model: {ModelVersionName}; execution provider: {ExecutionProviderName}; " +
+                $"detector: thresh={_detectionSettings.PixelThreshold}, " +
+                $"box_thresh={_detectionSettings.BoxThreshold}, " +
+                $"unclip={_detectionSettings.UnclipRatio}, " +
+                $"dilation={_detectionSettings.UseDilation}");
         }
 
         private static bool ShouldTryOpenVino(OCRExecutionProvider requestedProvider)
@@ -308,6 +400,7 @@ namespace PaddleOCRSharp
         private static bool TryCreateOpenVinoSessions(
             string detModelPath,
             string recModelPath,
+            int detectionMaxSideLength,
             bool warmUp,
             out InferenceSession detSession,
             out InferenceSession recSession)
@@ -325,7 +418,10 @@ namespace PaddleOCRSharp
                 }
 
                 if (warmUp)
-                    WarmUpSessions(detSession, recSession);
+                    WarmUpSessions(
+                        detSession,
+                        recSession,
+                        detectionMaxSideLength);
 
                 return true;
             }
@@ -369,9 +465,13 @@ namespace PaddleOCRSharp
             }
         }
 
-        private static void WarmUpSessions(InferenceSession detSession, InferenceSession recSession)
+        private static void WarmUpSessions(
+            InferenceSession detSession,
+            InferenceSession recSession,
+            int detectionMaxSideLength)
         {
-            var detTensor = new DenseTensor<float>(new[] { 1, 3, 320, DetMaxSize });
+            var detTensor = new DenseTensor<float>(
+                new[] { 1, 3, 320, detectionMaxSideLength });
             var detInputs = new List<NamedOnnxValue>
             {
                 NamedOnnxValue.CreateFromTensor(detSession.InputNames[0], detTensor)
@@ -469,24 +569,16 @@ namespace PaddleOCRSharp
                 var validRectIndices = new List<int>(); // Record indices of valid rectangles
                 try
                 {
-                    var srcSize = src.Size();
                     for (int i = 0; i < rects.Length; i++)
                     {
-                        var rect = rects[i];
-                        var croppedRect = GetCroppedRect(rect.BoundingRect(), srcSize);
-
-                        // Additional safety check: ensure rectangle is within Mat boundaries
-                        if (croppedRect.X < 0 || croppedRect.Y < 0 ||
-                            croppedRect.X + croppedRect.Width > srcSize.Width ||
-                            croppedRect.Y + croppedRect.Height > srcSize.Height ||
-                            croppedRect.Width <= 0 || croppedRect.Height <= 0)
+                        var cropped = GetPerspectiveCrop(src, rects[i]);
+                        if (cropped == null || cropped.Empty())
                         {
-                            // If rectangle is invalid, skip this region
+                            cropped?.Dispose();
                             continue;
                         }
 
-                        var roi = src[croppedRect];
-                        croppedMats.Add(roi);
+                        croppedMats.Add(cropped);
                         validRectIndices.Add(i); // Record original index of valid rectangles
                     }
 
@@ -535,7 +627,7 @@ namespace PaddleOCRSharp
             };
 
             // Resize
-            using var resized = ResizeImage(padded, DetMaxSize);
+            using var resized = ResizeImage(padded, _detectionSettings.MaxSideLength);
             var resizedSize = new CvSize(resized.Width, resized.Height);
             using var padded32 = PadTo32(resized);
 
@@ -560,31 +652,47 @@ namespace PaddleOCRSharp
             using var roi = pred[new Rect(0, 0, resizedSize.Width, resizedSize.Height)];
             roi.ConvertTo(cbuf, MatType.CV_8UC1, 255);
 
-            using var binary = cbuf.Threshold((int)(DetBoxThreshold * 255), 255, ThresholdTypes.Binary);
-            using var dilated = new Mat();
-            using var kernel = Cv2.GetStructuringElement(MorphShapes.Rect, new CvSize(2, 2));
-            Cv2.Dilate(binary, dilated, kernel);
+            using var binary = cbuf.Threshold(
+                (int)(_detectionSettings.PixelThreshold * 255),
+                255,
+                ThresholdTypes.Binary);
+            CvPoint[][] contours;
+            if (_detectionSettings.UseDilation)
+            {
+                using var dilated = new Mat();
+                using var kernel = Cv2.GetStructuringElement(
+                    MorphShapes.Rect,
+                    new CvSize(2, 2));
+                Cv2.Dilate(binary, dilated, kernel);
+                contours = dilated.FindContoursAsArray(
+                    RetrievalModes.List,
+                    ContourApproximationModes.ApproxSimple);
+            }
+            else
+            {
+                contours = binary.FindContoursAsArray(
+                    RetrievalModes.List,
+                    ContourApproximationModes.ApproxSimple);
+            }
 
-            var contours = dilated.FindContoursAsArray(RetrievalModes.List, ContourApproximationModes.ApproxSimple);
             var scaleRate = 1.0 * src.Width / resizedSize.Width;
 
             var rects = contours
-                .Where(x => GetScore(x, pred) > DetBoxScoreThreshold)
+                .Take(_detectionSettings.MaxCandidates)
+                .Where(x => GetScore(x, pred) > _detectionSettings.BoxThreshold)
                 .Select(Cv2.MinAreaRect)
                 .Where(x => x.Size.Width > DetMinSize && x.Size.Height > DetMinSize)
                 .Select(rect =>
                 {
                     var minEdge = Math.Min(rect.Size.Width, rect.Size.Height);
                     var newSize = new Size2f(
-                        (rect.Size.Width + DetUnclipRatio * minEdge) * scaleRate,
-                        (rect.Size.Height + DetUnclipRatio * minEdge) * scaleRate);
+                        (rect.Size.Width + _detectionSettings.UnclipRatio * minEdge) * scaleRate,
+                        (rect.Size.Height + _detectionSettings.UnclipRatio * minEdge) * scaleRate);
                     return new RotatedRect(rect.Center * scaleRate, newSize, rect.Angle);
                 })
-                .OrderBy(v => v.Center.Y)
-                .ThenBy(v => v.Center.X)
                 .ToArray();
 
-            return rects;
+            return SortTextRegions(rects);
         }
 
         /// <summary>
@@ -714,6 +822,32 @@ namespace PaddleOCRSharp
             public float Score { get; }
         }
 
+        private sealed class DetectionModelSettings
+        {
+            public int MaxSideLength { get; set; }
+            public float PixelThreshold { get; set; }
+            public float BoxThreshold { get; set; }
+            public float UnclipRatio { get; set; }
+            public int MaxCandidates { get; set; }
+            public bool UseDilation { get; set; }
+        }
+
+        private sealed class TextLine
+        {
+            private float _heightSum;
+
+            public List<RotatedRect> Rects { get; } = new List<RotatedRect>();
+            public float CenterY { get; private set; }
+            public float AverageHeight => _heightSum / Rects.Count;
+
+            public void Add(RotatedRect rect)
+            {
+                Rects.Add(rect);
+                CenterY = (float)Rects.Average(item => item.Center.Y);
+                _heightSum += GetTextRegionHeight(rect);
+            }
+        }
+
         /// <summary>
         /// Convert Bitmap to Mat
         /// </summary>
@@ -833,34 +967,109 @@ namespace PaddleOCRSharp
             return (float)croppedMat.Mean(mask).Val0;
         }
 
-        /// <summary>
-        /// Get cropped region, ensure it does not exceed Mat boundaries
-        /// </summary>
-        private Rect GetCroppedRect(Rect rect, CvSize size)
+        private static RotatedRect[] SortTextRegions(IEnumerable<RotatedRect> rects)
         {
-            // Ensure starting coordinates are within valid range
-            var x = Clamp(rect.X, 0, size.Width - 1);
-            var y = Clamp(rect.Y, 0, size.Height - 1);
+            var lines = new List<TextLine>();
+            foreach (RotatedRect rect in rects.OrderBy(item => item.Center.Y))
+            {
+                float height = GetTextRegionHeight(rect);
+                TextLine line = lines
+                    .Where(candidate =>
+                    {
+                        float tolerance = Math.Max(
+                            10f,
+                            Math.Min(candidate.AverageHeight, height) * 0.5f);
+                        return Math.Abs(candidate.CenterY - rect.Center.Y) <= tolerance;
+                    })
+                    .OrderBy(candidate => Math.Abs(candidate.CenterY - rect.Center.Y))
+                    .FirstOrDefault();
 
-            // Calculate maximum available width and height
-            var maxWidth = size.Width - x;
-            var maxHeight = size.Height - y;
+                if (line == null)
+                {
+                    line = new TextLine();
+                    lines.Add(line);
+                }
 
-            // Ensure width and height are within valid range, and do not exceed boundaries
-            var width = Clamp(rect.Width, 1, maxWidth);
-            var height = Clamp(rect.Height, 1, maxHeight);
+                line.Add(rect);
+            }
 
-            // Final validation: ensure X + Width <= size.Width and Y + Height <= size.Height
-            if (x + width > size.Width)
-                width = size.Width - x;
-            if (y + height > size.Height)
-                height = size.Height - y;
+            return lines
+                .OrderBy(line => line.CenterY)
+                .SelectMany(line => line.Rects.OrderBy(rect => rect.Center.X))
+                .ToArray();
+        }
 
-            // Ensure width and height are at least 1
-            if (width < 1) width = 1;
-            if (height < 1) height = 1;
+        private static float GetTextRegionHeight(RotatedRect rect)
+        {
+            return Math.Max(1f, Math.Min(rect.Size.Width, rect.Size.Height));
+        }
 
-            return new Rect(x, y, width, height);
+        private static Mat GetPerspectiveCrop(Mat source, RotatedRect rect)
+        {
+            OpenCvSharp.Point2f[] points = OrderClockwise(rect.Points());
+            int width = Math.Max(
+                1,
+                (int)Math.Round(Math.Max(
+                    Distance(points[0], points[1]),
+                    Distance(points[3], points[2]))));
+            int height = Math.Max(
+                1,
+                (int)Math.Round(Math.Max(
+                    Distance(points[0], points[3]),
+                    Distance(points[1], points[2]))));
+            var destination = new[]
+            {
+                new OpenCvSharp.Point2f(0, 0),
+                new OpenCvSharp.Point2f(width - 1, 0),
+                new OpenCvSharp.Point2f(width - 1, height - 1),
+                new OpenCvSharp.Point2f(0, height - 1)
+            };
+
+            using var transform = Cv2.GetPerspectiveTransform(points, destination);
+            var cropped = new Mat();
+            Cv2.WarpPerspective(
+                source,
+                cropped,
+                transform,
+                new CvSize(width, height),
+                InterpolationFlags.Cubic,
+                BorderTypes.Replicate);
+
+            if (cropped.Rows >= cropped.Cols * 1.5)
+            {
+                var rotated = new Mat();
+                Cv2.Rotate(cropped, rotated, RotateFlags.Rotate90Counterclockwise);
+                cropped.Dispose();
+                return rotated;
+            }
+
+            return cropped;
+        }
+
+        private static OpenCvSharp.Point2f[] OrderClockwise(
+            IEnumerable<OpenCvSharp.Point2f> points)
+        {
+            OpenCvSharp.Point2f[] array = points.ToArray();
+            float centerX = array.Average(point => point.X);
+            float centerY = array.Average(point => point.Y);
+            OpenCvSharp.Point2f[] clockwise = array
+                .OrderBy(point => Math.Atan2(point.Y - centerY, point.X - centerX))
+                .ToArray();
+            int topLeftIndex = Enumerable.Range(0, clockwise.Length)
+                .OrderBy(index => clockwise[index].X + clockwise[index].Y)
+                .First();
+            return Enumerable.Range(0, clockwise.Length)
+                .Select(offset => clockwise[(topLeftIndex + offset) % clockwise.Length])
+                .ToArray();
+        }
+
+        private static double Distance(
+            OpenCvSharp.Point2f first,
+            OpenCvSharp.Point2f second)
+        {
+            double deltaX = first.X - second.X;
+            double deltaY = first.Y - second.Y;
+            return Math.Sqrt(deltaX * deltaX + deltaY * deltaY);
         }
 
         /// <summary>
