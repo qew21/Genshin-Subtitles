@@ -1511,6 +1511,9 @@ namespace GI_Subtitles.Views
 
             PlaybackSpeedText.Text = $"{_voicePlaybackSpeed:0.##}×";
             PlaybackSpeedBadge.ToolTip = $"Voice playback speed: {_voicePlaybackSpeed:0.##}x";
+            PlaybackSpeedBadge.Visibility = Math.Abs(_voicePlaybackSpeed - 1.0) < 0.001
+                ? Visibility.Collapsed
+                : Visibility.Visible;
             UpdateHeaderPosition();
         }
 
