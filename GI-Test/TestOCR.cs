@@ -9,6 +9,7 @@ using GI_Subtitles.Views;
 using GI_Subtitles.Common;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Newtonsoft.Json;
+using PaddleOCRSharp;
 
 
 namespace GI_Test
@@ -49,6 +50,65 @@ namespace GI_Test
             {
                 Assert.Fail($"Failed to process Images folder: {ex.Message}");
             }
+        }
+
+        [TestMethod]
+        public void TestCpuAndOpenVinoProduceSameText()
+        {
+            string appDir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
+            string[] imagePaths = Directory.GetFiles(Path.Combine(appDir, "Images"))
+                .OrderBy(path => path)
+                .ToArray();
+
+            using (var cpuEngine = CreateEngine(appDir, OCRExecutionProvider.Cpu))
+            using (var openVinoEngine = CreateEngine(appDir, OCRExecutionProvider.OpenVino))
+            {
+                Assert.AreEqual(
+                    OCRExecutionProvider.Cpu,
+                    cpuEngine.ActiveExecutionProvider,
+                    "Forced CPU mode should use ORT CPU.");
+
+                if (openVinoEngine.ActiveExecutionProvider != OCRExecutionProvider.OpenVino)
+                {
+                    Assert.Inconclusive(
+                        "OpenVINO is unavailable on this machine; CPU fallback was verified instead.");
+                }
+
+                foreach (string imagePath in imagePaths)
+                {
+                    var cpuResult = cpuEngine.DetectText(imagePath);
+                    var openVinoResult = openVinoEngine.DetectText(imagePath);
+                    Assert.AreEqual(
+                        cpuResult.Text,
+                        openVinoResult.Text,
+                        $"CPU and OpenVINO should recognize identical text for {Path.GetFileName(imagePath)}.");
+                }
+            }
+        }
+
+        private static PaddleOCREngine CreateEngine(
+            string appDir,
+            OCRExecutionProvider executionProvider)
+        {
+            string modelRoot = Path.Combine(appDir, "inference");
+            var config = new OCRModelConfig
+            {
+                det_infer = Path.Combine(
+                    modelRoot,
+                    @"Det\V4\PP-OCRv4_mobile_det_infer\slim.onnx"),
+                rec_infer = Path.Combine(
+                    modelRoot,
+                    @"Rec\V4\PP-OCRv4_mobile_rec_infer\slim.onnx"),
+                keys = Path.Combine(
+                    modelRoot,
+                    @"Rec\V4\PP-OCRv4_mobile_rec_infer\dict.txt")
+            };
+            var parameter = new OCRParameter
+            {
+                execution_provider = executionProvider,
+                warm_up_openvino = true
+            };
+            return new PaddleOCREngine(config, parameter);
         }
 
     }

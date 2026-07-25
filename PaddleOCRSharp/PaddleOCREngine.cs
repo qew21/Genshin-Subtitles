@@ -6,6 +6,7 @@ using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using Microsoft.Win32;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using OpenCvSharp;
@@ -26,6 +27,19 @@ namespace PaddleOCRSharp
         private readonly InferenceSession _recSession;
         private readonly List<string> _labels;
         private readonly OCRParameter _parameter;
+
+        /// <summary>
+        /// Execution provider that was successfully initialized.
+        /// </summary>
+        public OCRExecutionProvider ActiveExecutionProvider { get; private set; }
+
+        /// <summary>
+        /// Human-readable name of the active inference backend.
+        /// </summary>
+        public string ExecutionProviderName =>
+            ActiveExecutionProvider == OCRExecutionProvider.OpenVino
+                ? "OpenVINO CPU"
+                : "ONNX Runtime CPU";
 
         // Detection model parameters
         private const int DetMaxSize = 960;
@@ -213,14 +227,138 @@ namespace PaddleOCRSharp
                 throw new FileNotFoundException($"Character dictionary file not found: {inferenceYmlPath} or {config.keys}");
             }
 
-            // Create ONNX Runtime session
-            var sessionOptions = new SessionOptions();
-            sessionOptions.AppendExecutionProvider_CPU();
-            sessionOptions.IntraOpNumThreads = 2;
-            sessionOptions.InterOpNumThreads = 1;
+            InferenceSession detSession;
+            InferenceSession recSession;
+            var tryOpenVino = ShouldTryOpenVino(parameter.execution_provider);
 
-            _detSession = new InferenceSession(config.det_infer, sessionOptions);
-            _recSession = new InferenceSession(config.rec_infer, sessionOptions);
+            if (tryOpenVino &&
+                TryCreateOpenVinoSessions(
+                    config.det_infer,
+                    config.rec_infer,
+                    parameter.warm_up_openvino,
+                    out detSession,
+                    out recSession))
+            {
+                ActiveExecutionProvider = OCRExecutionProvider.OpenVino;
+            }
+            else
+            {
+                CreateCpuSessions(config.det_infer, config.rec_infer, out detSession, out recSession);
+                ActiveExecutionProvider = OCRExecutionProvider.Cpu;
+            }
+
+            _detSession = detSession;
+            _recSession = recSession;
+            Logger.Log.Info($"OCR execution provider: {ExecutionProviderName}");
+        }
+
+        private static bool ShouldTryOpenVino(OCRExecutionProvider requestedProvider)
+        {
+            if (requestedProvider == OCRExecutionProvider.Cpu)
+                return false;
+
+            if (requestedProvider == OCRExecutionProvider.OpenVino)
+                return true;
+
+            try
+            {
+                using (var processorKey = Registry.LocalMachine.OpenSubKey(
+                           @"HARDWARE\DESCRIPTION\System\CentralProcessor\0"))
+                {
+                    var vendor = processorKey?.GetValue("VendorIdentifier") as string;
+                    return string.Equals(vendor, "GenuineIntel", StringComparison.OrdinalIgnoreCase);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Log.Warn($"Unable to detect CPU vendor; using ORT CPU: {ex.Message}");
+                return false;
+            }
+        }
+
+        private static bool TryCreateOpenVinoSessions(
+            string detModelPath,
+            string recModelPath,
+            bool warmUp,
+            out InferenceSession detSession,
+            out InferenceSession recSession)
+        {
+            detSession = null;
+            recSession = null;
+
+            try
+            {
+                using (var sessionOptions = new SessionOptions())
+                {
+                    sessionOptions.AppendExecutionProvider_OpenVINO("CPU");
+                    detSession = new InferenceSession(detModelPath, sessionOptions);
+                    recSession = new InferenceSession(recModelPath, sessionOptions);
+                }
+
+                if (warmUp)
+                    WarmUpSessions(detSession, recSession);
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                detSession?.Dispose();
+                recSession?.Dispose();
+                detSession = null;
+                recSession = null;
+                Logger.Log.Warn(
+                    $"OpenVINO initialization failed; falling back to ORT CPU for both OCR models: {ex.Message}");
+                return false;
+            }
+        }
+
+        private static void CreateCpuSessions(
+            string detModelPath,
+            string recModelPath,
+            out InferenceSession detSession,
+            out InferenceSession recSession)
+        {
+            detSession = null;
+            recSession = null;
+
+            try
+            {
+                using (var sessionOptions = new SessionOptions())
+                {
+                    sessionOptions.AppendExecutionProvider_CPU();
+                    sessionOptions.IntraOpNumThreads = 2;
+                    sessionOptions.InterOpNumThreads = 1;
+                    detSession = new InferenceSession(detModelPath, sessionOptions);
+                    recSession = new InferenceSession(recModelPath, sessionOptions);
+                }
+            }
+            catch
+            {
+                detSession?.Dispose();
+                recSession?.Dispose();
+                throw;
+            }
+        }
+
+        private static void WarmUpSessions(InferenceSession detSession, InferenceSession recSession)
+        {
+            var detTensor = new DenseTensor<float>(new[] { 1, 3, 320, DetMaxSize });
+            var detInputs = new List<NamedOnnxValue>
+            {
+                NamedOnnxValue.CreateFromTensor(detSession.InputNames[0], detTensor)
+            };
+            using (detSession.Run(detInputs))
+            {
+            }
+
+            var recTensor = new DenseTensor<float>(new[] { 1, 3, RecImgHeight, RecImgWidth });
+            var recInputs = new List<NamedOnnxValue>
+            {
+                NamedOnnxValue.CreateFromTensor(recSession.InputNames[0], recTensor)
+            };
+            using (recSession.Run(recInputs))
+            {
+            }
         }
 
         /// <summary>

@@ -1,10 +1,41 @@
 namespace PaddleOCRSharp
 {
     /// <summary>
+    /// ONNX Runtime execution provider used by the OCR engine.
+    /// </summary>
+    public enum OCRExecutionProvider
+    {
+        /// <summary>
+        /// Use OpenVINO on Intel processors and otherwise use ORT CPU.
+        /// </summary>
+        Auto,
+
+        /// <summary>
+        /// Always use the standard ONNX Runtime CPU provider.
+        /// </summary>
+        Cpu,
+
+        /// <summary>
+        /// Try OpenVINO and fall back to ORT CPU if initialization fails.
+        /// </summary>
+        OpenVino
+    }
+
+    /// <summary>
     /// OCR recognition parameters
     /// </summary>
     public class OCRParameter
     {
+        /// <summary>
+        /// Preferred ONNX Runtime execution provider.
+        /// </summary>
+        public OCRExecutionProvider execution_provider { get; set; } = OCRExecutionProvider.Auto;
+
+        /// <summary>
+        /// Warm up OpenVINO sessions during initialization to avoid a slow first OCR request.
+        /// </summary>
+        public bool warm_up_openvino { get; set; } = true;
+
         /// <summary>
         /// Whether to use GPU
         /// </summary>
