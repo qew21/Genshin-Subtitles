@@ -77,6 +77,7 @@ Two additional OpenVINO configurations were measured with the same 11-image,
 |---|---|---:|---:|---:|---:|---:|
 | V4 mobile | V4 mobile | 98.036% | 1.964% | 4/11 | 137.821 ms | 1048.841 ms |
 | V6 tiny | V6 tiny | 92.707% | 7.293% | 4/11 | 107.444 ms | 866.254 ms |
+| V6 tiny | V4 mobile | 91.865% | 8.135% | 2/11 | 122.735 ms | 1016.065 ms |
 | V6 tiny | V6 small | 94.109% | 5.891% | 6/11 | 265.316 ms | 1042.100 ms |
 | V6 small | V6 small | 99.299% | 0.701% | 9/11 | 281.474 ms | 1131.544 ms |
 
@@ -84,7 +85,10 @@ The full tiny pair is 22% faster than V4 but loses too much accuracy. Replacing
 only the detector reduces V6 small latency by just 6%, showing that recognition
 dominates this multi-line subtitle workload. It also introduces a serious line
 ordering error in `jql1.JPG`, and misses a complete English `Boss` line in
-`star.jpg`. The tiny detector is therefore not recommended for the production
+`star.jpg`. Combining the tiny detector with V4 recognition is 11% faster than
+V4 but produces the lowest accuracy of all measured combinations: the detector
+errors remain and the older recognizer adds punctuation and rare-character
+errors. The tiny detector is therefore not recommended for the production
 subtitle path.
 
 ## Reproduce
