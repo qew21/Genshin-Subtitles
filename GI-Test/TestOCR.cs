@@ -56,12 +56,41 @@ namespace GI_Test
         public void TestCpuAndOpenVinoProduceSameText()
         {
             string appDir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
+            AssertCpuAndOpenVinoProduceSameText(appDir, "V4");
+        }
+
+        [TestMethod]
+        public void TestV6CpuAndOpenVinoProduceSameText()
+        {
+            string appDir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
+            AssertCpuAndOpenVinoProduceSameText(appDir, "V6");
+        }
+
+        [TestMethod]
+        public void TestSettingsWindowLoadsV6ByDefault()
+        {
+            using (var engine = SettingsWindow.LoadEngine("CHS"))
+            {
+                Assert.AreEqual("V6", engine.ModelVersionName);
+            }
+        }
+
+        private static void AssertCpuAndOpenVinoProduceSameText(
+            string appDir,
+            string modelVersion)
+        {
             string[] imagePaths = Directory.GetFiles(Path.Combine(appDir, "Images"))
                 .OrderBy(path => path)
                 .ToArray();
 
-            using (var cpuEngine = CreateEngine(appDir, OCRExecutionProvider.Cpu))
-            using (var openVinoEngine = CreateEngine(appDir, OCRExecutionProvider.OpenVino))
+            using (var cpuEngine = CreateEngine(
+                       appDir,
+                       modelVersion,
+                       OCRExecutionProvider.Cpu))
+            using (var openVinoEngine = CreateEngine(
+                       appDir,
+                       modelVersion,
+                       OCRExecutionProvider.OpenVino))
             {
                 Assert.AreEqual(
                     OCRExecutionProvider.Cpu,
@@ -81,27 +110,36 @@ namespace GI_Test
                     Assert.AreEqual(
                         cpuResult.Text,
                         openVinoResult.Text,
-                        $"CPU and OpenVINO should recognize identical text for {Path.GetFileName(imagePath)}.");
+                        $"CPU and OpenVINO should recognize identical {modelVersion} text for {Path.GetFileName(imagePath)}.");
                 }
             }
         }
 
         private static PaddleOCREngine CreateEngine(
             string appDir,
+            string modelVersion,
             OCRExecutionProvider executionProvider)
         {
             string modelRoot = Path.Combine(appDir, "inference");
+            bool useV6 = modelVersion == "V6";
             var config = new OCRModelConfig
             {
                 det_infer = Path.Combine(
                     modelRoot,
-                    @"Det\V4\PP-OCRv4_mobile_det_infer\slim.onnx"),
+                    useV6
+                        ? @"Det\V6\PP-OCRv6_small_det_infer\slim.onnx"
+                        : @"Det\V4\PP-OCRv4_mobile_det_infer\slim.onnx"),
                 rec_infer = Path.Combine(
                     modelRoot,
-                    @"Rec\V4\PP-OCRv4_mobile_rec_infer\slim.onnx"),
-                keys = Path.Combine(
-                    modelRoot,
-                    @"Rec\V4\PP-OCRv4_mobile_rec_infer\dict.txt")
+                    useV6
+                        ? @"Rec\V6\PP-OCRv6_small_rec_infer\slim.onnx"
+                        : @"Rec\V4\PP-OCRv4_mobile_rec_infer\slim.onnx"),
+                keys = useV6
+                    ? null
+                    : Path.Combine(
+                        modelRoot,
+                        @"Rec\V4\PP-OCRv4_mobile_rec_infer\dict.txt"),
+                model_version = modelVersion
             };
             var parameter = new OCRParameter
             {
