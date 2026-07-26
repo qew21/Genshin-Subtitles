@@ -321,7 +321,18 @@
                     <!-- Boolean Flags -->
                     <StackPanel Grid.Row="2" Margin="0,0,0,12">
                         <CheckBox x:Name="AutoStartCheckBox" Checked="AutoStartCheckBox_Checked" Unchecked="AutoStartCheckBox_Checked" Content="{DynamicResource Config_AutoStart}" Margin="0,0,0,6"/>
-                        <CheckBox x:Name="PlayVoiceCheckBox" Checked="PlayVoiceCheckBox_Checked" Unchecked="PlayVoiceCheckBox_Checked" Content="{DynamicResource Config_PlayVoice}" Margin="0,0,0,6"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                            <CheckBox x:Name="PlayVoiceCheckBox"
+                                      Checked="PlayVoiceCheckBox_Checked"
+                                      Unchecked="PlayVoiceCheckBox_Checked"
+                                      Content="{DynamicResource Config_PlayVoice}"
+                                      VerticalAlignment="Center"
+                                      Margin="0,0,12,0"/>
+                            <Button Content="{DynamicResource Btn_TestVoice}"
+                                    ToolTip="{DynamicResource Btn_TestVoice_Tooltip}"
+                                    Click="TestVoice_Click"
+                                    Padding="10,2"/>
+                        </StackPanel>
                         <CheckBox x:Name="RecognizeDialogueOptionsCheckBox"
                                   Checked="RecognizeDialogueOptionsCheckBox_Checked"
                                   Unchecked="RecognizeDialogueOptionsCheckBox_Checked"

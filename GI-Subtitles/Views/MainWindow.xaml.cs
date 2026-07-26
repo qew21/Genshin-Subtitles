@@ -134,6 +134,7 @@ namespace GI_Subtitles.Views
         private string tempFilePath;
         private readonly Queue<string> _audioPlaybackQueue = new Queue<string>();
         private readonly object _audioPlaybackQueueLock = new object();
+        private string _pendingDialogueOptionUrl;
         private bool _audioPlaybackQueueActive;
         private int _audioPlaybackGeneration;
         private EventHandler<StoppedEventArgs> _playbackStoppedHandler;
@@ -1178,7 +1179,7 @@ namespace GI_Subtitles.Views
             if (Config.Get<bool>("PlayVoice", false) && !string.IsNullOrEmpty(key))
             {
                 string audioKey = VoiceContentHelper.CalculateMd5Hash(key);
-                PlayAudioFromUrl($"{server}?md5={audioKey}&token={token}");
+                PlayDialogueOptionAudioFromUrl($"{server}?md5={audioKey}&token={token}");
             }
         }
 
@@ -1509,12 +1510,20 @@ namespace GI_Subtitles.Views
             player.Play();
         }
 
-        public void PlayAudioFromUrl(string url)
+        private void PlayDialogueOptionAudioFromUrl(string url)
         {
             bool shouldStart;
             int generation;
             lock (_audioPlaybackQueueLock)
             {
+                if (_audioPlaybackQueueActive)
+                {
+                    // Dialogue choices never interrupt current audio or form a backlog.
+                    // Keep only the most recently selected choice.
+                    _pendingDialogueOptionUrl = url;
+                    return;
+                }
+
                 _audioPlaybackQueue.Enqueue(url);
                 shouldStart = !_audioPlaybackQueueActive;
                 _audioPlaybackQueueActive = true;
@@ -1533,6 +1542,7 @@ namespace GI_Subtitles.Views
             lock (_audioPlaybackQueueLock)
             {
                 _audioPlaybackQueue.Clear();
+                _pendingDialogueOptionUrl = null;
                 _audioPlaybackQueue.Enqueue(url);
                 _audioPlaybackQueueActive = true;
                 generation = ++_audioPlaybackGeneration;
@@ -1547,6 +1557,7 @@ namespace GI_Subtitles.Views
             lock (_audioPlaybackQueueLock)
             {
                 _audioPlaybackQueue.Clear();
+                _pendingDialogueOptionUrl = null;
                 _audioPlaybackQueueActive = false;
                 _audioPlaybackGeneration++;
             }
@@ -1554,48 +1565,73 @@ namespace GI_Subtitles.Views
             DisposeCurrentAudioPlayback();
         }
 
-        private void StartAudioPlayback(string filePath, int generation)
+        private void StartAudioPlayback(
+            string filePath,
+            int generation,
+            bool allowTempoProcessing = true)
         {
             DisposeCurrentAudioPlayback();
-            mediaReader = new MediaFoundationReader(filePath);
-            IWaveProvider playbackSource = mediaReader;
-            if (Math.Abs(_voicePlaybackSpeed - 1.0) >= 0.001)
-            {
-                IWaveProvider floatingPointSource =
-                    mediaReader.ToSampleProvider().ToWaveProvider();
-                soundTouchProvider = new SoundTouchWaveProvider(floatingPointSource, null)
-                {
-                    Tempo = _voicePlaybackSpeed,
-                    Pitch = 1.0,
-                    Rate = 1.0
-                };
-                soundTouchProvider.OptimizeForSpeech();
-                playbackSource = soundTouchProvider;
-            }
+            bool usingSoundTouch =
+                allowTempoProcessing &&
+                Math.Abs(_voicePlaybackSpeed - 1.0) >= 0.001;
 
-            waveOut = new WaveOutEvent();
-            IWavePlayer currentPlayer = waveOut;
-            _playbackStoppedHandler = (sender, args) =>
+            try
             {
-                if (!ReferenceEquals(sender, currentPlayer))
+                mediaReader = new MediaFoundationReader(filePath);
+                IWaveProvider playbackSource = mediaReader;
+                if (usingSoundTouch)
                 {
-                    return;
+                    IWaveProvider floatingPointSource =
+                        mediaReader.ToSampleProvider().ToWaveProvider();
+                    soundTouchProvider = new SoundTouchWaveProvider(floatingPointSource, null)
+                    {
+                        Tempo = _voicePlaybackSpeed,
+                        Pitch = 1.0,
+                        Rate = 1.0
+                    };
+                    soundTouchProvider.OptimizeForSpeech();
+                    playbackSource = soundTouchProvider;
                 }
 
-                Dispatcher.BeginInvoke(new Action(() =>
+                waveOut = new WaveOutEvent();
+                IWavePlayer currentPlayer = waveOut;
+                _playbackStoppedHandler = (sender, args) =>
                 {
-                    if (!ReferenceEquals(waveOut, currentPlayer))
+                    if (!ReferenceEquals(sender, currentPlayer))
                     {
                         return;
                     }
 
-                    DisposeCurrentAudioPlayback();
-                    _ = ProcessNextAudioAsync(generation);
-                }));
-            };
-            waveOut.PlaybackStopped += _playbackStoppedHandler;
-            waveOut.Init(playbackSource);
-            waveOut.Play();
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        if (!ReferenceEquals(waveOut, currentPlayer))
+                        {
+                            return;
+                        }
+
+                        if (args.Exception != null && usingSoundTouch)
+                        {
+                            Logger.Log.Warn(
+                                $"SoundTouch playback failed; retrying at normal speed: {args.Exception.Message}");
+                            StartAudioPlayback(filePath, generation, allowTempoProcessing: false);
+                            return;
+                        }
+
+                        DisposeCurrentAudioPlayback();
+                        _ = ProcessNextAudioAsync(generation);
+                    }));
+                };
+                waveOut.PlaybackStopped += _playbackStoppedHandler;
+                waveOut.Init(playbackSource);
+                waveOut.Play();
+            }
+            catch (Exception ex) when (usingSoundTouch)
+            {
+                Logger.Log.Warn(
+                    $"SoundTouch initialization failed; retrying at normal speed: {ex.Message}");
+                DisposeCurrentAudioPlayback();
+                StartAudioPlayback(filePath, generation, allowTempoProcessing: false);
+            }
         }
 
         private async Task ProcessNextAudioAsync(int generation)
@@ -1608,6 +1644,13 @@ namespace GI_Subtitles.Views
                     if (generation != _audioPlaybackGeneration)
                     {
                         return;
+                    }
+
+                    if (_audioPlaybackQueue.Count == 0 &&
+                        !string.IsNullOrEmpty(_pendingDialogueOptionUrl))
+                    {
+                        _audioPlaybackQueue.Enqueue(_pendingDialogueOptionUrl);
+                        _pendingDialogueOptionUrl = null;
                     }
 
                     if (_audioPlaybackQueue.Count == 0)
@@ -1739,6 +1782,12 @@ namespace GI_Subtitles.Views
                 ? Visibility.Collapsed
                 : Visibility.Visible;
             UpdateHeaderPosition();
+        }
+
+        public void PlayVoiceTest()
+        {
+            const string testAudioMd5 = "6f3ea6152a7864d324404f8d93a70a1a";
+            PlayMainAudioFromUrl($"{server}?md5={testAudioMd5}&token={token}");
         }
 
         private static double NormalizePlaybackSpeed(double speed)

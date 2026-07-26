@@ -1923,6 +1923,14 @@ namespace GI_Subtitles.Views
             }
         }
 
+        private void TestVoice_Click(object sender, RoutedEventArgs e)
+        {
+            if (System.Windows.Application.Current.MainWindow is MainWindow mainWindow)
+            {
+                mainWindow.PlayVoiceTest();
+            }
+        }
+
         private void RecognizeDialogueOptionsCheckBox_Checked(object sender, RoutedEventArgs e)
         {
             if (!_uiLangInitialized)
