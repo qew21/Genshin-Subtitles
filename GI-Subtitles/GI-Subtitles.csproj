@@ -63,6 +63,12 @@
     <Reference Include="NAudio, Version=1.10.0.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\NAudio.1.10.0\lib\net35\NAudio.dll</HintPath>
     </Reference>
+    <Reference Include="SoundTouch.Net, Version=2.3.0.0, Culture=neutral, PublicKeyToken=fd94608088498f78, processorArchitecture=MSIL">
+      <HintPath>..\packages\SoundTouch.Net.2.3.2\lib\net45\SoundTouch.Net.dll</HintPath>
+    </Reference>
+    <Reference Include="SoundTouch.Net.NAudioSupport, Version=2.3.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\SoundTouch.Net.NAudioSupport.2.3.2\lib\net45\SoundTouch.Net.NAudioSupport.dll</HintPath>
+    </Reference>
     <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <HintPath>..\packages\Newtonsoft.Json.13.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
@@ -127,7 +133,6 @@
     <Compile Include="Models\GameMetadata.cs" />
     <Compile Include="Services\OCR\ImageProcessor.cs" />
     <Compile Include="Services\OCR\DialogueOptionDetector.cs" />
-    <Compile Include="Services\Audio\PlaybackRateWaveProvider.cs" />
     <Compile Include="Core\UI\INotifyIcon.cs" />
     <Compile Include="Services\Translation\OptimizedMatcher.cs" />
     <Compile Include="Core\Screen\ScreenInfo.cs" />

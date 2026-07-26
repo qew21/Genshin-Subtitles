@@ -35,6 +35,7 @@ using System.Threading.Tasks;
 using System.Text.RegularExpressions;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
 using NAudio.Wave;
+using SoundTouch.Net.NAudioSupport;
 using System.Net;
 using Microsoft.Win32;
 using System.Diagnostics;
@@ -53,7 +54,6 @@ using GI_Subtitles.Services.Translation;
 using GI_Subtitles.Services.Update;
 using GI_Subtitles.Common;
 using GI_Subtitles.Core.Screen;
-using GI_Subtitles.Services.Audio;
 using static GI_Subtitles.Core.Config.Config;
 using System.Windows.Threading;
 
@@ -130,6 +130,7 @@ namespace GI_Subtitles.Views
         bool ChooseRegion = false;
         private IWavePlayer waveOut;
         private MediaFoundationReader mediaReader;
+        private SoundTouchWaveProvider soundTouchProvider;
         private string tempFilePath;
         private readonly Queue<string> _audioPlaybackQueue = new Queue<string>();
         private readonly object _audioPlaybackQueueLock = new object();
@@ -145,6 +146,10 @@ namespace GI_Subtitles.Views
         private bool _isUserMovingWindow = false;
         private bool _forceVoiceReplayRequested = false;
         private bool _forceRefreshPending = false;
+        private readonly DispatcherTimer _forceRefreshDebounceTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(350)
+        };
         private DateTime _lastDialogueOptionScanTime = DateTime.MinValue;
         private string _lastDialogueOptionHash;
         private List<DialogueOptionCandidate> _lastDialogueOptions = new List<DialogueOptionCandidate>();
@@ -167,6 +172,11 @@ namespace GI_Subtitles.Views
                 _dialogueChoiceDisplayTimer.Stop();
                 ClearDialogueChoiceHeader();
                 UpdateHeaderPosition();
+            };
+            _forceRefreshDebounceTimer.Tick += (sender, args) =>
+            {
+                _forceRefreshDebounceTimer.Stop();
+                ForceRefreshCurrentSubtitle();
             };
             UpdatePlaybackSpeedIndicator();
             // Start with the main window fully transparent to avoid showing incomplete UI during heavy startup work.
@@ -671,7 +681,7 @@ namespace GI_Subtitles.Views
                             (forceVoiceReplay || !AudioList.Contains(key)) && !string.IsNullOrEmpty(key))
                         {
                             string audioKey = VoiceContentHelper.CalculateMd5Hash(key);
-                            PlayAudioFromUrl($"{server}?md5={audioKey}&token={token}");
+                            PlayMainAudioFromUrl($"{server}?md5={audioKey}&token={token}");
                             if (!AudioList.Contains(key))
                             {
                                 AudioList.Add(key);
@@ -824,6 +834,8 @@ namespace GI_Subtitles.Views
         private async Task TriggerOcrAsync(Mat frameToProcess, Bitmap target, bool forceRefresh = false)
         {
             _isOcrRunning = true;
+            string recognizedText = null;
+            bool recognitionCompleted = false;
             try
             {
                 await Task.Run(() =>
@@ -839,7 +851,8 @@ namespace GI_Subtitles.Views
 
                         if (!forceRefresh && BitmapDict.TryGetValue(bitStr, out string cachedOcrText))
                         {
-                            ocrText = cachedOcrText;
+                            recognizedText = cachedOcrText;
+                            recognitionCompleted = true;
                         }
                         else
                         {
@@ -848,13 +861,15 @@ namespace GI_Subtitles.Views
                                 : ImageProcessor.FindSimilarImageHash(bitStr, BitmapDict, maxDistance: distant);
                             if (matchedImageHash != null)
                             {
-                                ocrText = BitmapDict[matchedImageHash];
-                                BitmapDict[bitStr] = ocrText; // LRU cache automatically manages size
+                                recognizedText = BitmapDict[matchedImageHash];
+                                BitmapDict[bitStr] = recognizedText; // LRU cache automatically manages size
+                                recognitionCompleted = true;
                             }
                             else
                             {
                                 OCRResult ocrResult = data.engine.DetectTextFromMat(frameToProcess);
-                                ocrText = ocrResult.Text;
+                                recognizedText = ocrResult?.Text ?? string.Empty;
+                                recognitionCompleted = true;
 
                                 if (debug)
                                 {
@@ -863,7 +878,7 @@ namespace GI_Subtitles.Views
                                         string fileName = DateTime.Now.ToString("yyyy-MM-dd_HH_mm_ss_ffffff") + ".png";
                                         Logger.Log.Debug(fileName);
                                         target.Save(Path.Combine(dataDir, fileName));
-                                        Logger.Log.Debug($"OCR Text: {ocrText}");
+                                        Logger.Log.Debug($"OCR Text: {recognizedText}");
                                     }
                                     catch (Exception ex)
                                     {
@@ -871,13 +886,19 @@ namespace GI_Subtitles.Views
                                     }
                                 }
 
-                                BitmapDict[bitStr] = ocrText;
+                                BitmapDict[bitStr] = recognizedText;
                             }
                         }
 
-                        Logger.Log.Debug($"OCR Content: {ocrText}");
+                        if (!recognitionCompleted)
+                        {
+                            return;
+                        }
 
-                        if (ocrText.Length < 2)
+                        ocrText = recognizedText;
+                        Logger.Log.Debug($"OCR Content: {recognizedText}");
+
+                        if (recognizedText.Length < 2)
                         {
                             failedCount++;
                         }
@@ -906,10 +927,14 @@ namespace GI_Subtitles.Views
                             target?.Dispose();
                         }
 
-                        if (forceRefresh)
+                        if (forceRefresh && recognitionCompleted && recognizedText.Length >= 2)
                         {
                             _forceVoiceReplayRequested = true;
                             UpdateText(null, EventArgs.Empty);
+                        }
+                        else if (forceRefresh)
+                        {
+                            Logger.Log.Warn("Forced OCR refresh produced no usable text; keeping the current subtitle without replay.");
                         }
                     }
                     catch (Exception ex)
@@ -960,6 +985,12 @@ namespace GI_Subtitles.Views
             {
                 Logger.Log.Error($"Failed to force refresh current subtitle: {ex}");
             }
+        }
+
+        private void RequestForceRefreshCurrentSubtitle()
+        {
+            _forceRefreshDebounceTimer.Stop();
+            _forceRefreshDebounceTimer.Start();
         }
 
         private static bool IsValidRegion(string[] region)
@@ -1453,7 +1484,7 @@ namespace GI_Subtitles.Views
                 }
                 else if (wParam.ToInt32() == HOTKEY_ID_REFRESH)
                 {
-                    ForceRefreshCurrentSubtitle();
+                    RequestForceRefreshCurrentSubtitle();
                     handled = true;
                 }
                 else if (wParam.ToInt32() == HOTKEY_ID_PLAYBACK_SPEED)
@@ -1496,6 +1527,21 @@ namespace GI_Subtitles.Views
             }
         }
 
+        private void PlayMainAudioFromUrl(string url)
+        {
+            int generation;
+            lock (_audioPlaybackQueueLock)
+            {
+                _audioPlaybackQueue.Clear();
+                _audioPlaybackQueue.Enqueue(url);
+                _audioPlaybackQueueActive = true;
+                generation = ++_audioPlaybackGeneration;
+            }
+
+            DisposeCurrentAudioPlayback();
+            _ = ProcessNextAudioAsync(generation);
+        }
+
         public void StopAudio()
         {
             lock (_audioPlaybackQueueLock)
@@ -1512,9 +1558,20 @@ namespace GI_Subtitles.Views
         {
             DisposeCurrentAudioPlayback();
             mediaReader = new MediaFoundationReader(filePath);
-            IWaveProvider playbackSource = Math.Abs(_voicePlaybackSpeed - 1.0) < 0.001
-                ? (IWaveProvider)mediaReader
-                : new PlaybackRateWaveProvider(mediaReader, _voicePlaybackSpeed);
+            IWaveProvider playbackSource = mediaReader;
+            if (Math.Abs(_voicePlaybackSpeed - 1.0) >= 0.001)
+            {
+                IWaveProvider floatingPointSource =
+                    mediaReader.ToSampleProvider().ToWaveProvider();
+                soundTouchProvider = new SoundTouchWaveProvider(floatingPointSource, null)
+                {
+                    Tempo = _voicePlaybackSpeed,
+                    Pitch = 1.0,
+                    Rate = 1.0
+                };
+                soundTouchProvider.OptimizeForSpeech();
+                playbackSource = soundTouchProvider;
+            }
 
             waveOut = new WaveOutEvent();
             IWavePlayer currentPlayer = waveOut;
@@ -1618,6 +1675,8 @@ namespace GI_Subtitles.Views
             waveOut = null;
             currentPlayer?.Stop();
             currentPlayer?.Dispose();
+            soundTouchProvider?.Clear();
+            soundTouchProvider = null;
             mediaReader?.Dispose();
             mediaReader = null;
         }
