@@ -72,17 +72,13 @@ namespace GI_Subtitles.Views
     {
         private static int OCR_TIMER = 0;
         private static int UI_TIMER = 0;
+        private Mat _lastBinaryFrame = null;       // last frame for stability check
+        private Mat _lastOcrBinaryFrame = null;    // frame at last OCR for subtitle-change check
         private bool _isOcrRunning = false;
-        private readonly SubtitleFrameChangeDetector _subtitleFrameChangeDetector =
-            new SubtitleFrameChangeDetector(Config.Get<double>("OCRThreshold", 0.01));
-        private readonly SubtitleGenerationManager _subtitleGenerationManager =
-            new SubtitleGenerationManager();
+        private readonly double ChangeThreshold = Math.Max(0, Math.Min(1, Config.Get<double>("OCRThreshold", 0.01)));
         private DateTime _lastOcrTime = DateTime.MinValue;
-        private readonly TimeSpan _minOcrInterval = TimeSpan.FromMilliseconds(
+        private readonly TimeSpan MinOcrInterval = TimeSpan.FromMilliseconds(
             Math.Max(1, Config.Get<int>("OCRInterval", 400)));
-        private readonly DialogueUiStateMachine _dialogueUiStateMachine = new DialogueUiStateMachine();
-        private DateTime _lastDialogueUiProbeTime = DateTime.MinValue;
-        private static readonly TimeSpan DialogueUiProbeInterval = TimeSpan.FromMilliseconds(250);
         string ocrText = "";
         private NotifyIcon notifyIcon;
         string lastHeader = null;
@@ -94,6 +90,7 @@ namespace GI_Subtitles.Views
         readonly bool debug = Config.Get<bool>("Debug", false);
         readonly string server = Config.Get<string>("Server", "https://mp3.2langs.com/download");
         readonly string token = Config.Get<string>("Token", "ENGI");
+        readonly int distant = Config.Get<int>("Distant", 3);
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         public static extern int SetWindowPos(IntPtr hWnd, int hWndInsertAfter, int x, int y, int Width, int Height, int flags);
         [DllImport("User32.dll")]
@@ -117,6 +114,8 @@ namespace GI_Subtitles.Views
         private const uint VK_H = 0x48; // Virtual key code for H
         private const uint VK_D = 0x44;
         private double Scale = GetDpiForSystem() / 96f;
+        // Use an LRU cache to limit memory usage to 30 entries (mapping from image hash to OCR text)
+        LRUCache<string, string> BitmapDict = new LRUCache<string, string>(30);
         List<string> AudioList = new List<string>();
         string InputLanguage = Config.Get<string>("Input");
         string OutputLanguage = Config.Get<string>("Output");
@@ -344,44 +343,130 @@ namespace GI_Subtitles.Views
 
                     bool passedToOcr = false;
                     Mat frameMat = null;
+                    Mat currentBinary = null;
+                    Mat diffFrame = null;
                     try
                     {
                         frameMat = target.ToMat();
-                        UpdateDialogueUiSoftState();
-                        SubtitleFrameDecision decision = _subtitleFrameChangeDetector.Evaluate(frameMat);
-                        if (debug)
-                        {
-                            Logger.Log.Debug(
-                                $"Subtitle trigger: stable={decision.IsStableVsPrevious}, " +
-                                $"changed={decision.ChangedVsLastOcr}, " +
-                                $"prev={decision.PreviousChangeRatio:F4}, " +
-                                $"ocr={decision.LastOcrChangeRatio:F4}, " +
-                                $"uiHint={_dialogueUiStateMachine.State}");
-                        }
+                        currentBinary = PreprocessToBinary(frameMat);
 
-                        if (decision.ShouldRunOcr && !_isOcrRunning && IsOcrIntervalReady())
+                        if (currentBinary == null || currentBinary.Empty())
                         {
-                            _subtitleFrameChangeDetector.CommitCurrentFrame();
-                            long generation = _subtitleGenerationManager.Begin();
-                            var batch = new SubtitleFrameBatch(
-                                generation,
-                                new List<Mat> { frameMat.Clone() });
-                            Logger.Log.Debug(
-                                $"Subtitle generation {generation} triggered by legacy frame-change policy; " +
-                                $"uiHint={_dialogueUiStateMachine.State}");
-                            SetWindowPos(new WindowInteropHelper(this).Handle, -1, 0, 0, 0, 0, 1 | 2);
-                            _ = TriggerOcrBatchAsync(batch, target);
-                            passedToOcr = true;
-                        }
-                        else if (decision.ShouldRunOcr && debug)
-                        {
-                            if (_isOcrRunning)
+                            if (!_isOcrRunning)
                             {
-                                Logger.Log.Debug("Skip OCR trigger because another OCR call is running");
+                                if (IsOcrIntervalReady())
+                                {
+                                    SetWindowPos(new WindowInteropHelper(this).Handle, -1, 0, 0, 0, 0, 1 | 2);
+                                    _ = TriggerOcrAsync(frameMat.Clone(), target);
+                                    passedToOcr = true;
+                                }
+                                else
+                                {
+                                    Logger.Log.Debug("Skip OCR (fallback) due to min interval limit");
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // Check stability vs previous frame
+                            bool isStableVsPrev = true;
+                            if (_lastBinaryFrame != null)
+                            {
+
+                                if (currentBinary.Size() != _lastBinaryFrame.Size() ||
+            currentBinary.Channels() != _lastBinaryFrame.Channels())
+                                {
+                                    isStableVsPrev = false;
+                                    if (debug)
+                                    {
+                                        Logger.Log.Debug("Last binary frame size mismatch, reset cache");
+                                    }
+                                }
+                                else
+                                {
+                                    diffFrame = new Mat();
+                                    Cv2.Absdiff(currentBinary, _lastBinaryFrame, diffFrame);
+                                    int nonZeroPrev = Cv2.CountNonZero(diffFrame);
+                                    double changePrev = (double)nonZeroPrev / (diffFrame.Rows * diffFrame.Cols);
+                                    if (debug)
+                                    {
+                                        Logger.Log.Debug($"Subtitle changeRatio(prev)={changePrev:F4}");
+                                    }
+                                    isStableVsPrev = changePrev <= ChangeThreshold;
+                                }
+
+                            }
+
+                            // Check change vs last OCR frame
+                            bool changedVsOcr = false;
+                            if (_lastOcrBinaryFrame != null)
+                            {
+                                if (currentBinary.Size() != _lastOcrBinaryFrame.Size() ||
+            currentBinary.Channels() != _lastOcrBinaryFrame.Channels())
+                                {
+                                    changedVsOcr = true;
+                                    if (debug)
+                                    {
+                                        Logger.Log.Debug("Last binary frame size mismatch, run ocr");
+                                    }
+                                }
+                                else
+                                {
+                                    using (Mat diffToOcr = new Mat())
+                                    {
+                                        Cv2.Absdiff(currentBinary, _lastOcrBinaryFrame, diffToOcr);
+                                        int nonZeroOcr = Cv2.CountNonZero(diffToOcr);
+                                        double changeOcr = (double)nonZeroOcr / (diffToOcr.Rows * diffToOcr.Cols);
+                                        if (debug)
+                                        {
+                                            Logger.Log.Debug($"Subtitle changeRatio(ocr)={changeOcr:F4}");
+                                        }
+                                        changedVsOcr = changeOcr > ChangeThreshold;
+                                    }
+                                }
                             }
                             else
                             {
-                                Logger.Log.Debug("Skip OCR trigger due to minimum interval");
+                                // No OCR baseline yet, force initial OCR when frame is stable
+                                changedVsOcr = true;
+                            }
+
+                            // Update previous-frame baseline for next cycle
+                            if (_lastBinaryFrame != null)
+                            {
+                                _lastBinaryFrame.Dispose();
+                            }
+                            _lastBinaryFrame = currentBinary.Clone();
+
+                            // Decide whether to run OCR:
+                            // 1) subtitle changed vs last OCR frame
+                            // 2) current frame is stable vs previous frame
+                            if (changedVsOcr && isStableVsPrev)
+                            {
+                                if (!_isOcrRunning && IsOcrIntervalReady())
+                                {
+                                    if (_lastOcrBinaryFrame != null)
+                                    {
+                                        _lastOcrBinaryFrame.Dispose();
+                                    }
+                                    _lastOcrBinaryFrame = currentBinary.Clone();
+
+                                    Logger.Log.Debug("Subtitle changed vs OCR and stabilized vs previous, start OCR");
+                                    SetWindowPos(new WindowInteropHelper(this).Handle, -1, 0, 0, 0, 0, 1 | 2);
+                                    _ = TriggerOcrAsync(frameMat.Clone(), target);
+                                    passedToOcr = true;
+                                }
+                                else
+                                {
+                                    Logger.Log.Debug("Subtitle changed/stable but skip OCR due to running or min interval limit");
+                                }
+                            }
+                            else
+                            {
+                                if (debug)
+                                {
+                                    Logger.Log.Debug("Subtitle considered unstable vs previous or unchanged vs OCR, skip OCR");
+                                }
                             }
                         }
                     }
@@ -393,6 +478,8 @@ namespace GI_Subtitles.Views
                         }
 
                         frameMat?.Dispose();
+                        currentBinary?.Dispose();
+                        diffFrame?.Dispose();
                     }
                 }
                 catch (Exception ex)
@@ -723,10 +810,15 @@ namespace GI_Subtitles.Views
             }
         }
 
+        /// <summary>
+        /// Check whether OCR can be executed according to the minimum interval.
+        /// If allowed, this method will also update the last OCR time.
+        /// </summary>
+        /// <returns>true if OCR is allowed now; otherwise false.</returns>
         private bool IsOcrIntervalReady()
         {
-            DateTime now = DateTime.UtcNow;
-            if (now - _lastOcrTime < _minOcrInterval)
+            var now = DateTime.UtcNow;
+            if (now - _lastOcrTime < MinOcrInterval)
             {
                 return false;
             }
@@ -735,67 +827,15 @@ namespace GI_Subtitles.Views
             return true;
         }
 
-        private void UpdateDialogueUiSoftState()
-        {
-            if (!string.Equals(Game, "Genshin", StringComparison.OrdinalIgnoreCase) ||
-                DateTime.UtcNow - _lastDialogueUiProbeTime < DialogueUiProbeInterval)
-            {
-                return;
-            }
-
-            _lastDialogueUiProbeTime = DateTime.UtcNow;
-            try
-            {
-                string[] subtitleRegion = usingRegion2 && IsValidRegion(notify.Region2)
-                    ? notify.Region2
-                    : notify.Region;
-                System.Drawing.Rectangle gameScreen = screenBounds;
-                if (IsValidRegion(subtitleRegion) &&
-                    int.TryParse(subtitleRegion[0], out int subtitleX) &&
-                    int.TryParse(subtitleRegion[1], out int subtitleY))
-                {
-                    gameScreen = Screen.GetBounds(new System.Drawing.Point(subtitleX, subtitleY));
-                }
-
-                double gameScale = gameScreen.Height / 1080.0;
-                int width = Math.Min(gameScreen.Width, Math.Max(120, (int)Math.Round(250 * gameScale)));
-                int height = Math.Min(gameScreen.Height, Math.Max(60, (int)Math.Round(115 * gameScale)));
-                string[] probeRegion =
-                {
-                    gameScreen.Left.ToString(),
-                    gameScreen.Top.ToString(),
-                    width.ToString(),
-                    height.ToString()
-                };
-                using Bitmap probeBitmap = CaptureRegion(probeRegion);
-                using Mat probe = probeBitmap.ToMat();
-                bool detected = GenshinDialogueUiDetector.TryDetect(
-                    probe,
-                    gameScale,
-                    out double confidence);
-                DialogueUiPresence state = _dialogueUiStateMachine.Update(detected);
-                if (debug)
-                {
-                    Logger.Log.Debug($"Dialogue UI soft gate: state={state}, confidence={confidence:F3}");
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Log.Warn($"Dialogue UI soft gate failed: {ex.Message}");
-            }
-        }
-
         /// <summary>
-        /// OCR three stable frames and publish only the consensus result for the current generation.
+        /// Async trigger OCR: execute the time-consuming OCR and hash matching logic in the background thread, only call when the subtitle pixel changes significantly.
         /// </summary>
-        private async Task TriggerOcrBatchAsync(
-            SubtitleFrameBatch batch,
-            Bitmap target,
-            bool forceRefresh = false)
+        /// <param name="frameToProcess">Image Mat for OCR (caller has already Clone)</param>
+        /// <param name="target">Original screenshot Bitmap, used for debugging and setting preview image</param>
+        private async Task TriggerOcrAsync(Mat frameToProcess, Bitmap target, bool forceRefresh = false)
         {
             _isOcrRunning = true;
-            SubtitleConsensusResult consensus = null;
-            int ocrCallCount = 0;
+            string recognizedText = null;
             bool recognitionCompleted = false;
             try
             {
@@ -803,21 +843,65 @@ namespace GI_Subtitles.Views
                 {
                     try
                     {
-                        AdaptiveSubtitleOcrResult adaptiveResult = AdaptiveSubtitleRecognizer.Recognize(
-                            batch.Frames,
-                            frame => data.engine.DetectTextFromMat(frame),
-                            data.Matcher);
-                        consensus = adaptiveResult.Consensus;
-                        ocrCallCount = adaptiveResult.OcrCallCount;
-                        recognitionCompleted = true;
-                        if (debug)
+                        if (frameToProcess == null || frameToProcess.Empty())
                         {
-                            string fileName = DateTime.Now.ToString("yyyy-MM-dd_HH_mm_ss_ffffff") + ".png";
-                            target.Save(Path.Combine(dataDir, fileName));
-                            Logger.Log.Debug(
-                                $"OCR generation {batch.Generation}: calls={ocrCallCount}, " +
-                                $"agreement={consensus.AgreementCount}/{ocrCallCount}, " +
-                                $"confidence={consensus.Confidence:F3}, key={consensus.MatchedKey}, text={consensus.Text}");
+                            return;
+                        }
+
+                        string bitStr = ImageProcessor.ComputeRobustHash(frameToProcess);
+
+                        if (!forceRefresh && BitmapDict.TryGetValue(bitStr, out string cachedOcrText))
+                        {
+                            recognizedText = cachedOcrText;
+                            recognitionCompleted = true;
+                        }
+                        else
+                        {
+                            string matchedImageHash = forceRefresh
+                                ? null
+                                : ImageProcessor.FindSimilarImageHash(bitStr, BitmapDict, maxDistance: distant);
+                            if (matchedImageHash != null)
+                            {
+                                recognizedText = BitmapDict[matchedImageHash];
+                                BitmapDict[bitStr] = recognizedText; // LRU cache automatically manages size
+                                recognitionCompleted = true;
+                            }
+                            else
+                            {
+                                OCRResult ocrResult = data.engine.DetectTextFromMat(frameToProcess);
+                                recognizedText = ocrResult?.Text ?? string.Empty;
+                                recognitionCompleted = true;
+
+                                if (debug)
+                                {
+                                    try
+                                    {
+                                        string fileName = DateTime.Now.ToString("yyyy-MM-dd_HH_mm_ss_ffffff") + ".png";
+                                        Logger.Log.Debug(fileName);
+                                        target.Save(Path.Combine(dataDir, fileName));
+                                        Logger.Log.Debug($"OCR Text: {recognizedText}");
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Logger.Log.Error($"Failed to save debug image: {ex}");
+                                    }
+                                }
+
+                                BitmapDict[bitStr] = recognizedText;
+                            }
+                        }
+
+                        if (!recognitionCompleted)
+                        {
+                            return;
+                        }
+
+                        ocrText = recognizedText;
+                        Logger.Log.Debug($"OCR Content: {recognizedText}");
+
+                        if (recognizedText.Length < 2)
+                        {
+                            failedCount++;
                         }
                     }
                     catch (Exception ex)
@@ -826,52 +910,44 @@ namespace GI_Subtitles.Views
                     }
                 });
 
-                bool usable = recognitionCompleted &&
-                              consensus != null &&
-                              !string.IsNullOrWhiteSpace(consensus.Text) &&
-                              consensus.Text.Length >= 2;
-                bool current = _subtitleGenerationManager.IsCurrent(batch.Generation);
-                if (!current)
+                // After OCR, update the window position and debug preview in the UI thread
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
                 {
-                    Logger.Log.Debug($"Discard stale OCR result for subtitle generation {batch.Generation}");
-                    target?.Dispose();
-                    return;
-                }
-
-                UpdateWindowPosition();
-                if (data.IsVisible)
-                {
-                    data.SetImage(target);
-                }
-                else
-                {
-                    target?.Dispose();
-                }
-
-                if (usable)
-                {
-                    ocrText = consensus.Text;
-                    Logger.Log.Debug($"Locked OCR generation {batch.Generation}: {consensus.Text}");
-                    if (forceRefresh)
+                    try
                     {
-                        _forceVoiceReplayRequested = true;
-                        UpdateText(null, EventArgs.Empty);
+                        UpdateWindowPosition();
+
+                        // Set image before calling SetImage (SetImage keeps a reference, so we don't dispose here)
+                        if (data.IsVisible)
+                        {
+                            data.SetImage(target);
+                        }
+                        else
+                        {
+                            // If not needed, release the screenshot resource immediately
+                            target?.Dispose();
+                        }
+
+                        if (forceRefresh && recognitionCompleted && recognizedText.Length >= 2)
+                        {
+                            _forceVoiceReplayRequested = true;
+                            UpdateText(null, EventArgs.Empty);
+                        }
+                        else if (forceRefresh)
+                        {
+                            Logger.Log.Warn("Forced OCR refresh produced no usable text; keeping the current subtitle without replay.");
+                        }
                     }
-                }
-                else
-                {
-                    failedCount++;
-                    if (forceRefresh)
+                    catch (Exception ex)
                     {
-                        Logger.Log.Warn(
-                            "Forced OCR refresh produced no usable consensus; keeping the current subtitle without replay.");
+                        Logger.Log.Error(ex);
                     }
-                }
+                });
             }
             finally
             {
                 _isOcrRunning = false;
-                batch?.Dispose();
+                frameToProcess?.Dispose();
 
                 if (_forceRefreshPending)
                 {
@@ -881,7 +957,7 @@ namespace GI_Subtitles.Views
             }
         }
 
-        private async void ForceRefreshCurrentSubtitle()
+        private void ForceRefreshCurrentSubtitle()
         {
             if (_isOcrRunning)
             {
@@ -889,10 +965,6 @@ namespace GI_Subtitles.Views
                 return;
             }
 
-            var frames = new List<Mat>(3);
-            Bitmap target = null;
-            bool batchStarted = false;
-            _isOcrRunning = true;
             try
             {
                 string[] region = usingRegion2 && IsValidRegion(notify.Region2)
@@ -905,46 +977,14 @@ namespace GI_Subtitles.Views
                     return;
                 }
 
-                for (int i = 0; i < 3; i++)
-                {
-                    Bitmap sample = CaptureRegion(region);
-                    frames.Add(sample.ToMat());
-                    target?.Dispose();
-                    target = sample;
-                    if (i < 2)
-                    {
-                        await Task.Delay(100);
-                    }
-                }
-
-                long generation = _subtitleGenerationManager.Begin();
-                SubtitleFrameBatch batch = new SubtitleFrameBatch(
-                    generation,
-                    frames.Select(frame => frame.Clone()).ToList());
-                batchStarted = true;
-                await TriggerOcrBatchAsync(batch, target, forceRefresh: true);
-                target = null;
+                Bitmap target = CaptureRegion(region);
+                Mat frame = target.ToMat();
+                _lastOcrTime = DateTime.MinValue;
+                _ = TriggerOcrAsync(frame, target, forceRefresh: true);
             }
             catch (Exception ex)
             {
                 Logger.Log.Error($"Failed to force refresh current subtitle: {ex}");
-            }
-            finally
-            {
-                foreach (Mat frame in frames)
-                {
-                    frame?.Dispose();
-                }
-                target?.Dispose();
-                if (!batchStarted)
-                {
-                    _isOcrRunning = false;
-                    if (_forceRefreshPending)
-                    {
-                        _forceRefreshPending = false;
-                        _ = Dispatcher.BeginInvoke(new Action(ForceRefreshCurrentSubtitle));
-                    }
-                }
             }
         }
 
@@ -1200,6 +1240,38 @@ namespace GI_Subtitles.Views
             public float Score { get; }
         }
 
+        /// <summary>
+        /// Preprocess the subtitle region image to binary image (only retain high-light/white pixels), used for stable pixel difference detection.
+        /// </summary>
+        /// <param name="src">Original Mat (BGR)</param>
+        /// <returns>Binary Mat; if failed, return null</returns>
+        private Mat PreprocessToBinary(Mat src)
+        {
+            if (src == null || src.Empty())
+            {
+                return null;
+            }
+
+            Mat gray = new Mat();
+            Mat binary = new Mat();
+            try
+            {
+                Cv2.CvtColor(src, gray, ColorConversionCodes.BGR2GRAY);
+                Cv2.Threshold(gray, binary, 220, 255, ThresholdTypes.Binary);
+                return binary;
+            }
+            catch (Exception ex)
+            {
+                Logger.Log.Error($"PreprocessToBinary failed: {ex}");
+                binary?.Dispose();
+                return null;
+            }
+            finally
+            {
+                gray?.Dispose();
+            }
+        }
+
         private void Window_MouseDown(object sender, MouseButtonEventArgs e)
         {
             if (e.LeftButton != MouseButtonState.Pressed)
@@ -1293,7 +1365,6 @@ namespace GI_Subtitles.Views
         private void MainWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
             StopAudio();
-            _subtitleFrameChangeDetector.Dispose();
             notifyIcon.Dispose();
             notifyIcon = null;
             data.UnregisterAllHotkeys();

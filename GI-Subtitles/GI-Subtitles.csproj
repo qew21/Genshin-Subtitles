@@ -133,7 +133,6 @@
     <Compile Include="Models\GameMetadata.cs" />
     <Compile Include="Services\OCR\ImageProcessor.cs" />
     <Compile Include="Services\OCR\DialogueOptionDetector.cs" />
-    <Compile Include="Services\OCR\SubtitleRecognitionPipeline.cs" />
     <Compile Include="Core\UI\INotifyIcon.cs" />
     <Compile Include="Services\Translation\OptimizedMatcher.cs" />
     <Compile Include="Core\Screen\ScreenInfo.cs" />

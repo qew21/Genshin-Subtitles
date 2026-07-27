@@ -20,7 +20,6 @@ using System.Windows;
 //对 COM 组件不可见。如果需要从 COM 访问此程序集中的类型
 //请将此类型的 ComVisible 特性设置为 true。
 [assembly: ComVisible(false)]
-[assembly: InternalsVisibleTo("GI-Test")]
 
 //若要开始生成可本地化的应用程序，请设置
 //.csproj 文件中的 <UICulture>CultureYouAreCodingWith</UICulture>
