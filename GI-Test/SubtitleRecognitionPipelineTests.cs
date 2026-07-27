@@ -17,6 +17,33 @@ namespace GI_Test
     public class SubtitleRecognitionPipelineTests
     {
         [TestMethod]
+        public void LegacyFrameChangePolicyTriggersOncePerStableSubtitle()
+        {
+            using var detector = new SubtitleFrameChangeDetector(0.01);
+            using var first = CreateSubtitleFrame("first");
+            using var second = CreateSubtitleFrame("second line");
+
+            Assert.IsFalse(detector.Evaluate(first).ShouldRunOcr);
+            Assert.IsFalse(detector.Evaluate(first).ShouldRunOcr);
+            SubtitleFrameDecision initial = detector.Evaluate(first);
+            Assert.IsTrue(initial.ShouldRunOcr);
+            detector.CommitCurrentFrame();
+
+            Assert.IsFalse(detector.Evaluate(first).ShouldRunOcr);
+
+            SubtitleFrameDecision transition = detector.Evaluate(second);
+            Assert.IsFalse(transition.ShouldRunOcr, "A changing frame must not trigger OCR.");
+
+            Assert.IsFalse(detector.Evaluate(second).ShouldRunOcr);
+            Assert.IsFalse(detector.Evaluate(second).ShouldRunOcr);
+            SubtitleFrameDecision settled = detector.Evaluate(second);
+            Assert.IsTrue(settled.ShouldRunOcr, "The changed subtitle should trigger after it settles.");
+            detector.CommitCurrentFrame();
+
+            Assert.IsFalse(detector.Evaluate(second).ShouldRunOcr);
+        }
+
+        [TestMethod]
         public void EpochTrackerLocksAcceptedSubtitleUntilVisualChange()
         {
             using var tracker = new SubtitleEpochTracker();
@@ -116,7 +143,78 @@ namespace GI_Test
 
         [TestMethod]
         [TestCategory("Integration")]
-        public void BenchmarkDemoWithOnlinePipeline()
+        public void MeasureLegacyTriggerSettleWindows()
+        {
+            string outputDirectory = Path.GetDirectoryName(typeof(SubtitleRecognitionPipelineTests).Assembly.Location);
+            string videoPath = ResolveDemoPath(outputDirectory);
+            if (videoPath == null)
+            {
+                Assert.Inconclusive("demo.mp4 is unavailable.");
+            }
+
+            int[] settleWindows = { 1, 2, 3, 3, 3, 4, 5, 6 };
+            int[] minimumIntervals = { 4, 4, 4, 5, 6, 6, 6, 6 };
+            var detectors = settleWindows
+                .Select(_ => new SubtitleFrameChangeDetector(0.01, requiredCandidateSamples: 1))
+                .ToArray();
+            var consecutiveCandidates = new int[settleWindows.Length];
+            var lastTriggers = Enumerable.Repeat(-100, settleWindows.Length).ToArray();
+            var triggerCounts = new int[settleWindows.Length];
+            using var capture = new VideoCapture(videoPath);
+            using var frame = new Mat();
+            double fps = capture.Fps;
+            int step = Math.Max(1, (int)Math.Round(fps / 10.0));
+            int scannedFrames = 0;
+
+            try
+            {
+                for (long index = 0; ; index += step)
+                {
+                    if (index > 0)
+                    {
+                        for (int skip = 0; skip < step - 1; skip++)
+                        {
+                            if (!capture.Grab()) break;
+                        }
+                    }
+
+                    if (!capture.Read(frame) || frame.Empty()) break;
+                    using var roi = new Mat(frame, new Rect(382, 895, 1113, 70));
+                    for (int variant = 0; variant < detectors.Length; variant++)
+                    {
+                        SubtitleFrameDecision decision = detectors[variant].Evaluate(roi);
+                        consecutiveCandidates[variant] = decision.ShouldRunOcr
+                            ? consecutiveCandidates[variant] + 1
+                            : 0;
+                        if (consecutiveCandidates[variant] >= settleWindows[variant] &&
+                            scannedFrames - lastTriggers[variant] >= minimumIntervals[variant])
+                        {
+                            detectors[variant].CommitCurrentFrame();
+                            lastTriggers[variant] = scannedFrames;
+                            triggerCounts[variant]++;
+                            consecutiveCandidates[variant] = 0;
+                        }
+                    }
+                    scannedFrames++;
+                }
+            }
+            finally
+            {
+                foreach (SubtitleFrameChangeDetector detector in detectors) detector.Dispose();
+            }
+
+            for (int i = 0; i < settleWindows.Length; i++)
+            {
+                Console.WriteLine(
+                    $"settleFrames={settleWindows[i]}, minIntervalFrames={minimumIntervals[i]}, " +
+                    $"triggers={triggerCounts[i]}");
+            }
+            Assert.IsTrue(triggerCounts[0] > triggerCounts[triggerCounts.Length - 1]);
+        }
+
+        [TestMethod]
+        [TestCategory("Integration")]
+        public void BenchmarkDemoWithLegacyTriggerAndUiHints()
         {
             string outputDirectory = Path.GetDirectoryName(typeof(SubtitleRecognitionPipelineTests).Assembly.Location);
             string videoPath = ResolveDemoPath(outputDirectory);
@@ -133,14 +231,13 @@ namespace GI_Test
             int step = Math.Max(1, (int)Math.Round(fps / 10.0));
             var region = new Rect(382, 895, 1113, 70);
             var uiState = new DialogueUiStateMachine();
-            using var tracker = new SubtitleEpochTracker();
+            using var changeDetector = new SubtitleFrameChangeDetector(0.01);
             using var frame = new Mat();
             var lockedTexts = new List<string>();
             int scannedFrames = 0;
             int ocrCalls = 0;
-            int oneCallBatches = 0;
-            int twoCallBatches = 0;
-            int threeCallBatches = 0;
+            int triggerCount = 0;
+            int lastTriggerFrame = -100;
             int uiPresentSamples = 0;
             int uiSamples = 0;
             double uiConfidenceTotal = 0;
@@ -183,24 +280,20 @@ namespace GI_Test
                 }
 
                 using var roi = new Mat(frame, region);
-                using SubtitleVisualAnalysis analysis = SubtitleVisualAnalyzer.Analyze(roi);
-                using SubtitleFrameBatch batch = tracker.Process(roi, analysis, uiState.State);
-                if (batch != null)
+                SubtitleFrameDecision decision = changeDetector.Evaluate(roi);
+                // The production default is 400 ms. At the benchmark's 10 Hz sample rate,
+                // that is four sampled frames between automatic OCR calls.
+                if (decision.ShouldRunOcr && scannedFrames - lastTriggerFrame >= 4)
                 {
-                    AdaptiveSubtitleOcrResult adaptiveResult = AdaptiveSubtitleRecognizer.Recognize(
-                        batch.Frames,
-                        sample =>
-                        {
-                            ocrCalls++;
-                            return engine.DetectTextFromMat(sample);
-                        },
+                    changeDetector.CommitCurrentFrame();
+                    lastTriggerFrame = scannedFrames;
+                    triggerCount++;
+                    OCRResult result = engine.DetectTextFromMat(roi);
+                    ocrCalls++;
+                    SubtitleConsensusResult consensus = SubtitleConsensusSelector.Select(
+                        new List<OCRResult> { result },
                         matcher: null);
-                    if (adaptiveResult.OcrCallCount == 1) oneCallBatches++;
-                    else if (adaptiveResult.OcrCallCount == 2) twoCallBatches++;
-                    else if (adaptiveResult.OcrCallCount == 3) threeCallBatches++;
-                    SubtitleConsensusResult consensus = adaptiveResult.Consensus;
                     bool accepted = !string.IsNullOrWhiteSpace(consensus.Text) && consensus.Text.Length >= 2;
-                    tracker.Complete(batch.Generation, accepted);
                     if (accepted)
                     {
                         lockedTexts.Add(consensus.Text);
@@ -218,10 +311,9 @@ namespace GI_Test
                 Fps = fps,
                 DetectionFps = fps / step,
                 ScannedFrames = scannedFrames,
+                TriggerPolicy = "legacy-full-frame-1pct-3-samples-400ms",
+                TriggerCount = triggerCount,
                 OcrCalls = ocrCalls,
-                OneCallBatches = oneCallBatches,
-                TwoCallBatches = twoCallBatches,
-                ThreeCallBatches = threeCallBatches,
                 LockedSubtitleCount = lockedTexts.Count,
                 DialogueUiPresentSamples = uiPresentSamples,
                 DialogueUiAverageConfidence = uiSamples > 0 ? uiConfidenceTotal / uiSamples : 0,
@@ -237,8 +329,8 @@ namespace GI_Test
             Assert.IsTrue(scannedFrames > 500);
             Assert.IsTrue(lockedTexts.Count > 10);
             Assert.IsTrue(uiPresentSamples > 0);
-            Assert.IsTrue(ocrCalls >= lockedTexts.Count);
-            Assert.IsTrue(ocrCalls <= lockedTexts.Count * 3 + 9);
+            Assert.AreEqual(triggerCount, ocrCalls);
+            Assert.IsTrue(ocrCalls < 50);
         }
 
         private static SubtitleFrameBatch FeedUntilBatch(SubtitleEpochTracker tracker, Mat frame)

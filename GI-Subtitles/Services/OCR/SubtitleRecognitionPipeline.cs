@@ -49,6 +49,146 @@ namespace GI_Subtitles.Services.OCR
         }
     }
 
+    internal sealed class SubtitleFrameDecision
+    {
+        public bool HasBinaryFrame { get; set; }
+        public bool IsStableVsPrevious { get; set; }
+        public bool ChangedVsLastOcr { get; set; }
+        public double PreviousChangeRatio { get; set; }
+        public double LastOcrChangeRatio { get; set; }
+        public bool ShouldRunOcr { get; set; }
+    }
+
+    /// <summary>
+    /// Preserves the original, low-call OCR trigger policy: compare a simple bright-pixel
+    /// binary frame against the previous sample and the frame used by the last OCR call.
+    /// UI/template observations are deliberately not accepted here, so they cannot suppress
+    /// a subtitle that the proven frame-change policy would otherwise recognize.
+    /// </summary>
+    internal sealed class SubtitleFrameChangeDetector : IDisposable
+    {
+        private readonly double _changeThreshold;
+        private readonly int _requiredCandidateSamples;
+        private Mat _previousBinary;
+        private Mat _lastOcrBinary;
+        private int _candidateSamples;
+
+        public SubtitleFrameChangeDetector(double changeThreshold, int requiredCandidateSamples = 3)
+        {
+            _changeThreshold = Math.Max(0, Math.Min(1, changeThreshold));
+            _requiredCandidateSamples = Math.Max(1, requiredCandidateSamples);
+        }
+
+        public SubtitleFrameDecision Evaluate(Mat frame)
+        {
+            using Mat currentBinary = CreateBinary(frame);
+            if (currentBinary == null || currentBinary.Empty())
+            {
+                _candidateSamples++;
+                return new SubtitleFrameDecision
+                {
+                    HasBinaryFrame = false,
+                    IsStableVsPrevious = true,
+                    ChangedVsLastOcr = true,
+                    ShouldRunOcr = _candidateSamples >= _requiredCandidateSamples
+                };
+            }
+
+            double previousChange = CalculateFullFrameChange(currentBinary, _previousBinary);
+            double lastOcrChange = CalculateFullFrameChange(currentBinary, _lastOcrBinary);
+            bool hasPrevious = _previousBinary != null && !_previousBinary.Empty();
+            bool hasLastOcr = _lastOcrBinary != null && !_lastOcrBinary.Empty();
+            bool candidate = (!hasPrevious || previousChange <= _changeThreshold) &&
+                             (!hasLastOcr || lastOcrChange > _changeThreshold);
+            _candidateSamples = candidate ? _candidateSamples + 1 : 0;
+
+            Replace(ref _previousBinary, currentBinary);
+            return new SubtitleFrameDecision
+            {
+                HasBinaryFrame = true,
+                IsStableVsPrevious = !hasPrevious || previousChange <= _changeThreshold,
+                ChangedVsLastOcr = !hasLastOcr || lastOcrChange > _changeThreshold,
+                PreviousChangeRatio = previousChange,
+                LastOcrChangeRatio = lastOcrChange,
+                ShouldRunOcr = _candidateSamples >= _requiredCandidateSamples
+            };
+        }
+
+        public void CommitCurrentFrame()
+        {
+            Replace(ref _lastOcrBinary, _previousBinary);
+            _candidateSamples = 0;
+        }
+
+        private static Mat CreateBinary(Mat source)
+        {
+            if (source == null || source.Empty())
+            {
+                return null;
+            }
+
+            var gray = new Mat();
+            var binary = new Mat();
+            try
+            {
+                Cv2.CvtColor(source, gray, ColorConversionCodes.BGR2GRAY);
+                Cv2.Threshold(gray, binary, 220, 255, ThresholdTypes.Binary);
+                return binary;
+            }
+            catch
+            {
+                binary.Dispose();
+                return null;
+            }
+            finally
+            {
+                gray.Dispose();
+            }
+        }
+
+        private static double CalculateFullFrameChange(Mat current, Mat baseline)
+        {
+            if (current == null || current.Empty() ||
+                baseline == null || baseline.Empty() ||
+                current.Size() != baseline.Size() ||
+                current.Channels() != baseline.Channels())
+            {
+                return 1;
+            }
+
+            using var diff = new Mat();
+            Cv2.Absdiff(current, baseline, diff);
+            return Cv2.CountNonZero(diff) / (double)(diff.Rows * diff.Cols);
+        }
+
+        private static void Replace(ref Mat target, Mat source)
+        {
+            target?.Dispose();
+            target = source == null || source.Empty() ? null : source.Clone();
+        }
+
+        public void Dispose()
+        {
+            _previousBinary?.Dispose();
+            _lastOcrBinary?.Dispose();
+        }
+    }
+
+    internal sealed class SubtitleGenerationManager
+    {
+        private long _current;
+
+        public long Begin()
+        {
+            return System.Threading.Interlocked.Increment(ref _current);
+        }
+
+        public bool IsCurrent(long generation)
+        {
+            return generation == System.Threading.Interlocked.Read(ref _current);
+        }
+    }
+
     /// <summary>
     /// Cheap, language-independent soft signal for Genshin's top-left auto-dialogue icon.
     /// A synthetic edge template avoids binding recognition to the localized "Auto" text.

@@ -73,7 +73,13 @@ namespace GI_Subtitles.Views
         private static int OCR_TIMER = 0;
         private static int UI_TIMER = 0;
         private bool _isOcrRunning = false;
-        private readonly SubtitleEpochTracker _subtitleEpochTracker = new SubtitleEpochTracker();
+        private readonly SubtitleFrameChangeDetector _subtitleFrameChangeDetector =
+            new SubtitleFrameChangeDetector(Config.Get<double>("OCRThreshold", 0.01));
+        private readonly SubtitleGenerationManager _subtitleGenerationManager =
+            new SubtitleGenerationManager();
+        private DateTime _lastOcrTime = DateTime.MinValue;
+        private readonly TimeSpan _minOcrInterval = TimeSpan.FromMilliseconds(
+            Math.Max(1, Config.Get<int>("OCRInterval", 400)));
         private readonly DialogueUiStateMachine _dialogueUiStateMachine = new DialogueUiStateMachine();
         private DateTime _lastDialogueUiProbeTime = DateTime.MinValue;
         private static readonly TimeSpan DialogueUiProbeInterval = TimeSpan.FromMilliseconds(250);
@@ -342,27 +348,40 @@ namespace GI_Subtitles.Views
                     {
                         frameMat = target.ToMat();
                         UpdateDialogueUiSoftState();
-                        using (SubtitleVisualAnalysis analysis = SubtitleVisualAnalyzer.Analyze(frameMat))
+                        SubtitleFrameDecision decision = _subtitleFrameChangeDetector.Evaluate(frameMat);
+                        if (debug)
                         {
-                            SubtitleFrameBatch batch = _subtitleEpochTracker.Process(
-                                frameMat,
-                                analysis,
-                                _dialogueUiStateMachine.State);
-                            if (batch != null)
+                            Logger.Log.Debug(
+                                $"Subtitle trigger: stable={decision.IsStableVsPrevious}, " +
+                                $"changed={decision.ChangedVsLastOcr}, " +
+                                $"prev={decision.PreviousChangeRatio:F4}, " +
+                                $"ocr={decision.LastOcrChangeRatio:F4}, " +
+                                $"uiHint={_dialogueUiStateMachine.State}");
+                        }
+
+                        if (decision.ShouldRunOcr && !_isOcrRunning && IsOcrIntervalReady())
+                        {
+                            _subtitleFrameChangeDetector.CommitCurrentFrame();
+                            long generation = _subtitleGenerationManager.Begin();
+                            var batch = new SubtitleFrameBatch(
+                                generation,
+                                new List<Mat> { frameMat.Clone() });
+                            Logger.Log.Debug(
+                                $"Subtitle generation {generation} triggered by legacy frame-change policy; " +
+                                $"uiHint={_dialogueUiStateMachine.State}");
+                            SetWindowPos(new WindowInteropHelper(this).Handle, -1, 0, 0, 0, 0, 1 | 2);
+                            _ = TriggerOcrBatchAsync(batch, target);
+                            passedToOcr = true;
+                        }
+                        else if (decision.ShouldRunOcr && debug)
+                        {
+                            if (_isOcrRunning)
                             {
-                                if (_isOcrRunning)
-                                {
-                                    _subtitleEpochTracker.Complete(batch.Generation, accepted: false);
-                                    batch.Dispose();
-                                }
-                                else
-                                {
-                                    Logger.Log.Debug(
-                                        $"Subtitle generation {batch.Generation} stabilized; start 3-frame OCR review");
-                                    SetWindowPos(new WindowInteropHelper(this).Handle, -1, 0, 0, 0, 0, 1 | 2);
-                                    _ = TriggerOcrBatchAsync(batch, target);
-                                    passedToOcr = true;
-                                }
+                                Logger.Log.Debug("Skip OCR trigger because another OCR call is running");
+                            }
+                            else
+                            {
+                                Logger.Log.Debug("Skip OCR trigger due to minimum interval");
                             }
                         }
                     }
@@ -704,6 +723,18 @@ namespace GI_Subtitles.Views
             }
         }
 
+        private bool IsOcrIntervalReady()
+        {
+            DateTime now = DateTime.UtcNow;
+            if (now - _lastOcrTime < _minOcrInterval)
+            {
+                return false;
+            }
+
+            _lastOcrTime = now;
+            return true;
+        }
+
         private void UpdateDialogueUiSoftState()
         {
             if (!string.Equals(Game, "Genshin", StringComparison.OrdinalIgnoreCase) ||
@@ -799,7 +830,7 @@ namespace GI_Subtitles.Views
                               consensus != null &&
                               !string.IsNullOrWhiteSpace(consensus.Text) &&
                               consensus.Text.Length >= 2;
-                bool current = _subtitleEpochTracker.Complete(batch.Generation, usable);
+                bool current = _subtitleGenerationManager.IsCurrent(batch.Generation);
                 if (!current)
                 {
                     Logger.Log.Debug($"Discard stale OCR result for subtitle generation {batch.Generation}");
@@ -886,7 +917,10 @@ namespace GI_Subtitles.Views
                     }
                 }
 
-                SubtitleFrameBatch batch = _subtitleEpochTracker.CreateManualBatch(frames);
+                long generation = _subtitleGenerationManager.Begin();
+                SubtitleFrameBatch batch = new SubtitleFrameBatch(
+                    generation,
+                    frames.Select(frame => frame.Clone()).ToList());
                 batchStarted = true;
                 await TriggerOcrBatchAsync(batch, target, forceRefresh: true);
                 target = null;
@@ -1259,7 +1293,7 @@ namespace GI_Subtitles.Views
         private void MainWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
             StopAudio();
-            _subtitleEpochTracker.Dispose();
+            _subtitleFrameChangeDetector.Dispose();
             notifyIcon.Dispose();
             notifyIcon = null;
             data.UnregisterAllHotkeys();
