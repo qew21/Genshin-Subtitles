@@ -487,6 +487,88 @@ namespace GI_Subtitles.Services.OCR
         public int AgreementCount { get; set; }
     }
 
+    internal sealed class AdaptiveSubtitleOcrResult
+    {
+        public SubtitleConsensusResult Consensus { get; set; }
+        public int OcrCallCount { get; set; }
+    }
+
+    internal static class AdaptiveSubtitleRecognizer
+    {
+        private const double DictionaryMatchConfidence = 0.72;
+        private const double StandaloneConfidence = 0.90;
+
+        public static AdaptiveSubtitleOcrResult Recognize(
+            IReadOnlyList<Mat> stableFrames,
+            Func<Mat, OCRResult> recognize,
+            OptimizedMatcher matcher)
+        {
+            if (stableFrames == null || stableFrames.Count == 0)
+            {
+                return new AdaptiveSubtitleOcrResult
+                {
+                    Consensus = new SubtitleConsensusResult { Text = string.Empty }
+                };
+            }
+
+            var results = new List<OCRResult>(Math.Min(3, stableFrames.Count));
+            // Prefer the newest settled frame. Earlier frames are only fallbacks.
+            for (int index = stableFrames.Count - 1;
+                 index >= 0 && results.Count < 3;
+                 index--)
+            {
+                OCRResult result = recognize(stableFrames[index]);
+                results.Add(result);
+                SubtitleConsensusResult consensus = SubtitleConsensusSelector.Select(results, matcher);
+
+                if (results.Count == 1 && IsReliableSingleResult(consensus, matcher != null))
+                {
+                    return new AdaptiveSubtitleOcrResult
+                    {
+                        Consensus = consensus,
+                        OcrCallCount = results.Count
+                    };
+                }
+
+                // Two equivalent OCR/matcher outcomes are enough; the third frame
+                // is reserved for an actual disagreement.
+                if (results.Count >= 2 && consensus.AgreementCount >= 2)
+                {
+                    return new AdaptiveSubtitleOcrResult
+                    {
+                        Consensus = consensus,
+                        OcrCallCount = results.Count
+                    };
+                }
+            }
+
+            return new AdaptiveSubtitleOcrResult
+            {
+                Consensus = SubtitleConsensusSelector.Select(results, matcher),
+                OcrCallCount = results.Count
+            };
+        }
+
+        private static bool IsReliableSingleResult(
+            SubtitleConsensusResult result,
+            bool matcherAvailable)
+        {
+            if (result == null || string.IsNullOrWhiteSpace(result.Text))
+            {
+                return false;
+            }
+
+            if (!string.IsNullOrEmpty(result.MatchedKey))
+            {
+                return result.Confidence >= DictionaryMatchConfidence;
+            }
+
+            return !matcherAvailable &&
+                   result.Confidence >= StandaloneConfidence &&
+                   result.Text.Length >= 4;
+        }
+    }
+
     internal static class SubtitleConsensusSelector
     {
         public static SubtitleConsensusResult Select(

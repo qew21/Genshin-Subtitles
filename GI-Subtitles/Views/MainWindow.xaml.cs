@@ -764,6 +764,7 @@ namespace GI_Subtitles.Views
         {
             _isOcrRunning = true;
             SubtitleConsensusResult consensus = null;
+            int ocrCallCount = 0;
             bool recognitionCompleted = false;
             try
             {
@@ -771,26 +772,20 @@ namespace GI_Subtitles.Views
                 {
                     try
                     {
-                        var results = new List<OCRResult>(batch.Frames.Count);
-                        foreach (Mat frame in batch.Frames)
-                        {
-                            if (frame == null || frame.Empty())
-                            {
-                                continue;
-                            }
-
-                            OCRResult result = data.engine.DetectTextFromMat(frame);
-                            results.Add(result);
-                        }
-
-                        consensus = SubtitleConsensusSelector.Select(results, data.Matcher);
+                        AdaptiveSubtitleOcrResult adaptiveResult = AdaptiveSubtitleRecognizer.Recognize(
+                            batch.Frames,
+                            frame => data.engine.DetectTextFromMat(frame),
+                            data.Matcher);
+                        consensus = adaptiveResult.Consensus;
+                        ocrCallCount = adaptiveResult.OcrCallCount;
                         recognitionCompleted = true;
                         if (debug)
                         {
                             string fileName = DateTime.Now.ToString("yyyy-MM-dd_HH_mm_ss_ffffff") + ".png";
                             target.Save(Path.Combine(dataDir, fileName));
                             Logger.Log.Debug(
-                                $"OCR generation {batch.Generation}: agreement={consensus.AgreementCount}/{results.Count}, " +
+                                $"OCR generation {batch.Generation}: calls={ocrCallCount}, " +
+                                $"agreement={consensus.AgreementCount}/{ocrCallCount}, " +
                                 $"confidence={consensus.Confidence:F3}, key={consensus.MatchedKey}, text={consensus.Text}");
                         }
                     }

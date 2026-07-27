@@ -73,6 +73,48 @@ namespace GI_Test
         }
 
         [TestMethod]
+        public void AdaptiveOcrStopsAtOneTwoOrThreeCalls()
+        {
+            using var frame1 = CreateSubtitleFrame("one");
+            using var frame2 = CreateSubtitleFrame("two");
+            using var frame3 = CreateSubtitleFrame("three");
+            var frames = new List<Mat> { frame1, frame2, frame3 };
+
+            int highConfidenceCalls = 0;
+            AdaptiveSubtitleOcrResult highConfidence = AdaptiveSubtitleRecognizer.Recognize(
+                frames,
+                _ =>
+                {
+                    highConfidenceCalls++;
+                    return CreateOcrResult("稳定字幕", 0.96f);
+                },
+                matcher: null);
+            Assert.AreEqual(1, highConfidenceCalls);
+            Assert.AreEqual(1, highConfidence.OcrCallCount);
+
+            int agreeingCalls = 0;
+            AdaptiveSubtitleOcrResult agreeing = AdaptiveSubtitleRecognizer.Recognize(
+                frames,
+                _ =>
+                {
+                    agreeingCalls++;
+                    return CreateOcrResult("低置信度但一致", 0.70f);
+                },
+                matcher: null);
+            Assert.AreEqual(2, agreeingCalls);
+            Assert.AreEqual(2, agreeing.OcrCallCount);
+
+            string[] differentTexts = { "第三帧", "第二帧", "第一帧" };
+            int disagreeingCalls = 0;
+            AdaptiveSubtitleOcrResult disagreeing = AdaptiveSubtitleRecognizer.Recognize(
+                frames,
+                _ => CreateOcrResult(differentTexts[disagreeingCalls++], 0.70f),
+                matcher: null);
+            Assert.AreEqual(3, disagreeingCalls);
+            Assert.AreEqual(3, disagreeing.OcrCallCount);
+        }
+
+        [TestMethod]
         [TestCategory("Integration")]
         public void BenchmarkDemoWithOnlinePipeline()
         {
@@ -96,6 +138,9 @@ namespace GI_Test
             var lockedTexts = new List<string>();
             int scannedFrames = 0;
             int ocrCalls = 0;
+            int oneCallBatches = 0;
+            int twoCallBatches = 0;
+            int threeCallBatches = 0;
             int uiPresentSamples = 0;
             int uiSamples = 0;
             double uiConfidenceTotal = 0;
@@ -142,14 +187,18 @@ namespace GI_Test
                 using SubtitleFrameBatch batch = tracker.Process(roi, analysis, uiState.State);
                 if (batch != null)
                 {
-                    var results = new List<OCRResult>(batch.Frames.Count);
-                    foreach (Mat sample in batch.Frames)
-                    {
-                        results.Add(engine.DetectTextFromMat(sample));
-                        ocrCalls++;
-                    }
-
-                    SubtitleConsensusResult consensus = SubtitleConsensusSelector.Select(results, matcher: null);
+                    AdaptiveSubtitleOcrResult adaptiveResult = AdaptiveSubtitleRecognizer.Recognize(
+                        batch.Frames,
+                        sample =>
+                        {
+                            ocrCalls++;
+                            return engine.DetectTextFromMat(sample);
+                        },
+                        matcher: null);
+                    if (adaptiveResult.OcrCallCount == 1) oneCallBatches++;
+                    else if (adaptiveResult.OcrCallCount == 2) twoCallBatches++;
+                    else if (adaptiveResult.OcrCallCount == 3) threeCallBatches++;
+                    SubtitleConsensusResult consensus = adaptiveResult.Consensus;
                     bool accepted = !string.IsNullOrWhiteSpace(consensus.Text) && consensus.Text.Length >= 2;
                     tracker.Complete(batch.Generation, accepted);
                     if (accepted)
@@ -170,6 +219,9 @@ namespace GI_Test
                 DetectionFps = fps / step,
                 ScannedFrames = scannedFrames,
                 OcrCalls = ocrCalls,
+                OneCallBatches = oneCallBatches,
+                TwoCallBatches = twoCallBatches,
+                ThreeCallBatches = threeCallBatches,
                 LockedSubtitleCount = lockedTexts.Count,
                 DialogueUiPresentSamples = uiPresentSamples,
                 DialogueUiAverageConfidence = uiSamples > 0 ? uiConfidenceTotal / uiSamples : 0,
@@ -185,8 +237,8 @@ namespace GI_Test
             Assert.IsTrue(scannedFrames > 500);
             Assert.IsTrue(lockedTexts.Count > 10);
             Assert.IsTrue(uiPresentSamples > 0);
-            Assert.IsTrue(ocrCalls >= lockedTexts.Count * 3);
-            Assert.AreEqual(0, ocrCalls % 3);
+            Assert.IsTrue(ocrCalls >= lockedTexts.Count);
+            Assert.IsTrue(ocrCalls <= lockedTexts.Count * 3 + 9);
         }
 
         private static SubtitleFrameBatch FeedUntilBatch(SubtitleEpochTracker tracker, Mat frame)
@@ -216,6 +268,18 @@ namespace GI_Test
                 2,
                 LineTypes.AntiAlias);
             return frame;
+        }
+
+        private static OCRResult CreateOcrResult(string text, float score)
+        {
+            return new OCRResult
+            {
+                Text = text,
+                TextBlocks = new List<TextBlock>
+                {
+                    new TextBlock { Text = text, Score = score }
+                }
+            };
         }
 
         private static string ResolveDemoPath(string outputDirectory)
