@@ -122,7 +122,7 @@ namespace GI_Subtitles.Core.Input
                     new HotkeyData
                     {
                         Id = 9001, IsCtrl = true, IsShift = true, SelectedKey = 'R',
-                        Description = GetLocalizedString("Hotkey_9001_Description", "选择字幕区域（第一行）")
+                        Description = GetLocalizedString("Hotkey_9001_Description", "选择字幕区域")
                     },
                     new HotkeyData
                     {

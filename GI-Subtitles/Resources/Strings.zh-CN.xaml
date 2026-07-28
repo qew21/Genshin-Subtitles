@@ -57,8 +57,8 @@
     <!-- Help Tab -->
     <sys:String x:Key="App_HelpTitle" xmlns:sys="clr-namespace:System;assembly=mscorlib">GI-Subtitles 使用说明</sys:String>
     <sys:String x:Key="Help_Instructions" xmlns:sys="clr-namespace:System;assembly=mscorlib">使用步骤</sys:String>
-    <sys:String x:Key="Help_Step1" xmlns:sys="clr-namespace:System;assembly=mscorlib">1. 使用流程：语言包管理界面下载对应文件，打开游戏选择对话区域的第一行，使用快捷键开始识别和展示。</sys:String>
-    <sys:String x:Key="Help_Step2" xmlns:sys="clr-namespace:System;assembly=mscorlib">2. 可通过快捷键 Ctrl+Shift+S 启动/暂停；Ctrl+Shift+R 选择识别区域（请框选首行）；Ctrl+Shift+H 隐藏字幕。若冲突，可在「快捷键」标签修改。</sys:String>
+    <sys:String x:Key="Help_Step1" xmlns:sys="clr-namespace:System;assembly=mscorlib">1. 使用流程：语言包管理界面下载对应文件，打开游戏选择对话区域，使用快捷键开始识别和展示。</sys:String>
+    <sys:String x:Key="Help_Step2" xmlns:sys="clr-namespace:System;assembly=mscorlib">2. 可通过快捷键 Ctrl+Shift+S 启动/暂停；Ctrl+Shift+R 选择识别区域；Ctrl+Shift+H 隐藏字幕。若冲突，可在「快捷键」标签修改。</sys:String>
     <sys:String x:Key="Help_Step3" xmlns:sys="clr-namespace:System;assembly=mscorlib">3. 鼠标悬停字幕变为手形时，可拖动调整位置（建议游戏使用「无边框窗口」模式而非独占全屏）。</sys:String>
 
     <!-- Config Tab -->
@@ -93,7 +93,7 @@
 
     <!-- Hotkey Descriptions -->
     <sys:String x:Key="Hotkey_9000_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">开始/停止识别字幕</sys:String>
-    <sys:String x:Key="Hotkey_9001_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">选择字幕区域（第一行）</sys:String>
+    <sys:String x:Key="Hotkey_9001_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">选择字幕区域</sys:String>
     <sys:String x:Key="Hotkey_9002_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">隐藏双语字幕</sys:String>
     <sys:String x:Key="Hotkey_9003_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">展示识别区域</sys:String>
     <sys:String x:Key="Hotkey_9004_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">刷新当前字幕并重新播放语音</sys:String>

@@ -50,8 +50,8 @@
     <!-- Help Tab -->
     <sys:String x:Key="App_HelpTitle" xmlns:sys="clr-namespace:System;assembly=mscorlib">GI-Subtitles Help</sys:String>
     <sys:String x:Key="Help_Instructions" xmlns:sys="clr-namespace:System;assembly=mscorlib">Usage Instructions</sys:String>
-    <sys:String x:Key="Help_Step1" xmlns:sys="clr-namespace:System;assembly=mscorlib">1. Workflow: In the Language Pack Manager, download the required files, then in-game select the first line of the dialogue area and use the hotkey to start recognition and display.</sys:String>
-    <sys:String x:Key="Help_Step2" xmlns:sys="clr-namespace:System;assembly=mscorlib">2. You can use Ctrl+Shift+S to start/pause, Ctrl+Shift+R to select the recognition area (please frame the first line), and Ctrl+Shift+H to hide subtitles. If there is a conflict, you can modify them in the "Hotkeys" tab.</sys:String>
+    <sys:String x:Key="Help_Step1" xmlns:sys="clr-namespace:System;assembly=mscorlib">1. Workflow: In the Language Pack Manager, download the required files, then in-game select the dialogue area and use the hotkey to start recognition and display.</sys:String>
+    <sys:String x:Key="Help_Step2" xmlns:sys="clr-namespace:System;assembly=mscorlib">2. You can use Ctrl+Shift+S to start/pause, Ctrl+Shift+R to select the recognition area, and Ctrl+Shift+H to hide subtitles. If there is a conflict, you can modify them in the "Hotkeys" tab.</sys:String>
     <sys:String x:Key="Help_Step3" xmlns:sys="clr-namespace:System;assembly=mscorlib">3. When the cursor becomes a hand over the subtitles, you can drag to adjust the position (it is recommended to use "borderless windowed" instead of exclusive fullscreen in-game).</sys:String>
 
     <sys:String x:Key="Tab_Config" xmlns:sys="clr-namespace:System;assembly=mscorlib">Other Settings</sys:String>
@@ -85,7 +85,7 @@
 
     <!-- Hotkey descriptions -->
     <sys:String x:Key="Hotkey_9000_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">Start / Stop subtitle recognition</sys:String>
-    <sys:String x:Key="Hotkey_9001_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">Select subtitle region (first line)</sys:String>
+    <sys:String x:Key="Hotkey_9001_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">Select subtitle region</sys:String>
     <sys:String x:Key="Hotkey_9002_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">Hide bilingual subtitles</sys:String>
     <sys:String x:Key="Hotkey_9003_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">Show recognition region</sys:String>
     <sys:String x:Key="Hotkey_9004_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">Refresh current subtitle and replay voice</sys:String>
