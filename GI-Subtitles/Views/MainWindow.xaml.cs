@@ -35,6 +35,7 @@ using System.Threading.Tasks;
 using System.Text.RegularExpressions;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
 using NAudio.Wave;
+using SoundTouch.Net.NAudioSupport;
 using System.Net;
 using Microsoft.Win32;
 using System.Diagnostics;
@@ -104,6 +105,8 @@ namespace GI_Subtitles.Views
         private const int HOTKEY_ID_2 = 9001; // Custom hotkey ID
         private const int HOTKEY_ID_3 = 9002; // Custom hotkey ID
         private const int HOTKEY_ID_4 = 9003;
+        private const int HOTKEY_ID_REFRESH = 9004;
+        private const int HOTKEY_ID_PLAYBACK_SPEED = 9005;
         private const uint MOD_CTRL = 0x0002; // Ctrl key
         private const uint MOD_SHIFT = 0x0004; // Shift key
         private const uint VK_S = 0x53; // Virtual key code for S
@@ -127,12 +130,36 @@ namespace GI_Subtitles.Views
         bool ChooseRegion = false;
         private IWavePlayer waveOut;
         private MediaFoundationReader mediaReader;
+        private SoundTouchWaveProvider soundTouchProvider;
         private string tempFilePath;
+        private readonly Queue<string> _audioPlaybackQueue = new Queue<string>();
+        private readonly object _audioPlaybackQueueLock = new object();
+        private string _pendingDialogueOptionUrl;
+        private bool _audioPlaybackQueueActive;
+        private int _audioPlaybackGeneration;
+        private EventHandler<StoppedEventArgs> _playbackStoppedHandler;
+        private static readonly double[] VoicePlaybackSpeeds = { 1.0, 1.25, 1.5, 2.0 };
+        private double _voicePlaybackSpeed = NormalizePlaybackSpeed(Config.Get<double>("VoicePlaybackSpeed", 1.0));
         private const int AudioTempCleanupThreshold = 60;
         private const int AudioTempFilesToKeep = 10;
         private int failedCount = 0;
         private bool usingRegion2 = false;
         private bool _isUserMovingWindow = false;
+        private bool _forceVoiceReplayRequested = false;
+        private bool _forceRefreshPending = false;
+        private readonly DispatcherTimer _forceRefreshDebounceTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(350)
+        };
+        private DateTime _lastDialogueOptionScanTime = DateTime.MinValue;
+        private string _lastDialogueOptionHash;
+        private List<DialogueOptionCandidate> _lastDialogueOptions = new List<DialogueOptionCandidate>();
+        private int _dialogueOptionMissCount;
+        private static readonly TimeSpan DialogueOptionScanInterval = TimeSpan.FromMilliseconds(400);
+        private readonly DispatcherTimer _dialogueChoiceDisplayTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(3)
+        };
         private ReleaseManifest availableUpdate;
 
 
@@ -141,6 +168,18 @@ namespace GI_Subtitles.Views
             Logger.Log.Debug("Start App");
             Task.Run(() => CleanupOldAudioTempFiles());
             InitializeComponent();
+            _dialogueChoiceDisplayTimer.Tick += (sender, args) =>
+            {
+                _dialogueChoiceDisplayTimer.Stop();
+                ClearDialogueChoiceHeader();
+                UpdateHeaderPosition();
+            };
+            _forceRefreshDebounceTimer.Tick += (sender, args) =>
+            {
+                _forceRefreshDebounceTimer.Stop();
+                ForceRefreshCurrentSubtitle();
+            };
+            UpdatePlaybackSpeedIndicator();
             // Start with the main window fully transparent to avoid showing incomplete UI during heavy startup work.
             // Using Opacity instead of Visibility to ensure Loaded is still raised and initialization runs as usual.
             this.Opacity = 0;
@@ -259,6 +298,10 @@ namespace GI_Subtitles.Views
             {
                 return;
             }
+            if (TryScanDialogueOptions())
+            {
+                return;
+            }
             if (Interlocked.Exchange(ref OCR_TIMER, 1) == 0)
             {
                 try
@@ -314,7 +357,7 @@ namespace GI_Subtitles.Views
                                 if (IsOcrIntervalReady())
                                 {
                                     SetWindowPos(new WindowInteropHelper(this).Handle, -1, 0, 0, 0, 0, 1 | 2);
-                                    TriggerOcrAsync(frameMat.Clone(), target);
+                                    _ = TriggerOcrAsync(frameMat.Clone(), target);
                                     passedToOcr = true;
                                 }
                                 else
@@ -410,7 +453,7 @@ namespace GI_Subtitles.Views
 
                                     Logger.Log.Debug("Subtitle changed vs OCR and stabilized vs previous, start OCR");
                                     SetWindowPos(new WindowInteropHelper(this).Handle, -1, 0, 0, 0, 0, 1 | 2);
-                                    TriggerOcrAsync(frameMat.Clone(), target);
+                                    _ = TriggerOcrAsync(frameMat.Clone(), target);
                                     passedToOcr = true;
                                 }
                                 else
@@ -537,7 +580,7 @@ namespace GI_Subtitles.Views
                     }
 
                     this.Top = newTop;
-                    this.Height = desiredHeight + HeaderText.ActualHeight;
+                    this.Height = desiredHeight + HeaderPanel.ActualHeight;
                     SubtitleText.MaxHeight = desiredHeight;
                 }
                 catch (Exception ex)
@@ -596,11 +639,14 @@ namespace GI_Subtitles.Views
                     }
 
                     // Check whether the content has changed (mainly check content, which is the main text)
-                    bool contentChanged = content != lastContent;
+                    bool forceVoiceReplay = _forceVoiceReplayRequested;
+                    bool contentChanged = forceVoiceReplay || content != lastContent;
                     bool headerChanged = header != lastHeader;
 
                     if (contentChanged || headerChanged)
                     {
+                        ClearDialogueChoiceHeader();
+
                         // Set header and content separately
                         if (headerChanged)
                         {
@@ -632,16 +678,22 @@ namespace GI_Subtitles.Views
                         }
 
                         // Play audio (only when content changes, to avoid repeated playback)
-                        if (Config.Get<bool>("PlayVoice", false) && contentChanged && !AudioList.Contains(key) && !string.IsNullOrEmpty(key))
+                        if (Config.Get<bool>("PlayVoice", false) && contentChanged &&
+                            (forceVoiceReplay || !AudioList.Contains(key)) && !string.IsNullOrEmpty(key))
                         {
                             string audioKey = VoiceContentHelper.CalculateMd5Hash(key);
-                            PlayAudioFromUrl($"{server}?md5={audioKey}&token={token}");
-                            AudioList.Add(key);
+                            PlayMainAudioFromUrl($"{server}?md5={audioKey}&token={token}");
+                            if (!AudioList.Contains(key))
+                            {
+                                AudioList.Add(key);
+                            }
                         }
 
                         // Adapt window height and position when text changes
                         UpdateWindowHeightAndTop();
                     }
+
+                    _forceVoiceReplayRequested = false;
                 }
                 catch (Exception ex)
                 {
@@ -661,7 +713,7 @@ namespace GI_Subtitles.Views
             {
                 try
                 {
-                    if (HeaderText.Visibility != Visibility.Visible || string.IsNullOrEmpty(lastHeader))
+                    if (HeaderPanel.Visibility != Visibility.Visible)
                         return;
 
                     // Force layout update to get accurate ActualHeight
@@ -677,15 +729,15 @@ namespace GI_Subtitles.Views
                     }
 
                     // Get the actual height of the header
-                    HeaderText.UpdateLayout();
-                    double headerHeight = HeaderText.ActualHeight;
+                    HeaderPanel.UpdateLayout();
+                    double headerHeight = HeaderPanel.ActualHeight;
                     if (headerHeight <= 0)
                     {
                         headerHeight = 14; // Header font size is 14
                     }
 
                     // Calculate upward offset: half of content height + half of header height + spacing
-                    var transform = (System.Windows.Media.TranslateTransform)HeaderText.RenderTransform;
+                    var transform = (System.Windows.Media.TranslateTransform)HeaderPanel.RenderTransform;
                     transform.Y = -(contentHeight / 2.0 + headerHeight / 2.0 + 4); // 4 is the spacing
                 }
                 catch (Exception ex)
@@ -780,9 +832,11 @@ namespace GI_Subtitles.Views
         /// </summary>
         /// <param name="frameToProcess">Image Mat for OCR (caller has already Clone)</param>
         /// <param name="target">Original screenshot Bitmap, used for debugging and setting preview image</param>
-        private async void TriggerOcrAsync(Mat frameToProcess, Bitmap target)
+        private async Task TriggerOcrAsync(Mat frameToProcess, Bitmap target, bool forceRefresh = false)
         {
             _isOcrRunning = true;
+            string recognizedText = null;
+            bool recognitionCompleted = false;
             try
             {
                 await Task.Run(() =>
@@ -796,22 +850,27 @@ namespace GI_Subtitles.Views
 
                         string bitStr = ImageProcessor.ComputeRobustHash(frameToProcess);
 
-                        if (BitmapDict.TryGetValue(bitStr, out string cachedOcrText))
+                        if (!forceRefresh && BitmapDict.TryGetValue(bitStr, out string cachedOcrText))
                         {
-                            ocrText = cachedOcrText;
+                            recognizedText = cachedOcrText;
+                            recognitionCompleted = true;
                         }
                         else
                         {
-                            string matchedImageHash = ImageProcessor.FindSimilarImageHash(bitStr, BitmapDict, maxDistance: distant);
+                            string matchedImageHash = forceRefresh
+                                ? null
+                                : ImageProcessor.FindSimilarImageHash(bitStr, BitmapDict, maxDistance: distant);
                             if (matchedImageHash != null)
                             {
-                                ocrText = BitmapDict[matchedImageHash];
-                                BitmapDict[bitStr] = ocrText; // LRU cache automatically manages size
+                                recognizedText = BitmapDict[matchedImageHash];
+                                BitmapDict[bitStr] = recognizedText; // LRU cache automatically manages size
+                                recognitionCompleted = true;
                             }
                             else
                             {
                                 OCRResult ocrResult = data.engine.DetectTextFromMat(frameToProcess);
-                                ocrText = ocrResult.Text;
+                                recognizedText = ocrResult?.Text ?? string.Empty;
+                                recognitionCompleted = true;
 
                                 if (debug)
                                 {
@@ -820,7 +879,7 @@ namespace GI_Subtitles.Views
                                         string fileName = DateTime.Now.ToString("yyyy-MM-dd_HH_mm_ss_ffffff") + ".png";
                                         Logger.Log.Debug(fileName);
                                         target.Save(Path.Combine(dataDir, fileName));
-                                        Logger.Log.Debug($"OCR Text: {ocrText}");
+                                        Logger.Log.Debug($"OCR Text: {recognizedText}");
                                     }
                                     catch (Exception ex)
                                     {
@@ -828,13 +887,19 @@ namespace GI_Subtitles.Views
                                     }
                                 }
 
-                                BitmapDict[bitStr] = ocrText;
+                                BitmapDict[bitStr] = recognizedText;
                             }
                         }
 
-                        Logger.Log.Debug($"OCR Content: {ocrText}");
+                        if (!recognitionCompleted)
+                        {
+                            return;
+                        }
 
-                        if (ocrText.Length < 2)
+                        ocrText = recognizedText;
+                        Logger.Log.Debug($"OCR Content: {recognizedText}");
+
+                        if (recognizedText.Length < 2)
                         {
                             failedCount++;
                         }
@@ -862,6 +927,16 @@ namespace GI_Subtitles.Views
                             // If not needed, release the screenshot resource immediately
                             target?.Dispose();
                         }
+
+                        if (forceRefresh && recognitionCompleted && recognizedText.Length >= 2)
+                        {
+                            _forceVoiceReplayRequested = true;
+                            UpdateText(null, EventArgs.Empty);
+                        }
+                        else if (forceRefresh)
+                        {
+                            Logger.Log.Warn("Forced OCR refresh produced no usable text; keeping the current subtitle without replay.");
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -873,7 +948,296 @@ namespace GI_Subtitles.Views
             {
                 _isOcrRunning = false;
                 frameToProcess?.Dispose();
+
+                if (_forceRefreshPending)
+                {
+                    _forceRefreshPending = false;
+                    _ = Dispatcher.BeginInvoke(new Action(ForceRefreshCurrentSubtitle));
+                }
             }
+        }
+
+        private void ForceRefreshCurrentSubtitle()
+        {
+            if (_isOcrRunning)
+            {
+                _forceRefreshPending = true;
+                return;
+            }
+
+            try
+            {
+                string[] region = usingRegion2 && IsValidRegion(notify.Region2)
+                    ? notify.Region2
+                    : notify.Region;
+
+                if (!IsValidRegion(region))
+                {
+                    notify.ChooseRegion();
+                    return;
+                }
+
+                Bitmap target = CaptureRegion(region);
+                Mat frame = target.ToMat();
+                _lastOcrTime = DateTime.MinValue;
+                _ = TriggerOcrAsync(frame, target, forceRefresh: true);
+            }
+            catch (Exception ex)
+            {
+                Logger.Log.Error($"Failed to force refresh current subtitle: {ex}");
+            }
+        }
+
+        private void RequestForceRefreshCurrentSubtitle()
+        {
+            _forceRefreshDebounceTimer.Stop();
+            _forceRefreshDebounceTimer.Start();
+        }
+
+        private static bool IsValidRegion(string[] region)
+        {
+            return region != null && region.Length == 4 &&
+                   int.TryParse(region[2], out int width) && width > 0 &&
+                   int.TryParse(region[3], out int height) && height > 0;
+        }
+
+        private bool TryScanDialogueOptions()
+        {
+            if (!string.Equals(Game, "Genshin", StringComparison.OrdinalIgnoreCase) ||
+                !Config.Get("RecognizeDialogueOptions", false) ||
+                DateTime.UtcNow - _lastDialogueOptionScanTime < DialogueOptionScanInterval)
+            {
+                return false;
+            }
+
+            _lastDialogueOptionScanTime = DateTime.UtcNow;
+            if (_isOcrRunning || !IsValidRegion(notify.Region))
+            {
+                return false;
+            }
+
+            Bitmap screenBitmap = null;
+            Mat screenMat = null;
+            try
+            {
+                var anchor = new System.Drawing.Point(
+                    int.Parse(notify.Region[0]),
+                    int.Parse(notify.Region[1]));
+                System.Drawing.Rectangle bounds = Screen.GetBounds(anchor);
+                screenBitmap = CaptureRectangle(bounds);
+                screenMat = screenBitmap.ToMat();
+
+                double threshold = Config.Get("DialogueOptionTemplateThreshold", 0.74);
+                if (!DialogueOptionDetector.TryFindTextRegion(
+                        screenMat,
+                        out OpenCvSharp.Rect relativeTextRegion,
+                        out double confidence,
+                        threshold))
+                {
+                    HandleDialogueOptionsMissing();
+                    return false;
+                }
+
+                _dialogueOptionMissCount = 0;
+                var bitmapRegion = new System.Drawing.Rectangle(
+                    relativeTextRegion.X,
+                    relativeTextRegion.Y,
+                    relativeTextRegion.Width,
+                    relativeTextRegion.Height);
+                Bitmap optionBitmap = screenBitmap.Clone(
+                    bitmapRegion,
+                    System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+                Mat optionFrame = optionBitmap.ToMat();
+                string optionHash = ImageProcessor.ComputeRobustHash(optionFrame);
+                if (string.Equals(optionHash, _lastDialogueOptionHash, StringComparison.Ordinal))
+                {
+                    optionFrame.Dispose();
+                    optionBitmap.Dispose();
+                    return true;
+                }
+
+                _lastDialogueOptionHash = optionHash;
+                var absoluteOrigin = new System.Drawing.Point(
+                    bounds.Left + relativeTextRegion.X,
+                    bounds.Top + relativeTextRegion.Y);
+                _ = RecognizeDialogueOptionsAsync(optionFrame, optionBitmap, absoluteOrigin, confidence);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logger.Log.Warn($"Dialogue option scan failed: {ex.Message}");
+                return false;
+            }
+            finally
+            {
+                screenMat?.Dispose();
+                screenBitmap?.Dispose();
+            }
+        }
+
+        private async Task RecognizeDialogueOptionsAsync(
+            Mat frame,
+            Bitmap bitmap,
+            System.Drawing.Point absoluteOrigin,
+            double templateConfidence)
+        {
+            _isOcrRunning = true;
+            try
+            {
+                OCRResult result = await Task.Run(() => data.engine.DetectTextFromMat(frame));
+                var candidates = new List<DialogueOptionCandidate>();
+                foreach (PaddleOCRSharp.TextBlock block in result.TextBlocks
+                    .Where(block => !string.IsNullOrWhiteSpace(block.Text) && block.Score >= 0.45f))
+                {
+                    float minX = block.BoxPoints.Min(point => point.X);
+                    float minY = block.BoxPoints.Min(point => point.Y);
+                    float maxX = block.BoxPoints.Max(point => point.X);
+                    float maxY = block.BoxPoints.Max(point => point.Y);
+                    var bounds = System.Drawing.Rectangle.FromLTRB(
+                        absoluteOrigin.X + (int)Math.Floor(minX),
+                        absoluteOrigin.Y + (int)Math.Floor(minY),
+                        absoluteOrigin.X + (int)Math.Ceiling(maxX),
+                        absoluteOrigin.Y + (int)Math.Ceiling(maxY));
+                    bounds.Inflate(24, 14);
+                    candidates.Add(new DialogueOptionCandidate(block.Text.Trim(), bounds, block.Score));
+                }
+
+                _lastDialogueOptions = candidates
+                    .OrderBy(candidate => candidate.Bounds.Top)
+                    .ThenBy(candidate => candidate.Bounds.Left)
+                    .ToList();
+                if (candidates.Count == 0)
+                {
+                    // Retry unchanged frames when OCR temporarily returns no usable text.
+                    _lastDialogueOptionHash = null;
+                }
+                Logger.Log.Debug(
+                    $"Dialogue options detected: count={candidates.Count}, templateConfidence={templateConfidence:F3}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Log.Warn($"Dialogue option OCR failed: {ex.Message}");
+            }
+            finally
+            {
+                frame?.Dispose();
+                bitmap?.Dispose();
+                _isOcrRunning = false;
+            }
+        }
+
+        private void HandleDialogueOptionsMissing()
+        {
+            if (_lastDialogueOptions.Count == 0)
+            {
+                _lastDialogueOptionHash = null;
+                _dialogueOptionMissCount = 0;
+                return;
+            }
+
+            _dialogueOptionMissCount++;
+            if (_dialogueOptionMissCount < 2)
+            {
+                return;
+            }
+
+            System.Drawing.Point cursor = System.Windows.Forms.Cursor.Position;
+            DialogueOptionCandidate selected = _lastDialogueOptions
+                .Where(candidate => candidate.Bounds.Contains(cursor))
+                .OrderBy(candidate => DistanceSquared(candidate.Bounds, cursor))
+                .ThenByDescending(candidate => candidate.Score)
+                .FirstOrDefault();
+
+            _lastDialogueOptions = new List<DialogueOptionCandidate>();
+            _lastDialogueOptionHash = null;
+            _dialogueOptionMissCount = 0;
+
+            if (selected == null)
+            {
+                return;
+            }
+
+            Logger.Log.Debug($"Selected dialogue option: {selected.Text}");
+            ShowDialogueChoice(selected.Text);
+        }
+
+        private void ShowDialogueChoice(string recognizedText)
+        {
+            MatchResult match = data.Matcher.FindMatchWithHeaderSeparated(recognizedText, out string key);
+            string displayText = string.IsNullOrWhiteSpace(match.Content)
+                ? recognizedText
+                : match.Content.Trim();
+
+            DialogueChoiceText.Text = $"◆ {displayText}";
+            DialogueChoiceText.Visibility = Visibility.Visible;
+            HeaderText.Visibility = Visibility.Collapsed;
+            _dialogueChoiceDisplayTimer.Stop();
+            _dialogueChoiceDisplayTimer.Start();
+            UpdateHeaderPosition();
+            UpdateWindowHeightAndTop();
+
+            if (Config.Get<bool>("PlayVoice", false) && !string.IsNullOrEmpty(key))
+            {
+                string audioKey = VoiceContentHelper.CalculateMd5Hash(key);
+                PlayDialogueOptionAudioFromUrl($"{server}?md5={audioKey}&token={token}");
+            }
+        }
+
+        private void ClearDialogueChoiceHeader()
+        {
+            if (DialogueChoiceText.Visibility != Visibility.Visible)
+            {
+                return;
+            }
+
+            DialogueChoiceText.Text = string.Empty;
+            DialogueChoiceText.Visibility = Visibility.Collapsed;
+            _dialogueChoiceDisplayTimer.Stop();
+            HeaderText.Visibility = string.IsNullOrEmpty(lastHeader)
+                ? Visibility.Collapsed
+                : Visibility.Visible;
+        }
+
+        private static long DistanceSquared(
+            System.Drawing.Rectangle bounds,
+            System.Drawing.Point point)
+        {
+            long dx = bounds.Left + bounds.Width / 2L - point.X;
+            long dy = bounds.Top + bounds.Height / 2L - point.Y;
+            return dx * dx + dy * dy;
+        }
+
+        private static Bitmap CaptureRectangle(System.Drawing.Rectangle bounds)
+        {
+            var bitmap = new Bitmap(
+                bounds.Width,
+                bounds.Height,
+                System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+            using (Graphics graphics = Graphics.FromImage(bitmap))
+            {
+                graphics.CopyFromScreen(
+                    bounds.Left,
+                    bounds.Top,
+                    0,
+                    0,
+                    bounds.Size,
+                    CopyPixelOperation.SourceCopy);
+            }
+            return bitmap;
+        }
+
+        private sealed class DialogueOptionCandidate
+        {
+            public DialogueOptionCandidate(string text, System.Drawing.Rectangle bounds, float score)
+            {
+                Text = text;
+                Bounds = bounds;
+                Score = score;
+            }
+
+            public string Text { get; }
+            public System.Drawing.Rectangle Bounds { get; }
+            public float Score { get; }
         }
 
         /// <summary>
@@ -1000,6 +1364,7 @@ namespace GI_Subtitles.Views
 
         private void MainWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
+            StopAudio();
             notifyIcon.Dispose();
             notifyIcon = null;
             data.UnregisterAllHotkeys();
@@ -1103,6 +1468,7 @@ namespace GI_Subtitles.Views
                     ShowText = !ShowText;
                     SubtitleText.Visibility = ShowText ? Visibility.Visible : Visibility.Collapsed;
                     HeaderText.Visibility = ShowText ? Visibility.Visible : Visibility.Collapsed;
+                    HeaderPanel.Visibility = ShowText ? Visibility.Visible : Visibility.Collapsed;
                     if (ShowText)
                     {
                         SystemSounds.Hand.Play();
@@ -1115,6 +1481,16 @@ namespace GI_Subtitles.Views
                 else if (wParam.ToInt32() == HOTKEY_ID_4)
                 {
                     notify.ShowRegionOverlay();
+                    handled = true;
+                }
+                else if (wParam.ToInt32() == HOTKEY_ID_REFRESH)
+                {
+                    RequestForceRefreshCurrentSubtitle();
+                    handled = true;
+                }
+                else if (wParam.ToInt32() == HOTKEY_ID_PLAYBACK_SPEED)
+                {
+                    CycleVoicePlaybackSpeed();
                     handled = true;
                 }
             }
@@ -1134,64 +1510,291 @@ namespace GI_Subtitles.Views
             player.Play();
         }
 
-        public void PlayAudioFromUrl(string url)
+        private void PlayDialogueOptionAudioFromUrl(string url)
         {
-            Console.WriteLine(url);
-            try
+            bool shouldStart;
+            int generation;
+            lock (_audioPlaybackQueueLock)
             {
-                if (waveOut == null)
+                if (_audioPlaybackQueueActive)
                 {
-                    waveOut = new WaveOutEvent();
+                    // Dialogue choices never interrupt current audio or form a backlog.
+                    // Keep only the most recently selected choice.
+                    _pendingDialogueOptionUrl = url;
+                    return;
                 }
 
-                // Download the file to a temporary file
-                using (var webClient = new WebClient())
-                {
-                    // Set a user agent so the CDN / server does not block the request.
-                    webClient.Headers[HttpRequestHeader.UserAgent] = "GI-Subtitles/1.0";
-
-                    string tempFile = Path.GetTempFileName();
-                    if (tempFile != tempFilePath)
-                    {
-                        try
-                        {
-                            webClient.DownloadFile(url, tempFile);
-                        }
-                        catch (WebException ex) when (ex.Response is HttpWebResponse response &&
-                                                      response.StatusCode == HttpStatusCode.NotFound)
-                        {
-                            Console.WriteLine($"Audio not found: {url}");
-                            try
-                            {
-                                File.Delete(tempFile);
-                            }
-                            catch
-                            {
-                                // ignore cleanup failure
-                            }
-                            return;
-                        }
-
-                        StopAudio();
-                        tempFilePath = tempFile;
-
-                        // Use MediaFoundationReader to read from the file
-                        mediaReader = new MediaFoundationReader(tempFile);
-                        waveOut.Init(mediaReader);
-                        waveOut.Play();
-                    }
-                }
+                _audioPlaybackQueue.Enqueue(url);
+                shouldStart = !_audioPlaybackQueueActive;
+                _audioPlaybackQueueActive = true;
+                generation = _audioPlaybackGeneration;
             }
-            catch (Exception ex)
+
+            if (shouldStart)
             {
-                Console.WriteLine($"Error: {ex.Message}");
+                _ = ProcessNextAudioAsync(generation);
             }
+        }
+
+        private void PlayMainAudioFromUrl(string url)
+        {
+            int generation;
+            lock (_audioPlaybackQueueLock)
+            {
+                _audioPlaybackQueue.Clear();
+                _pendingDialogueOptionUrl = null;
+                _audioPlaybackQueue.Enqueue(url);
+                _audioPlaybackQueueActive = true;
+                generation = ++_audioPlaybackGeneration;
+            }
+
+            DisposeCurrentAudioPlayback();
+            _ = ProcessNextAudioAsync(generation);
         }
 
         public void StopAudio()
         {
-            waveOut?.Stop();
+            lock (_audioPlaybackQueueLock)
+            {
+                _audioPlaybackQueue.Clear();
+                _pendingDialogueOptionUrl = null;
+                _audioPlaybackQueueActive = false;
+                _audioPlaybackGeneration++;
+            }
+
+            DisposeCurrentAudioPlayback();
+        }
+
+        private void StartAudioPlayback(
+            string filePath,
+            int generation,
+            bool allowTempoProcessing = true)
+        {
+            DisposeCurrentAudioPlayback();
+            bool usingSoundTouch =
+                allowTempoProcessing &&
+                Math.Abs(_voicePlaybackSpeed - 1.0) >= 0.001;
+
+            try
+            {
+                mediaReader = new MediaFoundationReader(filePath);
+                IWaveProvider playbackSource = mediaReader;
+                if (usingSoundTouch)
+                {
+                    IWaveProvider floatingPointSource =
+                        mediaReader.ToSampleProvider().ToWaveProvider();
+                    soundTouchProvider = new SoundTouchWaveProvider(floatingPointSource, null)
+                    {
+                        Tempo = _voicePlaybackSpeed,
+                        Pitch = 1.0,
+                        Rate = 1.0
+                    };
+                    soundTouchProvider.OptimizeForSpeech();
+                    playbackSource = soundTouchProvider;
+                }
+
+                waveOut = new WaveOutEvent();
+                IWavePlayer currentPlayer = waveOut;
+                _playbackStoppedHandler = (sender, args) =>
+                {
+                    if (!ReferenceEquals(sender, currentPlayer))
+                    {
+                        return;
+                    }
+
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        if (!ReferenceEquals(waveOut, currentPlayer))
+                        {
+                            return;
+                        }
+
+                        if (args.Exception != null && usingSoundTouch)
+                        {
+                            Logger.Log.Warn(
+                                $"SoundTouch playback failed; retrying at normal speed: {args.Exception.Message}");
+                            StartAudioPlayback(filePath, generation, allowTempoProcessing: false);
+                            return;
+                        }
+
+                        DisposeCurrentAudioPlayback();
+                        _ = ProcessNextAudioAsync(generation);
+                    }));
+                };
+                waveOut.PlaybackStopped += _playbackStoppedHandler;
+                waveOut.Init(playbackSource);
+                waveOut.Play();
+            }
+            catch (Exception ex) when (usingSoundTouch)
+            {
+                Logger.Log.Warn(
+                    $"SoundTouch initialization failed; retrying at normal speed: {ex.Message}");
+                DisposeCurrentAudioPlayback();
+                StartAudioPlayback(filePath, generation, allowTempoProcessing: false);
+            }
+        }
+
+        private async Task ProcessNextAudioAsync(int generation)
+        {
+            while (true)
+            {
+                string url;
+                lock (_audioPlaybackQueueLock)
+                {
+                    if (generation != _audioPlaybackGeneration)
+                    {
+                        return;
+                    }
+
+                    if (_audioPlaybackQueue.Count == 0 &&
+                        !string.IsNullOrEmpty(_pendingDialogueOptionUrl))
+                    {
+                        _audioPlaybackQueue.Enqueue(_pendingDialogueOptionUrl);
+                        _pendingDialogueOptionUrl = null;
+                    }
+
+                    if (_audioPlaybackQueue.Count == 0)
+                    {
+                        _audioPlaybackQueueActive = false;
+                        return;
+                    }
+
+                    url = _audioPlaybackQueue.Dequeue();
+                }
+
+                string tempFile = Path.GetTempFileName();
+                try
+                {
+                    using (var webClient = new WebClient())
+                    {
+                        webClient.Headers[HttpRequestHeader.UserAgent] = "GI-Subtitles/1.0";
+                        await webClient.DownloadFileTaskAsync(new Uri(url), tempFile);
+                    }
+
+                    if (!IsAudioTempFile(tempFile))
+                    {
+                        throw new InvalidDataException("Downloaded voice file has an unsupported format.");
+                    }
+
+                    await Dispatcher.InvokeAsync(() =>
+                    {
+                        lock (_audioPlaybackQueueLock)
+                        {
+                            if (generation != _audioPlaybackGeneration)
+                            {
+                                TryDeleteAudioTempFile(tempFile);
+                                return;
+                            }
+                        }
+
+                        tempFilePath = tempFile;
+                        StartAudioPlayback(tempFile, generation);
+                    });
+                    return;
+                }
+                catch (WebException ex) when (ex.Response is HttpWebResponse response &&
+                                              response.StatusCode == HttpStatusCode.NotFound)
+                {
+                    Logger.Log.Debug($"Audio not found: {url}");
+                }
+                catch (Exception ex)
+                {
+                    Logger.Log.Warn($"Voice playback preparation failed: {ex.Message}");
+                }
+
+                TryDeleteAudioTempFile(tempFile);
+            }
+        }
+
+        private void DisposeCurrentAudioPlayback()
+        {
+            IWavePlayer currentPlayer = waveOut;
+            if (currentPlayer != null && _playbackStoppedHandler != null)
+            {
+                currentPlayer.PlaybackStopped -= _playbackStoppedHandler;
+            }
+
+            _playbackStoppedHandler = null;
+            waveOut = null;
+            currentPlayer?.Stop();
+            currentPlayer?.Dispose();
+            soundTouchProvider?.Clear();
+            soundTouchProvider = null;
             mediaReader?.Dispose();
+            mediaReader = null;
+        }
+
+        private static void TryDeleteAudioTempFile(string filePath)
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(filePath) && File.Exists(filePath))
+                {
+                    File.Delete(filePath);
+                }
+            }
+            catch
+            {
+                // Old audio files are cleaned up at startup.
+            }
+        }
+
+        private void CycleVoicePlaybackSpeed()
+        {
+            int currentIndex = Array.FindIndex(
+                VoicePlaybackSpeeds,
+                speed => Math.Abs(speed - _voicePlaybackSpeed) < 0.001);
+            int nextIndex = (currentIndex + 1) % VoicePlaybackSpeeds.Length;
+            _voicePlaybackSpeed = VoicePlaybackSpeeds[nextIndex];
+            Config.Set("VoicePlaybackSpeed", _voicePlaybackSpeed);
+            UpdatePlaybackSpeedIndicator();
+
+            bool restartCurrentAudio = waveOut?.PlaybackState == PlaybackState.Playing &&
+                                       !string.IsNullOrEmpty(tempFilePath) &&
+                                       File.Exists(tempFilePath);
+            if (restartCurrentAudio)
+            {
+                int generation;
+                lock (_audioPlaybackQueueLock)
+                {
+                    generation = _audioPlaybackGeneration;
+                }
+                StartAudioPlayback(tempFilePath, generation);
+            }
+
+            notifyIcon?.ShowBalloonTip(
+                1200,
+                "GI-Subtitles",
+                $"Voice playback speed: {_voicePlaybackSpeed:0.##}x",
+                ToolTipIcon.Info);
+        }
+
+        private void UpdatePlaybackSpeedIndicator()
+        {
+            if (PlaybackSpeedText == null)
+            {
+                return;
+            }
+
+            PlaybackSpeedText.Text = $"{_voicePlaybackSpeed:0.##}×";
+            PlaybackSpeedBadge.ToolTip = $"Voice playback speed: {_voicePlaybackSpeed:0.##}x";
+            PlaybackSpeedBadge.Visibility = Math.Abs(_voicePlaybackSpeed - 1.0) < 0.001
+                ? Visibility.Collapsed
+                : Visibility.Visible;
+            UpdateHeaderPosition();
+        }
+
+        public void PlayVoiceTest()
+        {
+            const string testAudioMd5 = "6f3ea6152a7864d324404f8d93a70a1a";
+            PlayMainAudioFromUrl($"{server}?md5={testAudioMd5}&token={token}");
+        }
+
+        private static double NormalizePlaybackSpeed(double speed)
+        {
+            return VoicePlaybackSpeeds
+                .OrderBy(candidate => Math.Abs(candidate - speed))
+                .First();
         }
 
         public static double GetScaleForScreen(Screen screen)

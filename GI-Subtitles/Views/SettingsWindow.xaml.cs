@@ -242,6 +242,7 @@ namespace GI_Subtitles.Views
             // Boolean flags
             AutoStartCheckBox.IsChecked = Config.Get("AutoStart", false);
             PlayVoiceCheckBox.IsChecked = Config.Get("PlayVoice", true);
+            RecognizeDialogueOptionsCheckBox.IsChecked = Config.Get("RecognizeDialogueOptions", false);
         }
 
         private void ResetLocation_Click(object sender, RoutedEventArgs e)
@@ -1321,45 +1322,71 @@ namespace GI_Subtitles.Views
             engine = LoadEngine(InputLanguage);
         }
 
-        public static PaddleOCREngine LoadEngine(string input)
+        public static PaddleOCREngine LoadEngine(
+            string input,
+            string modelVersion = "V6",
+            OCRExecutionProvider executionProvider = OCRExecutionProvider.Auto)
         {
-            OCRModelConfig config = null;
+            if (!string.Equals(modelVersion, "V6", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new NotSupportedException(
+                    $"OCR model version '{modelVersion}' is no longer included. PP-OCRv6 tiny is required.");
+            }
+
             OCRParameter oCRParameter = new OCRParameter
             {
                 cpu_math_library_num_threads = 3,//Prediction concurrent thread count
                 enable_mkldnn = true,//If you deploy on the web, it is recommended to set this value to 0, otherwise it will error. If the memory is used very large, it is recommended to set this value to 0.
                 use_angle_cls = false,//Whether to enable direction detection, used to detect 180 degree rotation
                 det_db_score_mode = false,//Whether to use multiple segments, that is, whether the text area is used with multiple segments or with rectangles,
-                max_side_len = 960
+                max_side_len = 960,
+                execution_provider = executionProvider
             };
 
-            if (input == "JP")
-            {
-                config = new OCRModelConfig();
-                string root = System.IO.Path.GetDirectoryName(typeof(OCRModelConfig).Assembly.Location);
-                string modelPathroot = root + @"\inference";
-                config.det_infer = modelPathroot + @"\Det\V4\PP-OCRv4_mobile_det_infer\slim.onnx";
-                config.rec_infer = modelPathroot + @"\Rec\V4\jp_PP-OCRv4_mobile_rec_infer\slim.onnx";
-                config.keys = modelPathroot + @"\Rec\V4\jp_PP-OCRv4_mobile_rec_infer\dict.txt";
-            }
-            else
-            {
-                config = new OCRModelConfig();
-                string root = System.IO.Path.GetDirectoryName(typeof(OCRModelConfig).Assembly.Location);
-                string modelPathroot = root + @"\inference";
-                config.det_infer = modelPathroot + @"\Det\V4\PP-OCRv4_mobile_det_infer\slim.onnx";
-                config.rec_infer = modelPathroot + @"\Rec\V4\PP-OCRv4_mobile_rec_infer\slim.onnx";
-                config.keys = modelPathroot + @"\Rec\V4\PP-OCRv4_mobile_rec_infer\dict.txt";
-            }
             try
             {
-                return new PaddleOCREngine(config, oCRParameter);
+                return new PaddleOCREngine(CreateModelConfig(input), oCRParameter);
             }
             catch (Exception ex)
             {
-                Logger.Log.Error($"Error loading engine: {ex.Message}");
-                throw new Exception("Failed to load engine.");
+                Logger.Log.Error($"Error loading OCR engine: {ex}");
+                throw new Exception("Failed to load OCR engine.", ex);
             }
+        }
+
+        private static OCRModelConfig CreateModelConfig(string input)
+        {
+            string root = System.IO.Path.GetDirectoryName(typeof(OCRModelConfig).Assembly.Location);
+            string modelRoot = Path.Combine(root, "inference");
+            var config = new OCRModelConfig
+            {
+                det_infer = Path.Combine(
+                modelRoot,
+                @"Det\V6\PP-OCRv6_tiny_det_infer\slim.onnx")
+            };
+
+            // PP-OCRv6 tiny intentionally excludes Japanese. Keep its faster
+            // detector and use only the dedicated V4 Japanese recognizer.
+            if (input == "JP")
+            {
+                config.rec_infer = Path.Combine(
+                    modelRoot,
+                    @"Rec\V4\jp_PP-OCRv4_mobile_rec_infer\slim.onnx");
+                config.keys = Path.Combine(
+                    modelRoot,
+                    @"Rec\V4\jp_PP-OCRv4_mobile_rec_infer\dict.txt");
+                config.model_version = "V6-Tiny-Det+V4-JP-Rec";
+            }
+            else
+            {
+                config.rec_infer = Path.Combine(
+                    modelRoot,
+                    @"Rec\V6\PP-OCRv6_tiny_rec_infer\slim.onnx");
+                config.keys = null;
+                config.model_version = "V6";
+            }
+
+            return config;
         }
         private void TestButton_Click(object sender, RoutedEventArgs e)
         {
@@ -1894,6 +1921,26 @@ namespace GI_Subtitles.Views
                 Config.Set("Server", "https://mp3.2langs.com/download");
                 Config.Set("Token", "ENGI");
             }
+        }
+
+        private void TestVoice_Click(object sender, RoutedEventArgs e)
+        {
+            if (System.Windows.Application.Current.MainWindow is MainWindow mainWindow)
+            {
+                mainWindow.PlayVoiceTest();
+            }
+        }
+
+        private void RecognizeDialogueOptionsCheckBox_Checked(object sender, RoutedEventArgs e)
+        {
+            if (!_uiLangInitialized)
+            {
+                return;
+            }
+
+            Config.Set(
+                "RecognizeDialogueOptions",
+                RecognizeDialogueOptionsCheckBox.IsChecked == true);
         }
 
         private void Hyperlink_RequestNavigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)

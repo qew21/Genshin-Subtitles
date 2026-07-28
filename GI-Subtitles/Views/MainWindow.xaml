@@ -32,15 +32,44 @@
                  IsReadOnly="True"
                  AcceptsReturn="True"/>
         
-        <!-- Header displayed above the content, centered display, using negative Margin to locate above the content -->
-        <TextBlock x:Name="HeaderText" TextWrapping="Wrap" Foreground="White" 
-                   TextAlignment="Center" FontWeight="Bold" FontSize="14" 
-                   HorizontalAlignment="Center" VerticalAlignment="Center"
-                   Margin="0,0,0,0" Visibility="Collapsed">
-            <TextBlock.RenderTransform>
+        <!-- Header and persistent voice-speed badge displayed above the subtitle content. -->
+        <StackPanel x:Name="HeaderPanel"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
+            <StackPanel.RenderTransform>
                 <TranslateTransform Y="-20"/>
-            </TextBlock.RenderTransform>
-        </TextBlock>
+            </StackPanel.RenderTransform>
+            <TextBlock x:Name="HeaderText"
+                       TextWrapping="Wrap"
+                       Foreground="White"
+                       TextAlignment="Center"
+                       FontWeight="Bold"
+                       FontSize="14"
+                       VerticalAlignment="Center"
+                       Visibility="Collapsed"/>
+            <TextBlock x:Name="DialogueChoiceText"
+                       TextWrapping="Wrap"
+                       Foreground="{Binding ElementName=HeaderText, Path=Foreground}"
+                       TextAlignment="Center"
+                       FontWeight="Bold"
+                       FontSize="14"
+                       VerticalAlignment="Center"
+                       Visibility="Collapsed"/>
+            <Border x:Name="PlaybackSpeedBadge"
+                    Margin="6,0,0,0"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    VerticalAlignment="Center"
+                    Visibility="Collapsed">
+                <TextBlock x:Name="PlaybackSpeedText"
+                           Foreground="{Binding ElementName=HeaderText, Path=Foreground}"
+                           FontWeight="Normal"
+                           FontSize="11"
+                           Opacity="0.72"
+                           Text=""/>
+            </Border>
+        </StackPanel>
     </Grid>
 </Window>
 

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <PaddleOcrModelDirectory>$(MSBuildThisFileDirectory)inference</PaddleOcrModelDirectory>
+  </PropertyGroup>
+  <ItemGroup>
+    <PaddleOcrModel Include="$(PaddleOcrModelDirectory)\models.json">
+      <TargetPath>models.json</TargetPath>
+    </PaddleOcrModel>
+    <PaddleOcrModel Include="$(PaddleOcrModelDirectory)\README.md">
+      <TargetPath>README.md</TargetPath>
+    </PaddleOcrModel>
+    <PaddleOcrModel Include="$(PaddleOcrModelDirectory)\Det\V6\PP-OCRv6_tiny_det_infer\inference.yml">
+      <TargetPath>Det\V6\PP-OCRv6_tiny_det_infer\inference.yml</TargetPath>
+    </PaddleOcrModel>
+    <PaddleOcrModel Include="$(PaddleOcrModelDirectory)\Det\V6\PP-OCRv6_tiny_det_infer\slim.onnx">
+      <TargetPath>Det\V6\PP-OCRv6_tiny_det_infer\slim.onnx</TargetPath>
+    </PaddleOcrModel>
+    <PaddleOcrModel Include="$(PaddleOcrModelDirectory)\Rec\V6\PP-OCRv6_tiny_rec_infer\inference.yml">
+      <TargetPath>Rec\V6\PP-OCRv6_tiny_rec_infer\inference.yml</TargetPath>
+    </PaddleOcrModel>
+    <PaddleOcrModel Include="$(PaddleOcrModelDirectory)\Rec\V6\PP-OCRv6_tiny_rec_infer\slim.onnx">
+      <TargetPath>Rec\V6\PP-OCRv6_tiny_rec_infer\slim.onnx</TargetPath>
+    </PaddleOcrModel>
+    <PaddleOcrModel Include="$(PaddleOcrModelDirectory)\Rec\V4\jp_PP-OCRv4_mobile_rec_infer\dict.txt">
+      <TargetPath>Rec\V4\jp_PP-OCRv4_mobile_rec_infer\dict.txt</TargetPath>
+    </PaddleOcrModel>
+    <PaddleOcrModel Include="$(PaddleOcrModelDirectory)\Rec\V4\jp_PP-OCRv4_mobile_rec_infer\slim.onnx">
+      <TargetPath>Rec\V4\jp_PP-OCRv4_mobile_rec_infer\slim.onnx</TargetPath>
+    </PaddleOcrModel>
+  </ItemGroup>
+  <Target Name="CopyPaddleOcrModels" AfterTargets="Build">
+    <Error
+      Condition="!Exists('$(PaddleOcrModelDirectory)\Det\V6\PP-OCRv6_tiny_det_infer\slim.onnx')"
+      Text="PP-OCRv6 detection model is missing. Run scripts\Restore-OcrModels.ps1." />
+    <Error
+      Condition="!Exists('$(PaddleOcrModelDirectory)\Rec\V6\PP-OCRv6_tiny_rec_infer\slim.onnx')"
+      Text="PP-OCRv6 recognition model is missing. Run scripts\Restore-OcrModels.ps1." />
+    <Error
+      Condition="!Exists('$(PaddleOcrModelDirectory)\Rec\V4\jp_PP-OCRv4_mobile_rec_infer\slim.onnx')"
+      Text="PP-OCRv4 Japanese recognition model is missing. Run scripts\Restore-OcrModels.ps1." />
+    <RemoveDir Directories="$(TargetDir)inference" />
+    <Copy
+      SourceFiles="@(PaddleOcrModel)"
+      DestinationFiles="@(PaddleOcrModel->'$(TargetDir)inference\%(TargetPath)')"
+      SkipUnchangedFiles="true" />
+  </Target>
+</Project>

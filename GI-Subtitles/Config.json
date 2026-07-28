@@ -1,0 +1,14 @@
+{
+  "Game": "Genshin",
+  "Input": "CHS",
+  "Output": "EN",
+  "Size": 20,
+  "Pad": 136,
+  "Region": "0,0,0,0",
+  "Server": "https://mp3.2langs.com/download",
+  "Token": "ENGI",
+  "AutoStart": false,
+  "PlayVoice": false,
+  "Debug": false,
+  "Update": "https://2langs.com/data/update.json"
+}

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <OpenVinoNativeDirectory>$(MSBuildThisFileDirectory)packages\Intel.ML.OnnxRuntime.OpenVino.1.24.1\runtimes\win-x64\native</OpenVinoNativeDirectory>
+  </PropertyGroup>
+  <ItemGroup>
+    <OpenVinoNativeLibrary Include="$(OpenVinoNativeDirectory)\onnxruntime.dll" />
+    <OpenVinoNativeLibrary Include="$(OpenVinoNativeDirectory)\onnxruntime_providers_shared.dll" />
+    <OpenVinoNativeLibrary Include="$(OpenVinoNativeDirectory)\onnxruntime_providers_openvino.dll" />
+    <OpenVinoNativeLibrary Include="$(OpenVinoNativeDirectory)\openvino.dll" />
+    <OpenVinoNativeLibrary Include="$(OpenVinoNativeDirectory)\openvino_intel_cpu_plugin.dll" />
+    <OpenVinoNativeLibrary Include="$(OpenVinoNativeDirectory)\openvino_onnx_frontend.dll" />
+    <OpenVinoNativeLibrary Include="$(OpenVinoNativeDirectory)\tbb12.dll" />
+  </ItemGroup>
+  <Target Name="CopyOpenVinoNativeRuntime" AfterTargets="Build">
+    <Error
+      Condition="!Exists('$(OpenVinoNativeDirectory)\onnxruntime.dll')"
+      Text="OpenVINO native runtime is missing. Restore Intel.ML.OnnxRuntime.OpenVino 1.24.1 before building." />
+    <Copy
+      SourceFiles="@(OpenVinoNativeLibrary)"
+      DestinationFolder="$(TargetDir)"
+      SkipUnchangedFiles="true" />
+  </Target>
+</Project>

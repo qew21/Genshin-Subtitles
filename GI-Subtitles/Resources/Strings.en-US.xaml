@@ -50,8 +50,8 @@
     <!-- Help Tab -->
     <sys:String x:Key="App_HelpTitle" xmlns:sys="clr-namespace:System;assembly=mscorlib">GI-Subtitles Help</sys:String>
     <sys:String x:Key="Help_Instructions" xmlns:sys="clr-namespace:System;assembly=mscorlib">Usage Instructions</sys:String>
-    <sys:String x:Key="Help_Step1" xmlns:sys="clr-namespace:System;assembly=mscorlib">1. Workflow: In the Language Pack Manager, download the required files, then in-game select the first line of the dialogue area and use the hotkey to start recognition and display.</sys:String>
-    <sys:String x:Key="Help_Step2" xmlns:sys="clr-namespace:System;assembly=mscorlib">2. You can use Ctrl+Shift+S to start/pause, Ctrl+Shift+R to select the recognition area (please frame the first line), and Ctrl+Shift+H to hide subtitles. If there is a conflict, you can modify them in the "Hotkeys" tab.</sys:String>
+    <sys:String x:Key="Help_Step1" xmlns:sys="clr-namespace:System;assembly=mscorlib">1. Workflow: In the Language Pack Manager, download the required files, then in-game select the dialogue area and use the hotkey to start recognition and display.</sys:String>
+    <sys:String x:Key="Help_Step2" xmlns:sys="clr-namespace:System;assembly=mscorlib">2. You can use Ctrl+Shift+S to start/pause, Ctrl+Shift+R to select the recognition area, and Ctrl+Shift+H to hide subtitles. If there is a conflict, you can modify them in the "Hotkeys" tab.</sys:String>
     <sys:String x:Key="Help_Step3" xmlns:sys="clr-namespace:System;assembly=mscorlib">3. When the cursor becomes a hand over the subtitles, you can drag to adjust the position (it is recommended to use "borderless windowed" instead of exclusive fullscreen in-game).</sys:String>
 
     <sys:String x:Key="Tab_Config" xmlns:sys="clr-namespace:System;assembly=mscorlib">Other Settings</sys:String>
@@ -65,6 +65,10 @@
     <sys:String x:Key="Config_Multiline" xmlns:sys="clr-namespace:System;assembly=mscorlib">Enable multi-line recognition</sys:String>
     <sys:String x:Key="Config_AutoStart" xmlns:sys="clr-namespace:System;assembly=mscorlib">Start with Windows</sys:String>
     <sys:String x:Key="Config_PlayVoice" xmlns:sys="clr-namespace:System;assembly=mscorlib">Enable voice</sys:String>
+    <sys:String x:Key="Config_RecognizeDialogueOptions" xmlns:sys="clr-namespace:System;assembly=mscorlib">Recognize dialogue choices</sys:String>
+    <sys:String x:Key="Config_RecognizeDialogueOptions_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Automatically locates dialogue choices and voices the option selected with the mouse.</sys:String>
+    <sys:String x:Key="Btn_TestVoice" xmlns:sys="clr-namespace:System;assembly=mscorlib">Test voice</sys:String>
+    <sys:String x:Key="Btn_TestVoice_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Simulate recognizing “笑死我了。” and play its mapped voice.</sys:String>
     <sys:String x:Key="Btn_OpenFolder" xmlns:sys="clr-namespace:System;assembly=mscorlib">Open App Folder</sys:String>
     <sys:String x:Key="Btn_ResetLocation" xmlns:sys="clr-namespace:System;assembly=mscorlib">Reset Subtitle Position</sys:String>
     <sys:String x:Key="Btn_SecondRegion" xmlns:sys="clr-namespace:System;assembly=mscorlib">Add Secondary Recognition Region</sys:String>
@@ -81,9 +85,11 @@
 
     <!-- Hotkey descriptions -->
     <sys:String x:Key="Hotkey_9000_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">Start / Stop subtitle recognition</sys:String>
-    <sys:String x:Key="Hotkey_9001_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">Select subtitle region (first line)</sys:String>
+    <sys:String x:Key="Hotkey_9001_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">Select subtitle region</sys:String>
     <sys:String x:Key="Hotkey_9002_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">Hide bilingual subtitles</sys:String>
     <sys:String x:Key="Hotkey_9003_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">Show recognition region</sys:String>
+    <sys:String x:Key="Hotkey_9004_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">Refresh current subtitle and replay voice</sys:String>
+    <sys:String x:Key="Hotkey_9005_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">Cycle voice playback speed</sys:String>
 
     <!-- Data Warnings -->
     <sys:String x:Key="Incomplete_Data_Warning" xmlns:sys="clr-namespace:System;assembly=mscorlib">Detected that the currently used Genshin language packs are missing Medium data. Some text cannot be recognized until you download and merge the Medium files.</sys:String>

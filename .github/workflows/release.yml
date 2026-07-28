@@ -23,7 +23,6 @@ env:
   SOLUTION_FILE: GI-Subtitles.sln
   BUILD_CONFIGURATION: Release
   BUILD_PLATFORM: x64
-  BASE_VERSION: 1.6.3
   RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
 
 jobs:
@@ -44,20 +43,31 @@ jobs:
         shell: pwsh
         run: |
           $tagVersion = $env:RELEASE_TAG.TrimStart('v')
+          $numericTagVersion = ($tagVersion -split '-', 2)[0]
           $assemblyInfo = Get-Content "GI-Subtitles/Properties/AssemblyInfo.cs" -Raw
           if ($assemblyInfo -notmatch 'AssemblyVersion\("([0-9.]+)"\)') {
             throw "AssemblyVersion was not found."
           }
           $assemblyVersion = [Version]$Matches[1]
-          $requestedVersion = [Version]$tagVersion
+          $requestedVersion = [Version]$numericTagVersion
           if ($assemblyVersion.ToString(3) -ne $requestedVersion.ToString(3)) {
-            throw "Tag version $requestedVersion does not match AssemblyVersion $assemblyVersion."
+            throw "Tag version $tagVersion does not match AssemblyVersion $assemblyVersion."
           }
 
       - name: Restore packages
         run: |
           nuget restore ${{ env.SOLUTION_FILE }}
           dotnet restore "WixSharp Setup/WixSharp Setup.csproj"
+
+      - name: Cache OCR model bundle
+        uses: actions/cache@v4
+        with:
+          path: .model-cache
+          key: ocr-models-${{ hashFiles('inference/models.json') }}
+
+      - name: Restore verified OCR models
+        shell: pwsh
+        run: .\scripts\Restore-OcrModels.ps1 -CacheDirectory ".model-cache"
 
       - name: Build application and tests
         run: |
@@ -67,13 +77,13 @@ jobs:
       - name: Run unit tests
         run: dotnet vstest GI-Test/bin/Release/GI-Test.dll /Tests:MissingTargetConfig_CreatesFreshConfigInsteadOfReusingPreviousGame,NewManifestVersion_IsOfferedOnlyWhenNotIgnored,ZeroRollout_DoesNotOfferUpdate /logger:trx /ResultsDirectory:test-results
 
-      - name: Download base release
+      - name: Run OCR model smoke tests
         shell: pwsh
         run: |
-          $baseZip = "${{ env.BASE_VERSION }}.zip"
-          $baseUri = "https://github.com/qew21/Genshin-Subtitles/releases/download/${{ env.BASE_VERSION }}/$baseZip"
-          Invoke-WebRequest -Uri $baseUri -OutFile $baseZip -UseBasicParsing
-          Expand-Archive -Path $baseZip -DestinationPath base-release -Force
+          dotnet vstest GI-Test/bin/Release/GI-Test.dll `
+            /Tests:TestSettingsWindowLoadsV6ByDefault,TestLegacyChineseModelsAreNotAvailableAtRuntime,TestRuntimePackageContainsOnlyRequiredOcrModels,TestV6UsesDedicatedV4RecognizerForJapanese,TestDetectionSettingsAreLoadedFromEachModelYaml `
+            /logger:trx `
+            /ResultsDirectory:test-results
 
       - name: Assemble release directory
         shell: pwsh
@@ -81,36 +91,35 @@ jobs:
           $releaseDir = "release-package"
           $buildDir = "GI-Subtitles/bin/Release"
           New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
-          Copy-Item -Path "base-release/*" -Destination $releaseDir -Recurse -Force
-
-          Copy-Item -Path "$buildDir/GI-Subtitles.exe" -Destination $releaseDir -Force
-          Copy-Item -Path "$buildDir/GI-Subtitles.exe.config" -Destination $releaseDir -Force
-          $preserveFromBase = @(
-            "onnxruntime.dll",
-            "opencv_videoio_ffmpeg4110_64.dll",
-            "OpenCvSharp4.runtime.dll",
-            "Microsoft.ML.OnnxRuntime.dll",
-            "Microsoft.ML.OnnxRuntime.Managed.dll",
-            "Microsoft.ML.OnnxRuntime.CSharp.dll"
-          )
-          Get-ChildItem -Path $buildDir -Filter "*.dll" | ForEach-Object {
-            if ($preserveFromBase -notcontains $_.Name) {
-              Copy-Item -Path $_.FullName -Destination $releaseDir -Force
-            }
-          }
+          Copy-Item -Path "$buildDir/*" -Destination $releaseDir -Recurse -Force
 
           $required = @(
             "GI-Subtitles.exe",
             "Config.json",
-            "inference",
+            "inference/Det/V6/PP-OCRv6_tiny_det_infer/slim.onnx",
+            "inference/Rec/V6/PP-OCRv6_tiny_rec_infer/slim.onnx",
+            "inference/Rec/V4/jp_PP-OCRv4_mobile_rec_infer/slim.onnx",
+            "inference/Rec/V4/jp_PP-OCRv4_mobile_rec_infer/dict.txt",
             "x64",
             "onnxruntime.dll",
-            "opencv_videoio_ffmpeg4110_64.dll"
+            "onnxruntime_providers_openvino.dll",
+            "dll/x64/OpenCvSharpExtern.dll",
+            "dll/x64/opencv_videoio_ffmpeg4110_64.dll"
           )
           foreach ($item in $required) {
             if (-not (Test-Path (Join-Path $releaseDir $item))) {
               throw "Required release item is missing: $item"
             }
+          }
+
+          $unexpectedModels = Get-ChildItem (Join-Path $releaseDir "inference") -Recurse -File |
+            Where-Object {
+              $_.Extension -eq ".onnx" -and
+              $_.FullName -notmatch "PP-OCRv6_tiny_(det|rec)_infer" -and
+              $_.FullName -notmatch "jp_PP-OCRv4_mobile_rec_infer"
+            }
+          if ($unexpectedModels) {
+            throw "Unexpected OCR models were included in the release: $($unexpectedModels.FullName -join ', ')"
           }
 
       - name: Install WiX Toolset CLI

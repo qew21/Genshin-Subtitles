@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "bundleVersion": "v1.0.0",
+  "archive": {
+    "fileName": "GI-Subtitles-OCR-Models-v1.0.0.zip",
+    "url": "https://github.com/qew21/Genshin-Subtitles/releases/download/ocr-models-v1.0.0/GI-Subtitles-OCR-Models-v1.0.0.zip",
+    "size": 55732733,
+    "sha256": "afcc2796f8168031b6d9988bd32af1fb590411f6e9e0c88c008537bcf4df5811"
+  },
+  "license": "Apache-2.0",
+  "files": [
+    {
+      "path": "inference/Det/V6/PP-OCRv6_tiny_det_infer/inference.yml",
+      "size": 883,
+      "sha256": "3ac018be6f97499a08faa3bbdeb33640968d9307f6736d152902747a9f259593"
+    },
+    {
+      "path": "inference/Det/V6/PP-OCRv6_tiny_det_infer/slim.onnx",
+      "size": 1818000,
+      "sha256": "a10c33b7c6e3f6a762aca82cfea0b9ef32a9ff3c6d541fa423bc0d4b310f45a0"
+    },
+    {
+      "path": "inference/Rec/V4/jp_PP-OCRv4_mobile_rec_infer/dict.txt",
+      "size": 17332,
+      "sha256": "1dcfcb41eec90576a945b3084f22ade11ced506e24f14879245b071698f308e8"
+    },
+    {
+      "path": "inference/Rec/V4/jp_PP-OCRv4_mobile_rec_infer/slim.onnx",
+      "size": 9753335,
+      "sha256": "e1075a67dba758ecfc7ebc78a10ae61c95ac8fb66a9c86fab5541e33f085cb7a"
+    },
+    {
+      "path": "inference/Rec/V6/PP-OCRv6_tiny_rec_infer/inference.yml",
+      "size": 55571,
+      "sha256": "66170210bad538e83fff3c4a3867e547d6bf20b50d64b20347c4b913f3034ea1"
+    },
+    {
+      "path": "inference/Rec/V6/PP-OCRv6_tiny_rec_infer/slim.onnx",
+      "size": 4458563,
+      "sha256": "50e611e6f4588001f3bdc7660bdcdcc807e9451c9ec4e47bee131660a8d7eba5"
+    }
+  ]
+}
