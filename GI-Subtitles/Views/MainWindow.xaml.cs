@@ -156,6 +156,14 @@ namespace GI_Subtitles.Views
         private List<DialogueOptionCandidate> _lastDialogueOptions = new List<DialogueOptionCandidate>();
         private int _dialogueOptionMissCount;
         private static readonly TimeSpan DialogueOptionScanInterval = TimeSpan.FromMilliseconds(400);
+        private readonly bool _recognizeDarkScreenSubtitles = Config.Get("RecognizeDarkScreenSubtitles", true);
+        private readonly TimeSpan _darkScreenScanInterval = TimeSpan.FromMilliseconds(
+            Math.Max(250, Config.Get("DarkScreenScanInterval", 500)));
+        private DateTime _lastDarkScreenScanTime = DateTime.MinValue;
+        private bool _darkScreenMode;
+        private string _lastDarkScreenCandidateHash;
+        private string _lastDarkScreenOcrHash;
+        private int _darkScreenStableFrames;
         private readonly DispatcherTimer _dialogueChoiceDisplayTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromSeconds(3)
@@ -295,6 +303,10 @@ namespace GI_Subtitles.Views
         public void GetOCR(object sender, EventArgs e)
         {
             if (notify.isContextMenuOpen)
+            {
+                return;
+            }
+            if (TryScanDarkScreenSubtitles())
             {
                 return;
             }
@@ -832,7 +844,11 @@ namespace GI_Subtitles.Views
         /// </summary>
         /// <param name="frameToProcess">Image Mat for OCR (caller has already Clone)</param>
         /// <param name="target">Original screenshot Bitmap, used for debugging and setting preview image</param>
-        private async Task TriggerOcrAsync(Mat frameToProcess, Bitmap target, bool forceRefresh = false)
+        private async Task TriggerOcrAsync(
+            Mat frameToProcess,
+            Bitmap target,
+            bool forceRefresh = false,
+            string darkScreenHash = null)
         {
             _isOcrRunning = true;
             string recognizedText = null;
@@ -850,7 +866,9 @@ namespace GI_Subtitles.Views
 
                         string bitStr = ImageProcessor.ComputeRobustHash(frameToProcess);
 
-                        if (!forceRefresh && BitmapDict.TryGetValue(bitStr, out string cachedOcrText))
+                        if (!forceRefresh &&
+                            BitmapDict.TryGetValue(bitStr, out string cachedOcrText) &&
+                            !string.IsNullOrWhiteSpace(cachedOcrText))
                         {
                             recognizedText = cachedOcrText;
                             recognitionCompleted = true;
@@ -887,7 +905,10 @@ namespace GI_Subtitles.Views
                                     }
                                 }
 
-                                BitmapDict[bitStr] = recognizedText;
+                                if (!string.IsNullOrWhiteSpace(recognizedText))
+                                {
+                                    BitmapDict[bitStr] = recognizedText;
+                                }
                             }
                         }
 
@@ -946,6 +967,12 @@ namespace GI_Subtitles.Views
             }
             finally
             {
+                if (!string.IsNullOrEmpty(darkScreenHash) &&
+                    (!recognitionCompleted || string.IsNullOrWhiteSpace(recognizedText)))
+                {
+                    // Allow an unchanged candidate to retry after a transient OCR miss.
+                    _lastDarkScreenOcrHash = null;
+                }
                 _isOcrRunning = false;
                 frameToProcess?.Dispose();
 
@@ -999,6 +1026,150 @@ namespace GI_Subtitles.Views
             return region != null && region.Length == 4 &&
                    int.TryParse(region[2], out int width) && width > 0 &&
                    int.TryParse(region[3], out int height) && height > 0;
+        }
+
+        private bool TryScanDarkScreenSubtitles()
+        {
+            if (!_recognizeDarkScreenSubtitles || !IsValidRegion(notify.Region))
+            {
+                return false;
+            }
+
+            DateTime now = DateTime.UtcNow;
+            if (now - _lastDarkScreenScanTime < _darkScreenScanInterval)
+            {
+                return _darkScreenMode && !string.IsNullOrEmpty(_lastDarkScreenCandidateHash);
+            }
+            _lastDarkScreenScanTime = now;
+
+            if (_isOcrRunning)
+            {
+                return _darkScreenMode && !string.IsNullOrEmpty(_lastDarkScreenCandidateHash);
+            }
+
+            Bitmap searchBitmap = null;
+            Mat searchMat = null;
+            Bitmap candidateBitmap = null;
+            Mat candidateFrame = null;
+            bool candidatePassedToOcr = false;
+            try
+            {
+                int regionX = int.Parse(notify.Region[0]);
+                int regionY = int.Parse(notify.Region[1]);
+                int regionWidth = int.Parse(notify.Region[2]);
+                int regionHeight = int.Parse(notify.Region[3]);
+                var anchor = new System.Drawing.Point(
+                    regionX + regionWidth / 2,
+                    regionY + regionHeight / 2);
+                System.Drawing.Rectangle screen = Screen.GetBounds(anchor);
+                var searchBounds = new System.Drawing.Rectangle(
+                    screen.Left + (int)Math.Round(screen.Width * 0.05),
+                    screen.Top + (int)Math.Round(screen.Height * 0.20),
+                    (int)Math.Round(screen.Width * 0.90),
+                    (int)Math.Round(screen.Height * 0.45));
+
+                searchBitmap = CaptureRectangle(searchBounds);
+                searchMat = searchBitmap.ToMat();
+                bool found = DarkScreenSubtitleDetector.TryFindSubtitleRegion(
+                    searchMat,
+                    out OpenCvSharp.Rect candidateRegion,
+                    out bool isDarkScreen,
+                    out double darkRatio,
+                    out double brightRatio);
+
+                _darkScreenMode = isDarkScreen;
+                if (!isDarkScreen)
+                {
+                    ResetDarkScreenCandidate();
+                    return false;
+                }
+
+                if (!found)
+                {
+                    ResetDarkScreenCandidate();
+                    if (debug)
+                    {
+                        Logger.Log.Debug(
+                            $"Dark screen detected without subtitle candidate: dark={darkRatio:F3}, bright={brightRatio:F4}");
+                    }
+                    // A dark gameplay scene without a central text candidate must not
+                    // suppress OCR of the user's normal subtitle region.
+                    return false;
+                }
+
+                var bitmapRegion = new System.Drawing.Rectangle(
+                    candidateRegion.X,
+                    candidateRegion.Y,
+                    candidateRegion.Width,
+                    candidateRegion.Height);
+                candidateBitmap = searchBitmap.Clone(
+                    bitmapRegion,
+                    System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+                candidateFrame = candidateBitmap.ToMat();
+                string candidateHash = ImageProcessor.ComputeRobustHash(candidateFrame);
+
+                if (!string.IsNullOrEmpty(_lastDarkScreenCandidateHash) &&
+                    ImageProcessor.CalculateHammingDistance(
+                        candidateHash,
+                        _lastDarkScreenCandidateHash) <= 2)
+                {
+                    _darkScreenStableFrames++;
+                }
+                else
+                {
+                    _darkScreenStableFrames = 1;
+                }
+                _lastDarkScreenCandidateHash = candidateHash;
+
+                if (_darkScreenStableFrames < 2 ||
+                    (!string.IsNullOrEmpty(_lastDarkScreenOcrHash) &&
+                     ImageProcessor.CalculateHammingDistance(
+                         candidateHash,
+                         _lastDarkScreenOcrHash) <= 2))
+                {
+                    return true;
+                }
+
+                if (!IsOcrIntervalReady())
+                {
+                    return true;
+                }
+
+                _lastDarkScreenOcrHash = candidateHash;
+                Logger.Log.Debug(
+                    $"Stable dark-screen subtitle detected: dark={darkRatio:F3}, bright={brightRatio:F4}, " +
+                    $"candidate={candidateRegion}");
+                SetWindowPos(new WindowInteropHelper(this).Handle, -1, 0, 0, 0, 0, 1 | 2);
+                _ = TriggerOcrAsync(candidateFrame, candidateBitmap, darkScreenHash: candidateHash);
+                candidateFrame = null;
+                candidateBitmap = null;
+                candidatePassedToOcr = true;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logger.Log.Warn($"Dark-screen subtitle scan failed: {ex.Message}");
+                _darkScreenMode = false;
+                ResetDarkScreenCandidate();
+                return false;
+            }
+            finally
+            {
+                if (!candidatePassedToOcr)
+                {
+                    candidateFrame?.Dispose();
+                    candidateBitmap?.Dispose();
+                }
+                searchMat?.Dispose();
+                searchBitmap?.Dispose();
+            }
+        }
+
+        private void ResetDarkScreenCandidate()
+        {
+            _lastDarkScreenCandidateHash = null;
+            _lastDarkScreenOcrHash = null;
+            _darkScreenStableFrames = 0;
         }
 
         private bool TryScanDialogueOptions()
