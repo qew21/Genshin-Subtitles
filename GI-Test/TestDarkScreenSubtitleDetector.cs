@@ -91,6 +91,58 @@ namespace GI_Test
         }
 
         [TestMethod]
+        public void MultiLineCenterText_IsPreferredOverBottomContinuePrompt()
+        {
+            using (var image = new Mat(540, 1200, MatType.CV_8UC3, Scalar.Black))
+            {
+                string[] lines =
+                {
+                    "There was another traveler who spoke in an ancient tongue",
+                    "That person had been using us from the very beginning",
+                    "It reminded you of the complicated feelings once buried",
+                    "The young dragon was still small but would grow stronger",
+                    "One day it would become a truly magnificent dragon"
+                };
+
+                for (int index = 0; index < lines.Length; index++)
+                {
+                    Cv2.PutText(
+                        image,
+                        lines[index],
+                        new Point(80 + index * 8, 170 + index * 42),
+                        HersheyFonts.HersheySimplex,
+                        0.72,
+                        Scalar.White,
+                        2,
+                        LineTypes.AntiAlias);
+                }
+
+                Cv2.PutText(
+                    image,
+                    "Click to continue",
+                    new Point(480, 475),
+                    HersheyFonts.HersheySimplex,
+                    0.65,
+                    Scalar.White,
+                    2,
+                    LineTypes.AntiAlias);
+
+                bool found = DarkScreenSubtitleDetector.TryFindSubtitleRegion(
+                    image,
+                    out Rect region,
+                    out bool isDark,
+                    out _,
+                    out _);
+
+                Assert.IsTrue(isDark);
+                Assert.IsTrue(found);
+                Assert.IsTrue(region.Top < 180, $"Expected the first text row, got {region}");
+                Assert.IsTrue(region.Bottom > 350, $"Expected the last text row, got {region}");
+                Assert.IsTrue(region.Bottom < 440, $"Continue prompt should be excluded, got {region}");
+            }
+        }
+
+        [TestMethod]
         public void BrightScene_DoesNotEnterDarkScreenMode()
         {
             using (var image = new Mat(540, 1200, MatType.CV_8UC3, Scalar.All(180)))

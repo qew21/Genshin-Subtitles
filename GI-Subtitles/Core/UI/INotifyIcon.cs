@@ -228,6 +228,12 @@ namespace GI_Subtitles.Core.UI
             }
         }
 
+        public void ClearRegion2()
+        {
+            Config.Config.Set("Region2", string.Empty);
+            Region2 = Array.Empty<string>();
+        }
+
         private ToolStripMenuItem CreateSizeItem(string code)
         {
             ToolStripMenuItem item = new ToolStripMenuItem(code)

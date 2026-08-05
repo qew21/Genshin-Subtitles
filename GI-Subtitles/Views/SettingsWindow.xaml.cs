@@ -243,6 +243,7 @@ namespace GI_Subtitles.Views
             AutoStartCheckBox.IsChecked = Config.Get("AutoStart", false);
             PlayVoiceCheckBox.IsChecked = Config.Get("PlayVoice", true);
             RecognizeDialogueOptionsCheckBox.IsChecked = Config.Get("RecognizeDialogueOptions", false);
+            UpdateSecondRegionDeleteButtonState();
         }
 
         private void ResetLocation_Click(object sender, RoutedEventArgs e)
@@ -256,6 +257,21 @@ namespace GI_Subtitles.Views
         private void SecondRegion_Click(object sender, RoutedEventArgs e)
         {
             notifyIcon.ChooseRegion2();
+            UpdateSecondRegionDeleteButtonState();
+        }
+
+        private void DeleteSecondRegion_Click(object sender, RoutedEventArgs e)
+        {
+            notifyIcon.ClearRegion2();
+            UpdateSecondRegionDeleteButtonState();
+        }
+
+        private void UpdateSecondRegionDeleteButtonState()
+        {
+            string[] region = notifyIcon?.Region2;
+            DeleteSecondRegionButton.IsEnabled = region != null && region.Length == 4 &&
+                int.TryParse(region[2], out int width) && width > 0 &&
+                int.TryParse(region[3], out int height) && height > 0;
         }
 
         private void UILangSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)

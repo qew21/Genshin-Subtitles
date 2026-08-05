@@ -14,6 +14,7 @@ namespace GI_Subtitles.Services.OCR
         private const double MinimumBrightRatio = 0.0005;
         private const double MaximumBrightRatio = 0.25;
         private const int MaximumAnalysisWidth = 960;
+        private const int MaximumTextLines = 10;
 
         public static bool TryFindSubtitleRegion(
             Mat screen,
@@ -87,7 +88,12 @@ namespace GI_Subtitles.Services.OCR
             for (int start = 0; start < lines.Count; start++)
             {
                 Rect combined = lines[start].Bounds;
-                for (int count = 1; count <= 3 && start + count <= lines.Count; count++)
+                // Story summaries and cut-scene cards can contain substantially more
+                // than three rows. Keep the whole contiguous central text block so OCR
+                // does not fall back to a lower "continue" prompt after missing it.
+                for (int count = 1;
+                     count <= MaximumTextLines && start + count <= lines.Count;
+                     count++)
                 {
                     if (count > 1)
                     {
@@ -109,7 +115,7 @@ namespace GI_Subtitles.Services.OCR
                     }
 
                     double centerPenalty = Math.Abs(centerRatio - 0.55);
-                    double score = widthRatio * 3.0 + count * 0.12 - centerPenalty;
+                    double score = widthRatio * 3.0 + Math.Min(count, 6) * 0.15 - centerPenalty * 1.5;
                     if (!found || score > best.Score)
                     {
                         best = new Candidate(combined, score);

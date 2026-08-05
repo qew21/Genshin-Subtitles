@@ -138,7 +138,7 @@ namespace GI_Subtitles.Views
         private bool _audioPlaybackQueueActive;
         private int _audioPlaybackGeneration;
         private EventHandler<StoppedEventArgs> _playbackStoppedHandler;
-        private static readonly double[] VoicePlaybackSpeeds = { 1.0, 1.25, 1.5, 2.0 };
+        private static readonly double[] VoicePlaybackSpeeds = { 1.0, 1.25, 1.5, 1.75, 2.0 };
         private double _voicePlaybackSpeed = NormalizePlaybackSpeed(Config.Get<double>("VoicePlaybackSpeed", 1.0));
         private const int AudioTempCleanupThreshold = 60;
         private const int AudioTempFilesToKeep = 10;
