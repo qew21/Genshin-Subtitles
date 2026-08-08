@@ -224,6 +224,7 @@ namespace GI_Subtitles.Views
             data = new SettingsWindow(version, notify, Scale);
             data.InitializeKey(handle);
             notify.SetData(data);
+            CleanupOldUpdatePackages();
             _ = CheckForUpdateAsync();
             if (!data.FileExists())
             {
@@ -2034,16 +2035,13 @@ namespace GI_Subtitles.Views
             }
 
             var title = GetLocalizedText("Update_Title", "Software Update");
-            var template = GetLocalizedText(
-                "Update_Message",
-                "Version {0} is available.\n\nPublished: {1}\n\nWhat's new:\n{2}\n\nChoose Yes to download and install, or No to ignore this version.");
-            var result = System.Windows.Forms.MessageBox.Show(
-                string.Format(template, manifest.Version, manifest.PublishedAt, manifest.ReleaseNotes),
-                title,
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Information);
+            var updateWindow = new UpdateWindow(manifest)
+            {
+                Owner = this
+            };
+            updateWindow.ShowDialog();
 
-            if (result == System.Windows.Forms.DialogResult.No)
+            if (updateWindow.IgnoreRequested)
             {
                 Config.Set("IgnoredUpdateVersion", manifest.Version);
                 notify.HideAvailableUpdate();
@@ -2051,45 +2049,307 @@ namespace GI_Subtitles.Views
                 return;
             }
 
+            if (!updateWindow.InstallRequested)
+            {
+                return;
+            }
+
+            string msi = null;
             try
             {
-                var msi = Path.Combine(
-                    Path.GetTempPath(),
-                    $"GI-Subtitles-{manifest.Version}-{Guid.NewGuid():N}.msi");
-                using (var client = new WebClient())
-                {
-                    await client.DownloadFileTaskAsync(new Uri(asset.Url), msi);
-                }
+                var updateFolder = GetUpdateFolder();
+                Directory.CreateDirectory(updateFolder);
+                var safeVersion = string.Join(
+                    "_", (manifest.Version ?? "update").Split(Path.GetInvalidFileNameChars()));
+                msi = Path.Combine(updateFolder, $"GI-Subtitles-{safeVersion}.msi");
+                notify.ShowUpdateStatus(
+                    "Tray_UpdateStarting", "Downloading version {0}: 0%", manifest.Version);
+                Action<int> progress = percentage =>
+                    notify.ShowUpdateStatus(
+                        "Tray_UpdateDownloading", "Downloading version {0}: {1}%",
+                        manifest.Version, percentage);
+                await DownloadUpdateAsync(new Uri(asset.Url), msi, asset.Size, progress);
 
+                notify.ShowUpdateStatus(
+                    "Tray_UpdateVerifying", "Version {0} downloaded; verifying", manifest.Version);
                 var downloaded = new FileInfo(msi);
-                if (downloaded.Length != asset.Size ||
-                    !string.Equals(GetSha256(msi), asset.Sha256, StringComparison.OrdinalIgnoreCase))
+                var actualSha256 = GetSha256(msi);
+                if (downloaded.Length != asset.Size || !string.Equals(
+                    actualSha256, asset.Sha256, StringComparison.OrdinalIgnoreCase))
                 {
+                    Logger.Log.Error(
+                        $"Update verification failed. File: {msi}; " +
+                        $"size: {downloaded.Length}/{asset.Size}; " +
+                        $"SHA256: {actualSha256}/{asset.Sha256}");
                     File.Delete(msi);
                     throw new InvalidDataException("The downloaded installer did not match the release manifest.");
                 }
 
-                var startInfo = new ProcessStartInfo
-                {
-                    FileName = "msiexec.exe",
-                    Arguments = $"/i \"{msi}\" /quiet /norestart",
-                    UseShellExecute = true,
-                    Verb = "runas"
-                };
-
-                Process.Start(startInfo);
-                Logger.Log.Debug($"Start installation: msiexec {startInfo.Arguments}");
+                Logger.Log.Info($"Update package verified successfully. File: {msi}; SHA256: {actualSha256}");
+                CleanupOldUpdatePackages(msi);
+                notify.ShowUpdateStatus(
+                    "Tray_UpdateInstalling", "Version {0} verified; preparing installation",
+                    manifest.Version);
+                StartUpdateInstallerCoordinator(msi);
                 System.Windows.Application.Current.Shutdown();
             }
             catch (Exception ex)
             {
-                Logger.Log.Error($"Failed to install application update: {ex}");
+                notify.RestoreAvailableUpdate();
+                Logger.Log.Error($"Failed to download or start application update. File: {msi ?? "(not created)"}; {ex}");
                 System.Windows.Forms.MessageBox.Show(
                     GetLocalizedText("Update_Error", "The update could not be downloaded or verified. Please try again later."),
                     title,
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             }
+        }
+
+        private static async Task DownloadUpdateAsync(
+            Uri uri,
+            string destination,
+            long expectedSize,
+            Action<int> progress)
+        {
+            Logger.Log.Info(
+                $"Starting update download. URL: {uri}; target: {destination}; " +
+                $"expected size: {expectedSize} bytes");
+
+            using (var client = new HttpClient { Timeout = TimeSpan.FromMinutes(30) })
+            using (var response = await client.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead))
+            {
+                response.EnsureSuccessStatusCode();
+                var responseSize = response.Content.Headers.ContentLength;
+                var totalSize = responseSize.GetValueOrDefault(expectedSize);
+                if (responseSize.HasValue && responseSize.Value != expectedSize)
+                {
+                    Logger.Log.Warn(
+                        $"Update server content length differs from manifest: " +
+                        $"{responseSize.Value}/{expectedSize} bytes. Target: {destination}");
+                }
+
+                using (var source = await response.Content.ReadAsStreamAsync())
+                using (var target = new FileStream(
+                    destination, FileMode.Create, FileAccess.Write, FileShare.None,
+                    81920, useAsync: true))
+                {
+                    var buffer = new byte[81920];
+                    long downloaded = 0;
+                    var nextProgress = 10;
+                    int bytesRead;
+                    while ((bytesRead = await source.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                    {
+                        await target.WriteAsync(buffer, 0, bytesRead);
+                        downloaded += bytesRead;
+
+                        if (totalSize > 0)
+                        {
+                            var percentage = (int)Math.Min(100, downloaded * 100 / totalSize);
+                            while (percentage >= nextProgress && nextProgress <= 100)
+                            {
+                                progress?.Invoke(nextProgress);
+                                Logger.Log.Info(
+                                    $"Update download progress: {nextProgress}% " +
+                                    $"({downloaded}/{totalSize} bytes). Target: {destination}");
+                                nextProgress += 10;
+                            }
+                        }
+                    }
+
+                    await target.FlushAsync();
+                    Logger.Log.Info(
+                        $"Update download completed. Target: {destination}; " +
+                        $"downloaded: {downloaded} bytes");
+                }
+            }
+        }
+
+        private static string GetUpdateFolder()
+        {
+            return Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "GI-Subtitles",
+                "Updates");
+        }
+
+        private static void CleanupOldUpdatePackages(string preferredPackage = null, int maximumPackages = 2)
+        {
+            if (maximumPackages < 1)
+            {
+                throw new ArgumentOutOfRangeException(nameof(maximumPackages));
+            }
+
+            var updateFolder = GetUpdateFolder();
+            if (!Directory.Exists(updateFolder))
+            {
+                return;
+            }
+
+            try
+            {
+                var packages = new DirectoryInfo(updateFolder)
+                    .EnumerateFiles("GI-Subtitles-*.msi", SearchOption.TopDirectoryOnly)
+                    .Where(file => (file.Attributes & FileAttributes.ReparsePoint) == 0)
+                    .OrderByDescending(file => file.LastWriteTimeUtc)
+                    .ToList();
+                if (packages.Count <= maximumPackages)
+                {
+                    return;
+                }
+
+                var keep = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                AddPackageToKeep(keep, packages, preferredPackage);
+
+                var installedVersion = Assembly.GetExecutingAssembly().GetName().Version;
+                var installedPackage = packages.FirstOrDefault(file =>
+                    IsPackageForVersion(file, installedVersion));
+                AddPackageToKeep(keep, packages, installedPackage?.FullName);
+
+                foreach (var package in packages)
+                {
+                    if (keep.Count >= maximumPackages)
+                    {
+                        break;
+                    }
+
+                    keep.Add(package.FullName);
+                }
+
+                foreach (var package in packages.Where(file => !keep.Contains(file.FullName)))
+                {
+                    try
+                    {
+                        package.Delete();
+                        Logger.Log.Info($"Removed old update package: {package.FullName}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Log.Warn($"Failed to remove old update package {package.FullName}: {ex.Message}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Log.Warn($"Failed to clean the update package folder {updateFolder}: {ex.Message}");
+            }
+        }
+
+        private static void AddPackageToKeep(
+            HashSet<string> keep,
+            IEnumerable<FileInfo> packages,
+            string packagePath)
+        {
+            if (string.IsNullOrWhiteSpace(packagePath))
+            {
+                return;
+            }
+
+            var fullPath = Path.GetFullPath(packagePath);
+            var package = packages.FirstOrDefault(file => string.Equals(
+                file.FullName, fullPath, StringComparison.OrdinalIgnoreCase));
+            if (package != null)
+            {
+                keep.Add(package.FullName);
+            }
+        }
+
+        private static bool IsPackageForVersion(FileInfo package, Version versionToMatch)
+        {
+            const string prefix = "GI-Subtitles-";
+            var name = Path.GetFileNameWithoutExtension(package.Name);
+            if (!name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            var packageVersionText = name.Substring(prefix.Length);
+            var suffix = packageVersionText.IndexOf('-');
+            if (suffix >= 0)
+            {
+                packageVersionText = packageVersionText.Substring(0, suffix);
+            }
+
+            return Version.TryParse(packageVersionText, out var packageVersion) &&
+                packageVersion.Major == versionToMatch.Major &&
+                packageVersion.Minor == versionToMatch.Minor &&
+                packageVersion.Build == versionToMatch.Build;
+        }
+
+        private static void StartUpdateInstallerCoordinator(string msi)
+        {
+            var applicationPath = Assembly.GetExecutingAssembly().Location;
+            var logFolder = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "GI-Subtitles");
+            Directory.CreateDirectory(logFolder);
+            var applicationLog = Path.Combine(logFolder, "app.log");
+            var msiLog = Path.Combine(logFolder, "update-msi.log");
+            var currentProcessId = Process.GetCurrentProcess().Id;
+
+            var script = BuildUpdateCoordinatorScript(
+                msi, applicationPath, applicationLog, msiLog, currentProcessId);
+            var encodedScript = Convert.ToBase64String(Encoding.Unicode.GetBytes(script));
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand " + encodedScript,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden
+            };
+
+            var coordinator = Process.Start(startInfo);
+            if (coordinator == null)
+            {
+                throw new InvalidOperationException("The update installer coordinator could not be started.");
+            }
+
+            Logger.Log.Info(
+                $"Update installer coordinator started. PID: {coordinator.Id}; MSI: {msi}; " +
+                $"MSI log: {msiLog}; restart target: {applicationPath}");
+        }
+
+        private static string BuildUpdateCoordinatorScript(
+            string msi,
+            string applicationPath,
+            string applicationLog,
+            string msiLog,
+            int currentProcessId)
+        {
+            var script = new StringBuilder();
+            script.AppendLine("$ErrorActionPreference = 'Stop'");
+            script.AppendLine("$msiPath = " + ToPowerShellLiteral(msi));
+            script.AppendLine("$applicationPath = " + ToPowerShellLiteral(applicationPath));
+            script.AppendLine("$applicationLog = " + ToPowerShellLiteral(applicationLog));
+            script.AppendLine("$msiLog = " + ToPowerShellLiteral(msiLog));
+            script.AppendLine("$oldProcessId = " + currentProcessId);
+            script.AppendLine("function Write-UpdaterLog([string]$message) {");
+            script.AppendLine("    $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss,fff'");
+            script.AppendLine("    Add-Content -LiteralPath $applicationLog -Encoding UTF8 -Value (('[INFO ] Time: {0} Content: Updater: {1}' -f $timestamp, $message))");
+            script.AppendLine("}");
+            script.AppendLine("try {");
+            script.AppendLine("    Wait-Process -Id $oldProcessId -ErrorAction SilentlyContinue");
+            script.AppendLine("    Write-UpdaterLog ('Application process {0} exited; starting update.' -f $oldProcessId)");
+            script.AppendLine("    $msiArguments = '/i \"' + $msiPath + '\" /quiet /norestart /L*v \"' + $msiLog + '\"'");
+            script.AppendLine("    Write-UpdaterLog ('Starting installer. MSI: {0}; MSI log: {1}' -f $msiPath, $msiLog)");
+            script.AppendLine("    $installer = Start-Process -FilePath 'msiexec.exe' -Verb RunAs -ArgumentList $msiArguments -Wait -PassThru");
+            script.AppendLine("    Write-UpdaterLog ('Installer exited with code {0}.' -f $installer.ExitCode)");
+            script.AppendLine("    if (@(0, 1641, 3010) -notcontains $installer.ExitCode) { throw ('Installer failed with exit code {0}.' -f $installer.ExitCode) }");
+            script.AppendLine("    if (-not (Test-Path -LiteralPath $applicationPath -PathType Leaf)) { throw ('Installed application not found: {0}' -f $applicationPath) }");
+            script.AppendLine("    Start-Sleep -Milliseconds 500");
+            script.AppendLine("    Write-UpdaterLog ('Restarting application: {0}. Installer source retained at: {1}' -f $applicationPath, $msiPath)");
+            script.AppendLine("    Start-Process -FilePath $applicationPath -WorkingDirectory (Split-Path -Parent $applicationPath)");
+            script.AppendLine("}");
+            script.AppendLine("catch {");
+            script.AppendLine("    Write-UpdaterLog ('Update failed: {0}. Package retained at: {1}; MSI log: {2}' -f $_.Exception.Message, $msiPath, $msiLog)");
+            script.AppendLine("    if (Test-Path -LiteralPath $applicationPath -PathType Leaf) { Start-Process -FilePath $applicationPath -WorkingDirectory (Split-Path -Parent $applicationPath) }");
+            script.AppendLine("}");
+            return script.ToString();
+        }
+
+        private static string ToPowerShellLiteral(string value)
+        {
+            return "'" + (value ?? string.Empty).Replace("'", "''") + "'";
         }
 
         private static string GetSha256(string file)

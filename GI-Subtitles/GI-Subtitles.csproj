@@ -140,6 +140,9 @@
     <Compile Include="Views\SettingsWindow.xaml.cs">
       <DependentUpon>Views\SettingsWindow.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Views\UpdateWindow.xaml.cs">
+      <DependentUpon>Views\UpdateWindow.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Services\Video\SrtProcessor.cs" />
     <Compile Include="Views\Video.xaml.cs">
       <DependentUpon>Views\Video.xaml</DependentUpon>
@@ -182,6 +185,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Views\SettingsWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\UpdateWindow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

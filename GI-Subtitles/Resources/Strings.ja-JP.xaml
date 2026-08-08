@@ -80,8 +80,19 @@
     <sys:String x:Key="Tray_Settings" xmlns:sys="clr-namespace:System;assembly=mscorlib">設定</sys:String>
     <sys:String x:Key="Tray_Exit" xmlns:sys="clr-namespace:System;assembly=mscorlib">終了</sys:String>
     <sys:String x:Key="Tray_UpdateAvailable" xmlns:sys="clr-namespace:System;assembly=mscorlib">新しいバージョン {0}</sys:String>
+    <sys:String x:Key="Tray_UpdateStarting" xmlns:sys="clr-namespace:System;assembly=mscorlib">バージョン {0} をダウンロード中：0%</sys:String>
+    <sys:String x:Key="Tray_UpdateDownloading" xmlns:sys="clr-namespace:System;assembly=mscorlib">バージョン {0} をダウンロード中：{1}%</sys:String>
+    <sys:String x:Key="Tray_UpdateVerifying" xmlns:sys="clr-namespace:System;assembly=mscorlib">バージョン {0} の検証中</sys:String>
+    <sys:String x:Key="Tray_UpdateInstalling" xmlns:sys="clr-namespace:System;assembly=mscorlib">バージョン {0} のインストールを準備中</sys:String>
     <sys:String x:Key="Update_Title" xmlns:sys="clr-namespace:System;assembly=mscorlib">アップデート</sys:String>
     <sys:String x:Key="Update_Message" xmlns:sys="clr-namespace:System;assembly=mscorlib">新しいバージョン {0} があります。&#10;&#10;公開日時：{1}&#10;&#10;更新内容：&#10;{2}&#10;&#10;「はい」でダウンロードしてインストールし、「いいえ」でこのバージョンを無視します。</sys:String>
+    <sys:String x:Key="Update_AvailableHeading" xmlns:sys="clr-namespace:System;assembly=mscorlib">新しいバージョンがあります</sys:String>
+    <sys:String x:Key="Update_VersionLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">バージョン：</sys:String>
+    <sys:String x:Key="Update_PublishedLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">公開日時：</sys:String>
+    <sys:String x:Key="Update_ReleaseNotesLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">更新内容</sys:String>
+    <sys:String x:Key="Update_InstallButton" xmlns:sys="clr-namespace:System;assembly=mscorlib">ダウンロードしてインストール</sys:String>
+    <sys:String x:Key="Update_IgnoreButton" xmlns:sys="clr-namespace:System;assembly=mscorlib">このバージョンを無視</sys:String>
+    <sys:String x:Key="Update_LaterButton" xmlns:sys="clr-namespace:System;assembly=mscorlib">後で</sys:String>
     <sys:String x:Key="Update_Error" xmlns:sys="clr-namespace:System;assembly=mscorlib">アップデートのダウンロードまたは検証に失敗しました。後でもう一度お試しください。</sys:String>
 
     <!-- ホットキー説明 -->

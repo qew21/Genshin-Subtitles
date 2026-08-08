@@ -80,8 +80,19 @@
     <sys:String x:Key="Tray_Settings" xmlns:sys="clr-namespace:System;assembly=mscorlib">Settings</sys:String>
     <sys:String x:Key="Tray_Exit" xmlns:sys="clr-namespace:System;assembly=mscorlib">Exit</sys:String>
     <sys:String x:Key="Tray_UpdateAvailable" xmlns:sys="clr-namespace:System;assembly=mscorlib">New version {0}</sys:String>
+    <sys:String x:Key="Tray_UpdateStarting" xmlns:sys="clr-namespace:System;assembly=mscorlib">Downloading version {0}: 0%</sys:String>
+    <sys:String x:Key="Tray_UpdateDownloading" xmlns:sys="clr-namespace:System;assembly=mscorlib">Downloading version {0}: {1}%</sys:String>
+    <sys:String x:Key="Tray_UpdateVerifying" xmlns:sys="clr-namespace:System;assembly=mscorlib">Version {0} downloaded; verifying</sys:String>
+    <sys:String x:Key="Tray_UpdateInstalling" xmlns:sys="clr-namespace:System;assembly=mscorlib">Version {0} verified; preparing installation</sys:String>
     <sys:String x:Key="Update_Title" xmlns:sys="clr-namespace:System;assembly=mscorlib">Software Update</sys:String>
     <sys:String x:Key="Update_Message" xmlns:sys="clr-namespace:System;assembly=mscorlib">Version {0} is available.&#10;&#10;Published: {1}&#10;&#10;What's new:&#10;{2}&#10;&#10;Choose Yes to download and install, or No to ignore this version.</sys:String>
+    <sys:String x:Key="Update_AvailableHeading" xmlns:sys="clr-namespace:System;assembly=mscorlib">A new version is available</sys:String>
+    <sys:String x:Key="Update_VersionLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">Version:</sys:String>
+    <sys:String x:Key="Update_PublishedLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">Published:</sys:String>
+    <sys:String x:Key="Update_ReleaseNotesLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">What's new</sys:String>
+    <sys:String x:Key="Update_InstallButton" xmlns:sys="clr-namespace:System;assembly=mscorlib">Download and install</sys:String>
+    <sys:String x:Key="Update_IgnoreButton" xmlns:sys="clr-namespace:System;assembly=mscorlib">Ignore this version</sys:String>
+    <sys:String x:Key="Update_LaterButton" xmlns:sys="clr-namespace:System;assembly=mscorlib">Later</sys:String>
     <sys:String x:Key="Update_Error" xmlns:sys="clr-namespace:System;assembly=mscorlib">The update could not be downloaded or verified. Please try again later.</sys:String>
 
     <!-- Hotkey descriptions -->
