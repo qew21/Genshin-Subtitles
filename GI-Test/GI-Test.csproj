@@ -91,6 +91,7 @@
   <ItemGroup>
     <Compile Include="Config.cs" />
     <Compile Include="TestGameConfigStore.cs" />
+    <Compile Include="TestLocalVoiceFileResolver.cs" />
     <Compile Include="TestTextMapNormalizer.cs" />
     <Compile Include="TestWutheringTextMapSource.cs" />
     <Compile Include="TestOptimizedMatcherCache.cs" />

@@ -50,6 +50,7 @@ using GI_Subtitles.Core.Config;
 using GI_Subtitles.Core.UI;
 using GI_Subtitles.Models;
 using GI_Subtitles.Services.OCR;
+using GI_Subtitles.Services.Audio;
 using GI_Subtitles.Services.Translation;
 using GI_Subtitles.Services.Update;
 using GI_Subtitles.Common;
@@ -132,9 +133,9 @@ namespace GI_Subtitles.Views
         private MediaFoundationReader mediaReader;
         private SoundTouchWaveProvider soundTouchProvider;
         private string tempFilePath;
-        private readonly Queue<string> _audioPlaybackQueue = new Queue<string>();
+        private readonly Queue<VoiceAudioSource> _audioPlaybackQueue = new Queue<VoiceAudioSource>();
         private readonly object _audioPlaybackQueueLock = new object();
-        private string _pendingDialogueOptionUrl;
+        private VoiceAudioSource _pendingDialogueOptionSource;
         private bool _audioPlaybackQueueActive;
         private int _audioPlaybackGeneration;
         private EventHandler<StoppedEventArgs> _playbackStoppedHandler;
@@ -169,11 +170,19 @@ namespace GI_Subtitles.Views
             Interval = TimeSpan.FromSeconds(3)
         };
         private ReleaseManifest availableUpdate;
+        private readonly LocalVoiceFileResolver _genshinVoiceFileResolver;
+
+        private sealed class VoiceAudioSource
+        {
+            public string LocalFilePath { get; set; }
+            public string RemoteUrl { get; set; }
+        }
 
 
         public MainWindow()
         {
             Logger.Log.Debug("Start App");
+            _genshinVoiceFileResolver = new LocalVoiceFileResolver(dataDir, "Genshin");
             Task.Run(() => CleanupOldAudioTempFiles());
             InitializeComponent();
             _dialogueChoiceDisplayTimer.Tick += (sender, args) =>
@@ -695,7 +704,7 @@ namespace GI_Subtitles.Views
                             (forceVoiceReplay || !AudioList.Contains(key)) && !string.IsNullOrEmpty(key))
                         {
                             string audioKey = VoiceContentHelper.CalculateMd5Hash(key);
-                            PlayMainAudioFromUrl($"{server}?md5={audioKey}&token={token}");
+                            PlayMainAudio(audioKey);
                             if (!AudioList.Contains(key))
                             {
                                 AudioList.Add(key);
@@ -1351,7 +1360,7 @@ namespace GI_Subtitles.Views
             if (Config.Get<bool>("PlayVoice", false) && !string.IsNullOrEmpty(key))
             {
                 string audioKey = VoiceContentHelper.CalculateMd5Hash(key);
-                PlayDialogueOptionAudioFromUrl($"{server}?md5={audioKey}&token={token}");
+                PlayDialogueOptionAudio(audioKey);
             }
         }
 
@@ -1682,8 +1691,24 @@ namespace GI_Subtitles.Views
             player.Play();
         }
 
-        private void PlayDialogueOptionAudioFromUrl(string url)
+        private VoiceAudioSource CreateVoiceAudioSource(string audioKey)
         {
+            string localFilePath = null;
+            if (string.Equals(Game, "Genshin", StringComparison.OrdinalIgnoreCase))
+            {
+                _genshinVoiceFileResolver.TryResolve(audioKey, out localFilePath);
+            }
+
+            return new VoiceAudioSource
+            {
+                LocalFilePath = localFilePath,
+                RemoteUrl = $"{server}?md5={audioKey}&token={token}"
+            };
+        }
+
+        private void PlayDialogueOptionAudio(string audioKey)
+        {
+            VoiceAudioSource source = CreateVoiceAudioSource(audioKey);
             bool shouldStart;
             int generation;
             lock (_audioPlaybackQueueLock)
@@ -1692,11 +1717,11 @@ namespace GI_Subtitles.Views
                 {
                     // Dialogue choices never interrupt current audio or form a backlog.
                     // Keep only the most recently selected choice.
-                    _pendingDialogueOptionUrl = url;
+                    _pendingDialogueOptionSource = source;
                     return;
                 }
 
-                _audioPlaybackQueue.Enqueue(url);
+                _audioPlaybackQueue.Enqueue(source);
                 shouldStart = !_audioPlaybackQueueActive;
                 _audioPlaybackQueueActive = true;
                 generation = _audioPlaybackGeneration;
@@ -1708,14 +1733,15 @@ namespace GI_Subtitles.Views
             }
         }
 
-        private void PlayMainAudioFromUrl(string url)
+        private void PlayMainAudio(string audioKey)
         {
+            VoiceAudioSource source = CreateVoiceAudioSource(audioKey);
             int generation;
             lock (_audioPlaybackQueueLock)
             {
                 _audioPlaybackQueue.Clear();
-                _pendingDialogueOptionUrl = null;
-                _audioPlaybackQueue.Enqueue(url);
+                _pendingDialogueOptionSource = null;
+                _audioPlaybackQueue.Enqueue(source);
                 _audioPlaybackQueueActive = true;
                 generation = ++_audioPlaybackGeneration;
             }
@@ -1729,7 +1755,7 @@ namespace GI_Subtitles.Views
             lock (_audioPlaybackQueueLock)
             {
                 _audioPlaybackQueue.Clear();
-                _pendingDialogueOptionUrl = null;
+                _pendingDialogueOptionSource = null;
                 _audioPlaybackQueueActive = false;
                 _audioPlaybackGeneration++;
             }
@@ -1810,7 +1836,7 @@ namespace GI_Subtitles.Views
         {
             while (true)
             {
-                string url;
+                VoiceAudioSource source;
                 lock (_audioPlaybackQueueLock)
                 {
                     if (generation != _audioPlaybackGeneration)
@@ -1819,10 +1845,10 @@ namespace GI_Subtitles.Views
                     }
 
                     if (_audioPlaybackQueue.Count == 0 &&
-                        !string.IsNullOrEmpty(_pendingDialogueOptionUrl))
+                        _pendingDialogueOptionSource != null)
                     {
-                        _audioPlaybackQueue.Enqueue(_pendingDialogueOptionUrl);
-                        _pendingDialogueOptionUrl = null;
+                        _audioPlaybackQueue.Enqueue(_pendingDialogueOptionSource);
+                        _pendingDialogueOptionSource = null;
                     }
 
                     if (_audioPlaybackQueue.Count == 0)
@@ -1831,7 +1857,31 @@ namespace GI_Subtitles.Views
                         return;
                     }
 
-                    url = _audioPlaybackQueue.Dequeue();
+                    source = _audioPlaybackQueue.Dequeue();
+                }
+
+                if (!string.IsNullOrEmpty(source.LocalFilePath) &&
+                    File.Exists(source.LocalFilePath))
+                {
+                    if (IsAudioTempFile(source.LocalFilePath))
+                    {
+                        Logger.Log.Debug($"Playing local voice file: {source.LocalFilePath}");
+                        await Dispatcher.InvokeAsync(() =>
+                        {
+                            lock (_audioPlaybackQueueLock)
+                            {
+                                if (generation != _audioPlaybackGeneration) return;
+                            }
+
+                            tempFilePath = source.LocalFilePath;
+                            StartAudioPlayback(source.LocalFilePath, generation);
+                        });
+                        return;
+                    }
+
+                    Logger.Log.Warn(
+                        $"Local voice file has an unsupported format; falling back to server: " +
+                        source.LocalFilePath);
                 }
 
                 string tempFile = Path.GetTempFileName();
@@ -1840,7 +1890,7 @@ namespace GI_Subtitles.Views
                     using (var webClient = new WebClient())
                     {
                         webClient.Headers[HttpRequestHeader.UserAgent] = "GI-Subtitles/1.0";
-                        await webClient.DownloadFileTaskAsync(new Uri(url), tempFile);
+                        await webClient.DownloadFileTaskAsync(new Uri(source.RemoteUrl), tempFile);
                     }
 
                     if (!IsAudioTempFile(tempFile))
@@ -1867,7 +1917,7 @@ namespace GI_Subtitles.Views
                 catch (WebException ex) when (ex.Response is HttpWebResponse response &&
                                               response.StatusCode == HttpStatusCode.NotFound)
                 {
-                    Logger.Log.Debug($"Audio not found: {url}");
+                    Logger.Log.Debug($"Audio not found: {source.RemoteUrl}");
                 }
                 catch (Exception ex)
                 {
@@ -1959,7 +2009,7 @@ namespace GI_Subtitles.Views
         public void PlayVoiceTest()
         {
             const string testAudioMd5 = "6f3ea6152a7864d324404f8d93a70a1a";
-            PlayMainAudioFromUrl($"{server}?md5={testAudioMd5}&token={token}");
+            PlayMainAudio(testAudioMd5);
         }
 
         private static double NormalizePlaybackSpeed(double speed)

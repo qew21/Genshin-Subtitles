@@ -134,6 +134,7 @@
     <Compile Include="Models\GameConfigStore.cs" />
     <Compile Include="Models\GameMetadata.cs" />
     <Compile Include="Services\OCR\ImageProcessor.cs" />
+    <Compile Include="Services\Audio\LocalVoiceFileResolver.cs" />
     <Compile Include="Services\OCR\DialogueOptionDetector.cs" />
     <Compile Include="Services\OCR\DarkScreenSubtitleDetector.cs" />
     <Compile Include="Core\UI\INotifyIcon.cs" />
