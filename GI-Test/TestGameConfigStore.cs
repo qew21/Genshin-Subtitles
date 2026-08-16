@@ -113,5 +113,71 @@ namespace GI_Test
             Assert.AreEqual("https://example.com/custom.atom", config.RepoUrl);
             Assert.AreEqual("https://example.com/{Language}.json", config.InputUrlTemplate);
         }
+
+        [TestMethod]
+        public void LegacyWutheringCache_IsMigratedAndPersisted()
+        {
+            AssertLegacyCacheIsMigratedAndPersisted(
+                "Wuthering",
+                new GameConfig
+                {
+                    RepoUrl = "https://github.com/Dimbreath/WutheringData/commits/master.atom",
+                    InputUrlTemplate = "https://raw.githubusercontent.com/Dimbreath/WutheringData/master/TextMap/{Language}/MultiText.json",
+                    OutputUrlTemplate = "https://raw.githubusercontent.com/Dimbreath/WutheringData/master/TextMap/{Language}/MultiText.json"
+                },
+                persisted =>
+                {
+                    Assert.AreEqual(GameConfigStore.WutheringRepoUrl, persisted.RepoUrl);
+                    Assert.AreEqual(GameConfigStore.WutheringTextMapUrlTemplate, persisted.InputUrlTemplate);
+                    Assert.AreEqual(GameConfigStore.WutheringTextMapUrlTemplate, persisted.OutputUrlTemplate);
+                });
+        }
+
+        [TestMethod]
+        public void LegacyEndfieldCache_IsMigratedAndPersisted()
+        {
+            AssertLegacyCacheIsMigratedAndPersisted(
+                "Endfield",
+                new GameConfig
+                {
+                    RepoUrl = "https://github.com/XiaBei-cy/EndfieldData/commits/master.atom",
+                    InputUrlTemplate = "https://raw.githubusercontent.com/XiaBei-cy/EndfieldData/master/i18n/I18nTextTable_{Language}.json",
+                    OutputUrlTemplate = "https://raw.githubusercontent.com/XiaBei-cy/EndfieldData/master/i18n/I18nTextTable_{Language}.json"
+                },
+                persisted =>
+                {
+                    Assert.AreEqual(GameConfigStore.EndfieldRepoUrl, persisted.RepoUrl);
+                    Assert.AreEqual(GameConfigStore.EndfieldTextMapUrlTemplate, persisted.InputUrlTemplate);
+                    Assert.AreEqual(GameConfigStore.EndfieldTextMapUrlTemplate, persisted.OutputUrlTemplate);
+                    Assert.AreEqual("zh-CN", persisted.LanguageMapping["CHS"]);
+                    Assert.AreEqual("pt-BR", persisted.LanguageMapping["PT"]);
+                });
+        }
+
+        private static void AssertLegacyCacheIsMigratedAndPersisted(
+            string gameName,
+            GameConfig legacyConfig,
+            Action<GameConfig> assertPersisted)
+        {
+            string tempDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDirectory);
+
+            try
+            {
+                string configPath = Path.Combine(tempDirectory, gameName + ".json");
+                File.WriteAllText(configPath, JsonConvert.SerializeObject(legacyConfig));
+                GameConfig loaded = GameConfigStore.LoadOrCreate(configPath, () => new GameConfig());
+
+                Assert.IsTrue(GameConfigStore.MigrateCachedRepository(configPath, gameName, loaded));
+
+                GameConfig persisted = JsonConvert.DeserializeObject<GameConfig>(File.ReadAllText(configPath));
+                assertPersisted(persisted);
+                Assert.IsFalse(GameConfigStore.MigrateCachedRepository(configPath, gameName, persisted));
+            }
+            finally
+            {
+                Directory.Delete(tempDirectory, true);
+            }
+        }
     }
 }

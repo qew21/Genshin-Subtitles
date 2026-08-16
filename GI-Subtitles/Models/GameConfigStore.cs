@@ -108,6 +108,50 @@ namespace GI_Subtitles.Models
             return changed;
         }
 
+        /// <summary>
+        /// Migrates repository URLs that are known to have moved for a specific game.
+        /// Custom repository URLs are left untouched.
+        /// </summary>
+        public static bool MigrateKnownRepository(string gameName, GameConfig config)
+        {
+            switch (gameName)
+            {
+                case "Wuthering":
+                    return MigrateWutheringRepository(config);
+                case "Endfield":
+                    return MigrateEndfieldRepository(config);
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>
+        /// Migrates a cached game configuration and immediately persists the replacement
+        /// to the same cache file. Returns true only when the updated cache was saved.
+        /// </summary>
+        public static bool MigrateCachedRepository(
+            string configPath,
+            string gameName,
+            GameConfig config,
+            Action<Exception> onWriteError = null)
+        {
+            if (!MigrateKnownRepository(gameName, config))
+            {
+                return false;
+            }
+
+            try
+            {
+                File.WriteAllText(configPath, JsonConvert.SerializeObject(config, Formatting.Indented));
+                return true;
+            }
+            catch (Exception ex)
+            {
+                onWriteError?.Invoke(ex);
+                return false;
+            }
+        }
+
         public static Dictionary<string, string> CreateEndfieldLanguageMapping()
         {
             return new Dictionary<string, string>

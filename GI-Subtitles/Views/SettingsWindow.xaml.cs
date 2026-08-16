@@ -498,32 +498,13 @@ namespace GI_Subtitles.Views
                 }
             }
 
-            if (fileExists && gameName == "Wuthering" &&
-                GameConfigStore.MigrateWutheringRepository(_currentGameConfig))
+            if (fileExists && GameConfigStore.MigrateCachedRepository(
+                configPath,
+                gameName,
+                _currentGameConfig,
+                ex => Logger.Log.Error($"Failed to update {gameName}.json during migration: {ex.Message}")))
             {
-                try
-                {
-                    File.WriteAllText(configPath, JsonConvert.SerializeObject(_currentGameConfig, Formatting.Indented));
-                    Logger.Log.Info($"Migrated cached repository URLs in {gameName}.json");
-                }
-                catch (Exception ex)
-                {
-                    Logger.Log.Error($"Failed to update {gameName}.json during migration: {ex.Message}");
-                }
-            }
-
-            if (fileExists && gameName == "Endfield" &&
-                GameConfigStore.MigrateEndfieldRepository(_currentGameConfig))
-            {
-                try
-                {
-                    File.WriteAllText(configPath, JsonConvert.SerializeObject(_currentGameConfig, Formatting.Indented));
-                    Logger.Log.Info($"Migrated cached repository URLs in {gameName}.json");
-                }
-                catch (Exception ex)
-                {
-                    Logger.Log.Error($"Failed to update {gameName}.json during migration: {ex.Message}");
-                }
+                Logger.Log.Info($"Migrated cached repository URLs in {gameName}.json");
             }
 
             MigrateLanguageMappings(gameName, configPath);
