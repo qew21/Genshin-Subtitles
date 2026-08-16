@@ -54,6 +54,39 @@ namespace GI_Test
                 });
         }
 
+        [TestMethod]
+        public void OrderedOverlays_ReplaceMaskedValuesAndIncludeNewIds()
+        {
+            string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(directory);
+            string primaryPath = Path.Combine(directory, "primary.json");
+            string firstPath = Path.Combine(directory, "first.json");
+            string laterPath = Path.Combine(directory, "later.json");
+            try
+            {
+                File.WriteAllText(primaryPath,
+                    "[{\"Id\":\"masked\",\"Content\":\"*****\"},{\"Id\":\"base\",\"Content\":\"base\"}]");
+                File.WriteAllText(firstPath,
+                    "[{\"Id\":\"masked\",\"Content\":\"restored\"},{\"Id\":\"new\",\"Content\":\"first\"}]");
+                File.WriteAllText(laterPath,
+                    "[{\"Id\":\"new\",\"Content\":\"latest\"}]");
+
+                TextMapNormalizer.MergeIdContentArrayFiles(
+                    primaryPath, new[] { firstPath, laterPath });
+
+                var result = JsonConvert.DeserializeObject<Dictionary<string, string>>(
+                    File.ReadAllText(primaryPath));
+                Assert.AreEqual(3, result.Count);
+                Assert.AreEqual("restored", result["masked"]);
+                Assert.AreEqual("base", result["base"]);
+                Assert.AreEqual("latest", result["new"]);
+            }
+            finally
+            {
+                Directory.Delete(directory, true);
+            }
+        }
+
         private static void WithTempFile(string content, Action<string> assertion)
         {
             string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));

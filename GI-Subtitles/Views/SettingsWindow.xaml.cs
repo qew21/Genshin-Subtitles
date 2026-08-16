@@ -1191,7 +1191,7 @@ namespace GI_Subtitles.Views
                     {
                         if (gameName == "Wuthering")
                         {
-                            await Task.Run(() => TextMapNormalizer.NormalizeIdContentArrayFile(tmpUpdateFile));
+                            await DownloadAndMergeWutheringPartsAsync(uri, tmpUpdateFile);
                         }
                         else if (gameName == "Genshin")
                         {
@@ -1300,6 +1300,60 @@ namespace GI_Subtitles.Views
             finally
             {
                 if (File.Exists(secondPartPath)) File.Delete(secondPartPath);
+            }
+        }
+
+        private async Task DownloadAndMergeWutheringPartsAsync(Uri mainPartUri, string destinationPath)
+        {
+            if (!WutheringTextMapSource.TryCreateDirectoryApiUri(mainPartUri, out Uri directoryApiUri))
+            {
+                await Task.Run(() => TextMapNormalizer.NormalizeIdContentArrayFile(destinationPath));
+                return;
+            }
+
+            string directoryJson;
+            using (var request = new HttpRequestMessage(HttpMethod.Get, directoryApiUri))
+            {
+                request.Headers.UserAgent.ParseAdd("GI-Subtitles/1.6");
+                request.Headers.Accept.ParseAdd("application/vnd.github+json");
+                using (HttpResponseMessage response = await client.SendAsync(request))
+                {
+                    response.EnsureSuccessStatusCode();
+                    directoryJson = await response.Content.ReadAsStringAsync();
+                }
+            }
+
+            IReadOnlyList<Uri> partUris = WutheringTextMapSource.ParsePartUris(
+                mainPartUri, directoryJson);
+            List<Uri> overlayUris = partUris
+                .Where(uri => !string.Equals(
+                    uri.AbsoluteUri, mainPartUri.AbsoluteUri, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            var overlayPaths = new List<string>();
+            try
+            {
+                for (int index = 0; index < overlayUris.Count; index++)
+                {
+                    string overlayPath = destinationPath + $".part{index + 1}";
+                    overlayPaths.Add(overlayPath);
+                    int partNumber = index + 2;
+                    int totalParts = overlayUris.Count + 1;
+                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                    {
+                        Status.Content = $"Downloading Wuthering data part {partNumber}/{totalParts}...";
+                    });
+                    await PerformDownloadAsync(overlayUris[index], overlayPath);
+                }
+
+                await Task.Run(() =>
+                    TextMapNormalizer.MergeIdContentArrayFiles(destinationPath, overlayPaths));
+            }
+            finally
+            {
+                foreach (string overlayPath in overlayPaths)
+                {
+                    if (File.Exists(overlayPath)) File.Delete(overlayPath);
+                }
             }
         }
 
