@@ -70,6 +70,7 @@ namespace GI_Subtitles.Views
         private List<GameMetadata> _supportedGames = new List<GameMetadata>();
         private GameConfig _currentGameConfig;
         private bool _isInitializingOutputSelection = true;
+        private readonly SemaphoreSlim _dataLoadLock = new SemaphoreSlim(1, 1);
 
         readonly Stopwatch sw = new Stopwatch();
         readonly static string dataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GI-Subtitles");
@@ -861,51 +862,76 @@ namespace GI_Subtitles.Views
 
         public async Task CheckDataAsync(bool renew = false)
         {
-            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+            await _dataLoadLock.WaitAsync();
+            try
             {
-                Status.Content = "Data loading......";
-                Logger.Log.Debug(Status.Content);
-                contentDict.Clear();
-            });
-            string userName = (OutputLanguage == "CHS") ? "旅行者" : "Traveler";
-
-            if (FileExists())
-            {
-                string inputFilePath = $"{Path.Combine(dataDir, Game)}\\TextMap{InputLanguage}.json";
-                string outputFilePath1 = $"{Path.Combine(dataDir, Game)}\\TextMap{OutputLanguage}.json";
-
-                string effectiveOutputPath = outputFilePath1;
-                // When two outputs are selected, build a merged json so each key maps to two-language content
-                if (!string.IsNullOrEmpty(OutputLanguage2))
+                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
                 {
-                    string outputFilePath2 = $"{Path.Combine(dataDir, Game)}\\TextMap{OutputLanguage2}.json";
-                    effectiveOutputPath = VoiceContentHelper.BuildMultiOutputJson(inputFilePath, outputFilePath1, outputFilePath2);
+                    Status.Content = "Data loading......";
+                    Logger.Log.Debug(Status.Content);
+                });
+
+                string game = Game;
+                string inputLanguage = InputLanguage;
+                string outputLanguage = OutputLanguage;
+                string outputLanguage2 = OutputLanguage2;
+                string userName = (outputLanguage == "CHS") ? "旅行者" : "Traveler";
+
+                if (FileExists())
+                {
+                    string inputFilePath = $"{Path.Combine(dataDir, game)}\\TextMap{inputLanguage}.json";
+                    string outputFilePath1 = $"{Path.Combine(dataDir, game)}\\TextMap{outputLanguage}.json";
+
+                    LoadedMatchData loaded = await Task.Run(() =>
+                    {
+                        string effectiveOutputPath = outputFilePath1;
+                        if (!string.IsNullOrEmpty(outputLanguage2))
+                        {
+                            string outputFilePath2 = $"{Path.Combine(dataDir, game)}\\TextMap{outputLanguage2}.json";
+                            effectiveOutputPath = VoiceContentHelper.BuildMultiOutputJson(
+                                inputFilePath,
+                                outputFilePath1,
+                                outputFilePath2);
+                        }
+
+                        string contentJsonPath = Path.Combine(
+                            Path.GetDirectoryName(inputFilePath),
+                            $"{Path.GetFileNameWithoutExtension(inputFilePath)}_{Path.GetFileNameWithoutExtension(effectiveOutputPath)}.json");
+
+                        return MatchDataLoader.Load(
+                            inputFilePath,
+                            effectiveOutputPath,
+                            contentJsonPath,
+                            inputLanguage,
+                            userName,
+                            renew);
+                    });
+
+                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                    {
+                        contentDict = loaded.Content;
+                        Matcher = loaded.Matcher;
+                        if (string.IsNullOrEmpty(outputLanguage2))
+                        {
+                            Status.Content = $"Loaded {contentDict.Count} key-values，{inputLanguage} -> {outputLanguage}";
+                        }
+                        else
+                        {
+                            Status.Content = $"Loaded {contentDict.Count} key-values，{inputLanguage} -> {outputLanguage}+{outputLanguage2}";
+                        }
+                        Logger.Log.Debug(Status.Content);
+                        Logger.Log.Debug(loaded.LoadedFromMatcherCache
+                            ? "Loaded OptimizedMatcher from cache."
+                            : "Built and cached OptimizedMatcher.");
+                    });
                 }
 
-                var jsonFilePath = Path.Combine(Path.GetDirectoryName(inputFilePath),
-                    $"{Path.GetFileNameWithoutExtension(inputFilePath)}_{Path.GetFileNameWithoutExtension(effectiveOutputPath)}.json");
-                if (renew && File.Exists(jsonFilePath))
-                {
-                    File.Delete(jsonFilePath);
-                }
-                contentDict = await Task.Run(() =>
-                    VoiceContentHelper.CreateVoiceContentDictionary(inputFilePath, effectiveOutputPath, userName));
+                await System.Windows.Application.Current.Dispatcher.InvokeAsync(DisplayLocalFileDates);
             }
-            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+            finally
             {
-                if (string.IsNullOrEmpty(OutputLanguage2))
-                {
-                    Status.Content = $"Loaded {contentDict.Count} key-values，{InputLanguage} -> {OutputLanguage}";
-                }
-                else
-                {
-                    Status.Content = $"Loaded {contentDict.Count} key-values，{InputLanguage} -> {OutputLanguage}+{OutputLanguage2}";
-                }
-                Logger.Log.Debug(Status.Content);
-                Matcher = new OptimizedMatcher(contentDict, InputLanguage);
-                Logger.Log.Debug("Loaded OptimizedMatcher...");
-            });
-            DisplayLocalFileDates();
+                _dataLoadLock.Release();
+            }
         }
 
         private void DisplayLocalFileDates()
