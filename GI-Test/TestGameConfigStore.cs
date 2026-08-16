@@ -39,5 +39,38 @@ namespace GI_Test
                 Directory.Delete(tempDirectory, true);
             }
         }
+
+        [TestMethod]
+        public void LegacyWutheringRepository_IsMigratedToArikatsuHead()
+        {
+            var config = new GameConfig
+            {
+                RepoUrl = "https://github.com/Dimbreath/WutheringData/commits/master.atom",
+                RepoType = "GitHubAtom",
+                InputUrlTemplate = "https://raw.githubusercontent.com/Dimbreath/WutheringData/refs/heads/master/TextMap/{Language}/MultiText.json",
+                OutputUrlTemplate = "https://raw.githubusercontent.com/Dimbreath/WutheringData/refs/heads/master/TextMap/{Language}/MultiText.json"
+            };
+
+            Assert.IsTrue(GameConfigStore.MigrateWutheringRepository(config));
+            Assert.AreEqual(GameConfigStore.WutheringRepoUrl, config.RepoUrl);
+            Assert.AreEqual(GameConfigStore.WutheringTextMapUrlTemplate, config.InputUrlTemplate);
+            Assert.AreEqual(GameConfigStore.WutheringTextMapUrlTemplate, config.OutputUrlTemplate);
+            Assert.IsFalse(GameConfigStore.MigrateWutheringRepository(config));
+        }
+
+        [TestMethod]
+        public void CustomWutheringRepository_IsPreserved()
+        {
+            var config = new GameConfig
+            {
+                RepoUrl = "https://example.com/custom.atom",
+                InputUrlTemplate = "https://example.com/{Language}.json",
+                OutputUrlTemplate = "https://example.com/{Language}.json"
+            };
+
+            Assert.IsFalse(GameConfigStore.MigrateWutheringRepository(config));
+            Assert.AreEqual("https://example.com/custom.atom", config.RepoUrl);
+            Assert.AreEqual("https://example.com/{Language}.json", config.InputUrlTemplate);
+        }
     }
 }

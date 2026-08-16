@@ -497,6 +497,20 @@ namespace GI_Subtitles.Views
                 }
             }
 
+            if (fileExists && gameName == "Wuthering" &&
+                GameConfigStore.MigrateWutheringRepository(_currentGameConfig))
+            {
+                try
+                {
+                    File.WriteAllText(configPath, JsonConvert.SerializeObject(_currentGameConfig, Formatting.Indented));
+                    Logger.Log.Info($"Migrated cached repository URLs in {gameName}.json");
+                }
+                catch (Exception ex)
+                {
+                    Logger.Log.Error($"Failed to update {gameName}.json during migration: {ex.Message}");
+                }
+            }
+
             MigrateLanguageMappings(gameName, configPath);
 
             repoUrl = _currentGameConfig.RepoUrl;
@@ -631,10 +645,10 @@ namespace GI_Subtitles.Views
                     };
                     break;
                 case "Wuthering":
-                    config.RepoUrl = "https://github.com/Dimbreath/WutheringData/commits/master.atom";
+                    config.RepoUrl = GameConfigStore.WutheringRepoUrl;
                     config.RepoType = "GitHubAtom";
-                    config.InputUrlTemplate = "https://raw.githubusercontent.com/Dimbreath/WutheringData/refs/heads/master/TextMap/{Language}/MultiText.json";
-                    config.OutputUrlTemplate = "https://raw.githubusercontent.com/Dimbreath/WutheringData/refs/heads/master/TextMap/{Language}/MultiText.json";
+                    config.InputUrlTemplate = GameConfigStore.WutheringTextMapUrlTemplate;
+                    config.OutputUrlTemplate = GameConfigStore.WutheringTextMapUrlTemplate;
                     config.TestFile = "Wuthering.png";
                     config.LanguageMapping = new Dictionary<string, string>
                     {
@@ -1149,7 +1163,11 @@ namespace GI_Subtitles.Views
 
                     if (File.Exists(tmpUpdateFile))
                     {
-                        if (gameName == "Genshin")
+                        if (gameName == "Wuthering")
+                        {
+                            await Task.Run(() => TextMapNormalizer.NormalizeIdContentArrayFile(tmpUpdateFile));
+                        }
+                        else if (gameName == "Genshin")
                         {
                             string mediumUrl = _currentGameConfig?.GetMediumDownloadUrl(language);
                             if (!string.IsNullOrEmpty(mediumUrl) &&

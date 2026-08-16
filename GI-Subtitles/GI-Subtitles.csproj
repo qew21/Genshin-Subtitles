@@ -127,6 +127,7 @@
     <Compile Include="Core\Config\Config.cs" />
     <Compile Include="Core\Cache\LRUCache.cs" />
     <Compile Include="Common\OCRSummary.cs" />
+    <Compile Include="Common\TextMapNormalizer.cs" />
     <Compile Include="Core\Input\HotkeySettings.cs" />
     <Compile Include="Models\GameConfig.cs" />
     <Compile Include="Models\GameConfigStore.cs" />
