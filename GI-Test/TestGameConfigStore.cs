@@ -72,5 +72,46 @@ namespace GI_Test
             Assert.AreEqual("https://example.com/custom.atom", config.RepoUrl);
             Assert.AreEqual("https://example.com/{Language}.json", config.InputUrlTemplate);
         }
+
+        [TestMethod]
+        public void LegacyEndfieldRepository_IsMigratedToCepChunks()
+        {
+            var config = new GameConfig
+            {
+                RepoUrl = "https://github.com/XiaBei-cy/EndfieldData/commits/master.atom",
+                RepoType = "GitHubAtom",
+                InputUrlTemplate = "https://raw.githubusercontent.com/XiaBei-cy/EndfieldData/refs/heads/master/i18n/I18nTextTable_{Language}.json",
+                OutputUrlTemplate = "https://raw.githubusercontent.com/XiaBei-cy/EndfieldData/refs/heads/master/i18n/I18nTextTable_{Language}.json",
+                LanguageMapping = new System.Collections.Generic.Dictionary<string, string>
+                {
+                    ["CHS"] = "CN",
+                    ["PT"] = "PT"
+                }
+            };
+
+            Assert.IsTrue(GameConfigStore.MigrateEndfieldRepository(config));
+            Assert.AreEqual(GameConfigStore.EndfieldRepoUrl, config.RepoUrl);
+            Assert.AreEqual(GameConfigStore.EndfieldTextMapUrlTemplate, config.InputUrlTemplate);
+            Assert.AreEqual("zh-CN", config.LanguageMapping["CHS"]);
+            Assert.AreEqual("zh-TW", config.LanguageMapping["CHT"]);
+            Assert.AreEqual("pt-BR", config.LanguageMapping["PT"]);
+            Assert.AreEqual("es-MX", config.LanguageMapping["ES"]);
+            Assert.IsFalse(GameConfigStore.MigrateEndfieldRepository(config));
+        }
+
+        [TestMethod]
+        public void CustomEndfieldRepository_IsPreserved()
+        {
+            var config = new GameConfig
+            {
+                RepoUrl = "https://example.com/custom.atom",
+                InputUrlTemplate = "https://example.com/{Language}.json",
+                OutputUrlTemplate = "https://example.com/{Language}.json"
+            };
+
+            Assert.IsFalse(GameConfigStore.MigrateEndfieldRepository(config));
+            Assert.AreEqual("https://example.com/custom.atom", config.RepoUrl);
+            Assert.AreEqual("https://example.com/{Language}.json", config.InputUrlTemplate);
+        }
     }
 }

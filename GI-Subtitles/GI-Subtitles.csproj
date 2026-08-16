@@ -128,6 +128,7 @@
     <Compile Include="Core\Cache\LRUCache.cs" />
     <Compile Include="Common\OCRSummary.cs" />
     <Compile Include="Common\TextMapNormalizer.cs" />
+    <Compile Include="Common\EndfieldTextMapSource.cs" />
     <Compile Include="Common\WutheringTextMapSource.cs" />
     <Compile Include="Core\Input\HotkeySettings.cs" />
     <Compile Include="Models\GameConfig.cs" />

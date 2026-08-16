@@ -90,6 +90,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Config.cs" />
+    <Compile Include="TestEndfieldTextMapSource.cs" />
     <Compile Include="TestGameConfigStore.cs" />
     <Compile Include="TestLocalVoiceFileResolver.cs" />
     <Compile Include="TestTextMapNormalizer.cs" />

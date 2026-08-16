@@ -512,6 +512,20 @@ namespace GI_Subtitles.Views
                 }
             }
 
+            if (fileExists && gameName == "Endfield" &&
+                GameConfigStore.MigrateEndfieldRepository(_currentGameConfig))
+            {
+                try
+                {
+                    File.WriteAllText(configPath, JsonConvert.SerializeObject(_currentGameConfig, Formatting.Indented));
+                    Logger.Log.Info($"Migrated cached repository URLs in {gameName}.json");
+                }
+                catch (Exception ex)
+                {
+                    Logger.Log.Error($"Failed to update {gameName}.json during migration: {ex.Message}");
+                }
+            }
+
             MigrateLanguageMappings(gameName, configPath);
 
             repoUrl = _currentGameConfig.RepoUrl;
@@ -668,25 +682,11 @@ namespace GI_Subtitles.Views
                     };
                     break;
                 case "Endfield":
-                    config.RepoUrl = "https://github.com/XiaBei-cy/EndfieldData/commits/master.atom";
+                    config.RepoUrl = GameConfigStore.EndfieldRepoUrl;
                     config.RepoType = "GitHubAtom";
-                    config.InputUrlTemplate = "https://raw.githubusercontent.com/XiaBei-cy/EndfieldData/refs/heads/master/i18n/I18nTextTable_{Language}.json";
-                    config.OutputUrlTemplate = "https://raw.githubusercontent.com/XiaBei-cy/EndfieldData/refs/heads/master/i18n/I18nTextTable_{Language}.json";
-                    config.LanguageMapping = new Dictionary<string, string>
-                    {
-                        ["CHS"] = "CN",
-                        ["EN"] = "EN",
-                        ["JP"] = "JP",
-                        ["KR"] = "KR",
-                        ["FR"] = "FR",
-                        ["DE"] = "DE",
-                        ["ES"] = "ES",
-                        ["PT"] = "PT",
-                        ["RU"] = "RU",
-                        ["TH"] = "TH",
-                        ["ID"] = "ID",
-                        ["VI"] = "VI"
-                    };
+                    config.InputUrlTemplate = GameConfigStore.EndfieldTextMapUrlTemplate;
+                    config.OutputUrlTemplate = GameConfigStore.EndfieldTextMapUrlTemplate;
+                    config.LanguageMapping = GameConfigStore.CreateEndfieldLanguageMapping();
                     break;
                 case "BH3":
                     config.Warning = "注意：崩坏三需要从群文件下载整理的数据，不像其他游戏一样有完全匹配的文本，暂时没有高质量仓库";
@@ -1212,6 +1212,10 @@ namespace GI_Subtitles.Views
                                 File.Move(tmpMediumFile, mediumFilePath);
                             }
                         }
+                        else if (gameName == "Endfield")
+                        {
+                            await DownloadAndMergeEndfieldChunksAsync(uri, tmpUpdateFile);
+                        }
                         else if (gameName == "StarRail" && language == "KR")
                         {
                             await DownloadAndMergeStarRailKoreanPartAsync(uri, tmpUpdateFile);
@@ -1353,6 +1357,58 @@ namespace GI_Subtitles.Views
                 foreach (string overlayPath in overlayPaths)
                 {
                     if (File.Exists(overlayPath)) File.Delete(overlayPath);
+                }
+            }
+        }
+
+        private async Task DownloadAndMergeEndfieldChunksAsync(Uri firstChunkUri, string destinationPath)
+        {
+            if (!EndfieldTextMapSource.TryCreateManifestUri(firstChunkUri, out Uri manifestUri))
+            {
+                return;
+            }
+
+            string manifestJson;
+            using (var request = new HttpRequestMessage(HttpMethod.Get, manifestUri))
+            {
+                request.Headers.UserAgent.ParseAdd("GI-Subtitles/1.6");
+                using (HttpResponseMessage response = await client.SendAsync(request))
+                {
+                    response.EnsureSuccessStatusCode();
+                    manifestJson = await response.Content.ReadAsStringAsync();
+                }
+            }
+
+            IReadOnlyList<Uri> chunkUris = EndfieldTextMapSource.ParseChunkUris(
+                firstChunkUri, manifestJson);
+            List<Uri> additionalChunkUris = chunkUris
+                .Where(uri => !string.Equals(
+                    uri.AbsoluteUri, firstChunkUri.AbsoluteUri, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            var additionalChunkPaths = new List<string>();
+            try
+            {
+                for (int index = 0; index < additionalChunkUris.Count; index++)
+                {
+                    string chunkPath = destinationPath + $".chunk{index + 1}";
+                    additionalChunkPaths.Add(chunkPath);
+                    int partNumber = index + 2;
+                    int totalParts = additionalChunkUris.Count + 1;
+                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                    {
+                        Status.Content = $"Downloading Endfield data part {partNumber}/{totalParts}...";
+                    });
+                    await PerformDownloadAsync(additionalChunkUris[index], chunkPath);
+                }
+
+                await Task.Run(() => TextMapNormalizer.MergeIdContentArrayFiles(
+                    destinationPath, additionalChunkPaths));
+            }
+            finally
+            {
+                foreach (string chunkPath in additionalChunkPaths)
+                {
+                    if (File.Exists(chunkPath)) File.Delete(chunkPath);
                 }
             }
         }
