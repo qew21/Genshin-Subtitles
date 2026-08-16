@@ -137,6 +137,8 @@
     <Compile Include="Services\OCR\DarkScreenSubtitleDetector.cs" />
     <Compile Include="Core\UI\INotifyIcon.cs" />
     <Compile Include="Services\Translation\OptimizedMatcher.cs" />
+    <Compile Include="Services\Translation\OptimizedMatcherCache.cs" />
+    <Compile Include="Services\Translation\MatchDataLoader.cs" />
     <Compile Include="Core\Screen\ScreenInfo.cs" />
     <Compile Include="Views\SettingsWindow.xaml.cs">
       <DependentUpon>Views\SettingsWindow.xaml</DependentUpon>

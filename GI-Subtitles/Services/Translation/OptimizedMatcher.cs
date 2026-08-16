@@ -26,7 +26,7 @@ namespace GI_Subtitles.Services.Translation
         private const ulong FNV_OFFSET_BASIS = 14695981039346656037UL;
         private const ulong FNV_PRIME = 1099511628211UL;
 
-        private struct Entry
+        internal struct Entry
         {
             public string NormalizedKey;
             public string OriginalKey;
@@ -61,6 +61,7 @@ namespace GI_Subtitles.Services.Translation
             var shortKeysList = new List<int>();
 
             int index = 0;
+            var distinctHashes = new HashSet<long>();
             foreach (var kvp in voiceContentDict)
             {
                 string normKey = NormalizeInput(kvp.Key, isEng);
@@ -80,7 +81,7 @@ namespace GI_Subtitles.Services.Translation
                 else
                 {
                     // Use hash to deduplicate, avoid creating string objects
-                    var distinctHashes = new HashSet<long>();
+                    distinctHashes.Clear();
                     for (int i = 0; i <= normKey.Length - _ngramSize; i++)
                     {
                         long hash = GetNgramHash(normKey, i, _ngramSize);
@@ -100,6 +101,29 @@ namespace GI_Subtitles.Services.Translation
             _shortKeysIndices = shortKeysList.ToArray();
             Loaded = true;
         }
+
+        internal OptimizedMatcher(
+            Dictionary<string, string> contentDict,
+            Entry[] entries,
+            Dictionary<long, List<int>> ngramIndex,
+            int[] shortKeysIndices,
+            bool isEnglish,
+            int ngramSize)
+        {
+            ContentDict = contentDict ?? throw new ArgumentNullException(nameof(contentDict));
+            _entries = entries ?? throw new ArgumentNullException(nameof(entries));
+            _ngramIndex = ngramIndex ?? throw new ArgumentNullException(nameof(ngramIndex));
+            _shortKeysIndices = shortKeysIndices ?? throw new ArgumentNullException(nameof(shortKeysIndices));
+            isEng = isEnglish;
+            _ngramSize = ngramSize;
+            Loaded = true;
+        }
+
+        internal Entry[] Entries => _entries;
+        internal Dictionary<long, List<int>> NgramIndex => _ngramIndex;
+        internal int[] ShortKeysIndices => _shortKeysIndices;
+        internal Dictionary<string, string> ContentDictionary => ContentDict;
+        internal int NgramSize => _ngramSize;
 
         public string FindClosestMatch(string input, out string Key)
         {
