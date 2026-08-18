@@ -26,6 +26,9 @@ namespace GI_Subtitles.Core.UI
         ToolStripMenuItem availableUpdateItem;
         private EventHandler availableUpdateClick;
         private string availableUpdateVersion;
+        private string availableUpdateTextResource = "Tray_UpdateAvailable";
+        private string availableUpdateTextFallback = "New version {0}";
+        private object[] availableUpdateTextArguments = Array.Empty<object>();
         private int Size = Config.Config.Get<int>("Size");
         private bool AutoStart = Config.Config.Get("AutoStart", false);
         public string[] Region = Config.Config.Get<string>("Region", "").Split(',');
@@ -131,8 +134,37 @@ namespace GI_Subtitles.Core.UI
 
             availableUpdateVersion = updateVersion;
             availableUpdateClick = clickHandler;
-            availableUpdateItem.Text = string.Format(
-                GetLocalizedString("Tray_UpdateAvailable", "New version {0}"), updateVersion);
+            availableUpdateTextResource = "Tray_UpdateAvailable";
+            availableUpdateTextFallback = "New version {0}";
+            availableUpdateTextArguments = new object[] { updateVersion };
+            availableUpdateItem.Text = FormatAvailableUpdateText();
+            availableUpdateItem.Enabled = true;
+            availableUpdateItem.Visible = true;
+        }
+
+        public void ShowUpdateStatus(string resourceKey, string fallback, params object[] arguments)
+        {
+            if (availableUpdateItem == null)
+                return;
+
+            availableUpdateTextResource = resourceKey;
+            availableUpdateTextFallback = fallback;
+            availableUpdateTextArguments = arguments ?? Array.Empty<object>();
+            availableUpdateItem.Text = FormatAvailableUpdateText();
+            availableUpdateItem.Enabled = false;
+            availableUpdateItem.Visible = true;
+        }
+
+        public void RestoreAvailableUpdate()
+        {
+            if (availableUpdateItem == null || string.IsNullOrWhiteSpace(availableUpdateVersion))
+                return;
+
+            availableUpdateTextResource = "Tray_UpdateAvailable";
+            availableUpdateTextFallback = "New version {0}";
+            availableUpdateTextArguments = new object[] { availableUpdateVersion };
+            availableUpdateItem.Text = FormatAvailableUpdateText();
+            availableUpdateItem.Enabled = true;
             availableUpdateItem.Visible = true;
         }
 
@@ -142,8 +174,10 @@ namespace GI_Subtitles.Core.UI
                 return;
 
             availableUpdateItem.Visible = false;
+            availableUpdateItem.Enabled = true;
             availableUpdateClick = null;
             availableUpdateVersion = null;
+            availableUpdateTextArguments = Array.Empty<object>();
         }
 
         /// <summary>
@@ -178,14 +212,25 @@ namespace GI_Subtitles.Core.UI
                 if (availableUpdateItem != null && availableUpdateItem.Visible &&
                     !string.IsNullOrWhiteSpace(availableUpdateVersion))
                 {
-                    availableUpdateItem.Text = string.Format(
-                        GetLocalizedString("Tray_UpdateAvailable", "New version {0}"),
-                        availableUpdateVersion);
+                    availableUpdateItem.Text = FormatAvailableUpdateText();
                 }
             }
             catch (Exception ex)
             {
                 Logger.Log.Error($"Error refreshing tray menu texts: {ex.Message}");
+            }
+        }
+
+        private string FormatAvailableUpdateText()
+        {
+            var format = GetLocalizedString(availableUpdateTextResource, availableUpdateTextFallback);
+            try
+            {
+                return string.Format(format, availableUpdateTextArguments);
+            }
+            catch (FormatException)
+            {
+                return availableUpdateTextFallback;
             }
         }
 
@@ -226,6 +271,12 @@ namespace GI_Subtitles.Core.UI
             {
                 Console.WriteLine(ex);
             }
+        }
+
+        public void ClearRegion2()
+        {
+            Config.Config.Set("Region2", string.Empty);
+            Region2 = Array.Empty<string>();
         }
 
         private ToolStripMenuItem CreateSizeItem(string code)

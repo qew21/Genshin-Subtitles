@@ -80,6 +80,7 @@
     <sys:String x:Key="Btn_OpenFolder" xmlns:sys="clr-namespace:System;assembly=mscorlib">打开程序文件夹</sys:String>
     <sys:String x:Key="Btn_ResetLocation" xmlns:sys="clr-namespace:System;assembly=mscorlib">重设字幕位置</sys:String>
     <sys:String x:Key="Btn_SecondRegion" xmlns:sys="clr-namespace:System;assembly=mscorlib">添加第二识别区域</sys:String>
+    <sys:String x:Key="Btn_DeleteSecondRegion_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">删除第二识别区域</sys:String>
     <sys:String x:Key="Btn_Voice" xmlns:sys="clr-namespace:System;assembly=mscorlib">支线配音</sys:String>
 
     <!-- Notify Icon Menu -->
@@ -87,8 +88,19 @@
     <sys:String x:Key="Tray_Settings" xmlns:sys="clr-namespace:System;assembly=mscorlib">程序设定</sys:String>
     <sys:String x:Key="Tray_Exit" xmlns:sys="clr-namespace:System;assembly=mscorlib">退出程序</sys:String>
     <sys:String x:Key="Tray_UpdateAvailable" xmlns:sys="clr-namespace:System;assembly=mscorlib">发现新版本 {0}</sys:String>
+    <sys:String x:Key="Tray_UpdateStarting" xmlns:sys="clr-namespace:System;assembly=mscorlib">正在下载版本 {0}：0%</sys:String>
+    <sys:String x:Key="Tray_UpdateDownloading" xmlns:sys="clr-namespace:System;assembly=mscorlib">正在下载版本 {0}：{1}%</sys:String>
+    <sys:String x:Key="Tray_UpdateVerifying" xmlns:sys="clr-namespace:System;assembly=mscorlib">版本 {0} 下载完成，正在校验</sys:String>
+    <sys:String x:Key="Tray_UpdateInstalling" xmlns:sys="clr-namespace:System;assembly=mscorlib">版本 {0} 校验完成，正在准备安装</sys:String>
     <sys:String x:Key="Update_Title" xmlns:sys="clr-namespace:System;assembly=mscorlib">版本更新</sys:String>
     <sys:String x:Key="Update_Message" xmlns:sys="clr-namespace:System;assembly=mscorlib">发现新版本 {0}。&#10;&#10;发布时间：{1}&#10;&#10;更新内容：&#10;{2}&#10;&#10;选择“是”下载并安装，选择“否”忽略此版本。</sys:String>
+    <sys:String x:Key="Update_AvailableHeading" xmlns:sys="clr-namespace:System;assembly=mscorlib">发现可用的新版本</sys:String>
+    <sys:String x:Key="Update_VersionLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">版本：</sys:String>
+    <sys:String x:Key="Update_PublishedLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">发布时间：</sys:String>
+    <sys:String x:Key="Update_ReleaseNotesLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">更新内容</sys:String>
+    <sys:String x:Key="Update_InstallButton" xmlns:sys="clr-namespace:System;assembly=mscorlib">下载并安装</sys:String>
+    <sys:String x:Key="Update_IgnoreButton" xmlns:sys="clr-namespace:System;assembly=mscorlib">忽略此版本</sys:String>
+    <sys:String x:Key="Update_LaterButton" xmlns:sys="clr-namespace:System;assembly=mscorlib">稍后</sys:String>
     <sys:String x:Key="Update_Error" xmlns:sys="clr-namespace:System;assembly=mscorlib">更新下载或校验失败，请稍后重试。</sys:String>
 
     <!-- Hotkey Descriptions -->

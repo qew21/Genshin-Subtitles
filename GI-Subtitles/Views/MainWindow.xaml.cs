@@ -50,6 +50,7 @@ using GI_Subtitles.Core.Config;
 using GI_Subtitles.Core.UI;
 using GI_Subtitles.Models;
 using GI_Subtitles.Services.OCR;
+using GI_Subtitles.Services.Audio;
 using GI_Subtitles.Services.Translation;
 using GI_Subtitles.Services.Update;
 using GI_Subtitles.Common;
@@ -132,13 +133,13 @@ namespace GI_Subtitles.Views
         private MediaFoundationReader mediaReader;
         private SoundTouchWaveProvider soundTouchProvider;
         private string tempFilePath;
-        private readonly Queue<string> _audioPlaybackQueue = new Queue<string>();
+        private readonly Queue<VoiceAudioSource> _audioPlaybackQueue = new Queue<VoiceAudioSource>();
         private readonly object _audioPlaybackQueueLock = new object();
-        private string _pendingDialogueOptionUrl;
+        private VoiceAudioSource _pendingDialogueOptionSource;
         private bool _audioPlaybackQueueActive;
         private int _audioPlaybackGeneration;
         private EventHandler<StoppedEventArgs> _playbackStoppedHandler;
-        private static readonly double[] VoicePlaybackSpeeds = { 1.0, 1.25, 1.5, 2.0 };
+        private static readonly double[] VoicePlaybackSpeeds = { 1.0, 1.25, 1.5, 1.75, 2.0 };
         private double _voicePlaybackSpeed = NormalizePlaybackSpeed(Config.Get<double>("VoicePlaybackSpeed", 1.0));
         private const int AudioTempCleanupThreshold = 60;
         private const int AudioTempFilesToKeep = 10;
@@ -156,16 +157,32 @@ namespace GI_Subtitles.Views
         private List<DialogueOptionCandidate> _lastDialogueOptions = new List<DialogueOptionCandidate>();
         private int _dialogueOptionMissCount;
         private static readonly TimeSpan DialogueOptionScanInterval = TimeSpan.FromMilliseconds(400);
+        private readonly bool _recognizeDarkScreenSubtitles = Config.Get("RecognizeDarkScreenSubtitles", true);
+        private readonly TimeSpan _darkScreenScanInterval = TimeSpan.FromMilliseconds(
+            Math.Max(250, Config.Get("DarkScreenScanInterval", 500)));
+        private DateTime _lastDarkScreenScanTime = DateTime.MinValue;
+        private bool _darkScreenMode;
+        private string _lastDarkScreenCandidateHash;
+        private string _lastDarkScreenOcrHash;
+        private int _darkScreenStableFrames;
         private readonly DispatcherTimer _dialogueChoiceDisplayTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromSeconds(3)
         };
         private ReleaseManifest availableUpdate;
+        private readonly LocalVoiceFileResolver _genshinVoiceFileResolver;
+
+        private sealed class VoiceAudioSource
+        {
+            public string LocalFilePath { get; set; }
+            public string RemoteUrl { get; set; }
+        }
 
 
         public MainWindow()
         {
             Logger.Log.Debug("Start App");
+            _genshinVoiceFileResolver = new LocalVoiceFileResolver(dataDir, "Genshin");
             Task.Run(() => CleanupOldAudioTempFiles());
             InitializeComponent();
             _dialogueChoiceDisplayTimer.Tick += (sender, args) =>
@@ -216,6 +233,7 @@ namespace GI_Subtitles.Views
             data = new SettingsWindow(version, notify, Scale);
             data.InitializeKey(handle);
             notify.SetData(data);
+            CleanupOldUpdatePackages();
             _ = CheckForUpdateAsync();
             if (!data.FileExists())
             {
@@ -295,6 +313,10 @@ namespace GI_Subtitles.Views
         public void GetOCR(object sender, EventArgs e)
         {
             if (notify.isContextMenuOpen)
+            {
+                return;
+            }
+            if (TryScanDarkScreenSubtitles())
             {
                 return;
             }
@@ -682,7 +704,7 @@ namespace GI_Subtitles.Views
                             (forceVoiceReplay || !AudioList.Contains(key)) && !string.IsNullOrEmpty(key))
                         {
                             string audioKey = VoiceContentHelper.CalculateMd5Hash(key);
-                            PlayMainAudioFromUrl($"{server}?md5={audioKey}&token={token}");
+                            PlayMainAudio(audioKey);
                             if (!AudioList.Contains(key))
                             {
                                 AudioList.Add(key);
@@ -832,7 +854,11 @@ namespace GI_Subtitles.Views
         /// </summary>
         /// <param name="frameToProcess">Image Mat for OCR (caller has already Clone)</param>
         /// <param name="target">Original screenshot Bitmap, used for debugging and setting preview image</param>
-        private async Task TriggerOcrAsync(Mat frameToProcess, Bitmap target, bool forceRefresh = false)
+        private async Task TriggerOcrAsync(
+            Mat frameToProcess,
+            Bitmap target,
+            bool forceRefresh = false,
+            string darkScreenHash = null)
         {
             _isOcrRunning = true;
             string recognizedText = null;
@@ -850,7 +876,9 @@ namespace GI_Subtitles.Views
 
                         string bitStr = ImageProcessor.ComputeRobustHash(frameToProcess);
 
-                        if (!forceRefresh && BitmapDict.TryGetValue(bitStr, out string cachedOcrText))
+                        if (!forceRefresh &&
+                            BitmapDict.TryGetValue(bitStr, out string cachedOcrText) &&
+                            !string.IsNullOrWhiteSpace(cachedOcrText))
                         {
                             recognizedText = cachedOcrText;
                             recognitionCompleted = true;
@@ -887,7 +915,10 @@ namespace GI_Subtitles.Views
                                     }
                                 }
 
-                                BitmapDict[bitStr] = recognizedText;
+                                if (!string.IsNullOrWhiteSpace(recognizedText))
+                                {
+                                    BitmapDict[bitStr] = recognizedText;
+                                }
                             }
                         }
 
@@ -946,6 +977,12 @@ namespace GI_Subtitles.Views
             }
             finally
             {
+                if (!string.IsNullOrEmpty(darkScreenHash) &&
+                    (!recognitionCompleted || string.IsNullOrWhiteSpace(recognizedText)))
+                {
+                    // Allow an unchanged candidate to retry after a transient OCR miss.
+                    _lastDarkScreenOcrHash = null;
+                }
                 _isOcrRunning = false;
                 frameToProcess?.Dispose();
 
@@ -999,6 +1036,150 @@ namespace GI_Subtitles.Views
             return region != null && region.Length == 4 &&
                    int.TryParse(region[2], out int width) && width > 0 &&
                    int.TryParse(region[3], out int height) && height > 0;
+        }
+
+        private bool TryScanDarkScreenSubtitles()
+        {
+            if (!_recognizeDarkScreenSubtitles || !IsValidRegion(notify.Region))
+            {
+                return false;
+            }
+
+            DateTime now = DateTime.UtcNow;
+            if (now - _lastDarkScreenScanTime < _darkScreenScanInterval)
+            {
+                return _darkScreenMode && !string.IsNullOrEmpty(_lastDarkScreenCandidateHash);
+            }
+            _lastDarkScreenScanTime = now;
+
+            if (_isOcrRunning)
+            {
+                return _darkScreenMode && !string.IsNullOrEmpty(_lastDarkScreenCandidateHash);
+            }
+
+            Bitmap searchBitmap = null;
+            Mat searchMat = null;
+            Bitmap candidateBitmap = null;
+            Mat candidateFrame = null;
+            bool candidatePassedToOcr = false;
+            try
+            {
+                int regionX = int.Parse(notify.Region[0]);
+                int regionY = int.Parse(notify.Region[1]);
+                int regionWidth = int.Parse(notify.Region[2]);
+                int regionHeight = int.Parse(notify.Region[3]);
+                var anchor = new System.Drawing.Point(
+                    regionX + regionWidth / 2,
+                    regionY + regionHeight / 2);
+                System.Drawing.Rectangle screen = Screen.GetBounds(anchor);
+                var searchBounds = new System.Drawing.Rectangle(
+                    screen.Left + (int)Math.Round(screen.Width * 0.05),
+                    screen.Top + (int)Math.Round(screen.Height * 0.20),
+                    (int)Math.Round(screen.Width * 0.90),
+                    (int)Math.Round(screen.Height * 0.45));
+
+                searchBitmap = CaptureRectangle(searchBounds);
+                searchMat = searchBitmap.ToMat();
+                bool found = DarkScreenSubtitleDetector.TryFindSubtitleRegion(
+                    searchMat,
+                    out OpenCvSharp.Rect candidateRegion,
+                    out bool isDarkScreen,
+                    out double darkRatio,
+                    out double brightRatio);
+
+                _darkScreenMode = isDarkScreen;
+                if (!isDarkScreen)
+                {
+                    ResetDarkScreenCandidate();
+                    return false;
+                }
+
+                if (!found)
+                {
+                    ResetDarkScreenCandidate();
+                    if (debug)
+                    {
+                        Logger.Log.Debug(
+                            $"Dark screen detected without subtitle candidate: dark={darkRatio:F3}, bright={brightRatio:F4}");
+                    }
+                    // A dark gameplay scene without a central text candidate must not
+                    // suppress OCR of the user's normal subtitle region.
+                    return false;
+                }
+
+                var bitmapRegion = new System.Drawing.Rectangle(
+                    candidateRegion.X,
+                    candidateRegion.Y,
+                    candidateRegion.Width,
+                    candidateRegion.Height);
+                candidateBitmap = searchBitmap.Clone(
+                    bitmapRegion,
+                    System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+                candidateFrame = candidateBitmap.ToMat();
+                string candidateHash = ImageProcessor.ComputeRobustHash(candidateFrame);
+
+                if (!string.IsNullOrEmpty(_lastDarkScreenCandidateHash) &&
+                    ImageProcessor.CalculateHammingDistance(
+                        candidateHash,
+                        _lastDarkScreenCandidateHash) <= 2)
+                {
+                    _darkScreenStableFrames++;
+                }
+                else
+                {
+                    _darkScreenStableFrames = 1;
+                }
+                _lastDarkScreenCandidateHash = candidateHash;
+
+                if (_darkScreenStableFrames < 2 ||
+                    (!string.IsNullOrEmpty(_lastDarkScreenOcrHash) &&
+                     ImageProcessor.CalculateHammingDistance(
+                         candidateHash,
+                         _lastDarkScreenOcrHash) <= 2))
+                {
+                    return true;
+                }
+
+                if (!IsOcrIntervalReady())
+                {
+                    return true;
+                }
+
+                _lastDarkScreenOcrHash = candidateHash;
+                Logger.Log.Debug(
+                    $"Stable dark-screen subtitle detected: dark={darkRatio:F3}, bright={brightRatio:F4}, " +
+                    $"candidate={candidateRegion}");
+                SetWindowPos(new WindowInteropHelper(this).Handle, -1, 0, 0, 0, 0, 1 | 2);
+                _ = TriggerOcrAsync(candidateFrame, candidateBitmap, darkScreenHash: candidateHash);
+                candidateFrame = null;
+                candidateBitmap = null;
+                candidatePassedToOcr = true;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logger.Log.Warn($"Dark-screen subtitle scan failed: {ex.Message}");
+                _darkScreenMode = false;
+                ResetDarkScreenCandidate();
+                return false;
+            }
+            finally
+            {
+                if (!candidatePassedToOcr)
+                {
+                    candidateFrame?.Dispose();
+                    candidateBitmap?.Dispose();
+                }
+                searchMat?.Dispose();
+                searchBitmap?.Dispose();
+            }
+        }
+
+        private void ResetDarkScreenCandidate()
+        {
+            _lastDarkScreenCandidateHash = null;
+            _lastDarkScreenOcrHash = null;
+            _darkScreenStableFrames = 0;
         }
 
         private bool TryScanDialogueOptions()
@@ -1179,7 +1360,7 @@ namespace GI_Subtitles.Views
             if (Config.Get<bool>("PlayVoice", false) && !string.IsNullOrEmpty(key))
             {
                 string audioKey = VoiceContentHelper.CalculateMd5Hash(key);
-                PlayDialogueOptionAudioFromUrl($"{server}?md5={audioKey}&token={token}");
+                PlayDialogueOptionAudio(audioKey);
             }
         }
 
@@ -1510,8 +1691,24 @@ namespace GI_Subtitles.Views
             player.Play();
         }
 
-        private void PlayDialogueOptionAudioFromUrl(string url)
+        private VoiceAudioSource CreateVoiceAudioSource(string audioKey)
         {
+            string localFilePath = null;
+            if (string.Equals(Game, "Genshin", StringComparison.OrdinalIgnoreCase))
+            {
+                _genshinVoiceFileResolver.TryResolve(audioKey, out localFilePath);
+            }
+
+            return new VoiceAudioSource
+            {
+                LocalFilePath = localFilePath,
+                RemoteUrl = $"{server}?md5={audioKey}&token={token}"
+            };
+        }
+
+        private void PlayDialogueOptionAudio(string audioKey)
+        {
+            VoiceAudioSource source = CreateVoiceAudioSource(audioKey);
             bool shouldStart;
             int generation;
             lock (_audioPlaybackQueueLock)
@@ -1520,11 +1717,11 @@ namespace GI_Subtitles.Views
                 {
                     // Dialogue choices never interrupt current audio or form a backlog.
                     // Keep only the most recently selected choice.
-                    _pendingDialogueOptionUrl = url;
+                    _pendingDialogueOptionSource = source;
                     return;
                 }
 
-                _audioPlaybackQueue.Enqueue(url);
+                _audioPlaybackQueue.Enqueue(source);
                 shouldStart = !_audioPlaybackQueueActive;
                 _audioPlaybackQueueActive = true;
                 generation = _audioPlaybackGeneration;
@@ -1536,14 +1733,15 @@ namespace GI_Subtitles.Views
             }
         }
 
-        private void PlayMainAudioFromUrl(string url)
+        private void PlayMainAudio(string audioKey)
         {
+            VoiceAudioSource source = CreateVoiceAudioSource(audioKey);
             int generation;
             lock (_audioPlaybackQueueLock)
             {
                 _audioPlaybackQueue.Clear();
-                _pendingDialogueOptionUrl = null;
-                _audioPlaybackQueue.Enqueue(url);
+                _pendingDialogueOptionSource = null;
+                _audioPlaybackQueue.Enqueue(source);
                 _audioPlaybackQueueActive = true;
                 generation = ++_audioPlaybackGeneration;
             }
@@ -1557,7 +1755,7 @@ namespace GI_Subtitles.Views
             lock (_audioPlaybackQueueLock)
             {
                 _audioPlaybackQueue.Clear();
-                _pendingDialogueOptionUrl = null;
+                _pendingDialogueOptionSource = null;
                 _audioPlaybackQueueActive = false;
                 _audioPlaybackGeneration++;
             }
@@ -1638,7 +1836,7 @@ namespace GI_Subtitles.Views
         {
             while (true)
             {
-                string url;
+                VoiceAudioSource source;
                 lock (_audioPlaybackQueueLock)
                 {
                     if (generation != _audioPlaybackGeneration)
@@ -1647,10 +1845,10 @@ namespace GI_Subtitles.Views
                     }
 
                     if (_audioPlaybackQueue.Count == 0 &&
-                        !string.IsNullOrEmpty(_pendingDialogueOptionUrl))
+                        _pendingDialogueOptionSource != null)
                     {
-                        _audioPlaybackQueue.Enqueue(_pendingDialogueOptionUrl);
-                        _pendingDialogueOptionUrl = null;
+                        _audioPlaybackQueue.Enqueue(_pendingDialogueOptionSource);
+                        _pendingDialogueOptionSource = null;
                     }
 
                     if (_audioPlaybackQueue.Count == 0)
@@ -1659,7 +1857,31 @@ namespace GI_Subtitles.Views
                         return;
                     }
 
-                    url = _audioPlaybackQueue.Dequeue();
+                    source = _audioPlaybackQueue.Dequeue();
+                }
+
+                if (!string.IsNullOrEmpty(source.LocalFilePath) &&
+                    File.Exists(source.LocalFilePath))
+                {
+                    if (IsAudioTempFile(source.LocalFilePath))
+                    {
+                        Logger.Log.Debug($"Playing local voice file: {source.LocalFilePath}");
+                        await Dispatcher.InvokeAsync(() =>
+                        {
+                            lock (_audioPlaybackQueueLock)
+                            {
+                                if (generation != _audioPlaybackGeneration) return;
+                            }
+
+                            tempFilePath = source.LocalFilePath;
+                            StartAudioPlayback(source.LocalFilePath, generation);
+                        });
+                        return;
+                    }
+
+                    Logger.Log.Warn(
+                        $"Local voice file has an unsupported format; falling back to server: " +
+                        source.LocalFilePath);
                 }
 
                 string tempFile = Path.GetTempFileName();
@@ -1668,7 +1890,7 @@ namespace GI_Subtitles.Views
                     using (var webClient = new WebClient())
                     {
                         webClient.Headers[HttpRequestHeader.UserAgent] = "GI-Subtitles/1.0";
-                        await webClient.DownloadFileTaskAsync(new Uri(url), tempFile);
+                        await webClient.DownloadFileTaskAsync(new Uri(source.RemoteUrl), tempFile);
                     }
 
                     if (!IsAudioTempFile(tempFile))
@@ -1695,7 +1917,7 @@ namespace GI_Subtitles.Views
                 catch (WebException ex) when (ex.Response is HttpWebResponse response &&
                                               response.StatusCode == HttpStatusCode.NotFound)
                 {
-                    Logger.Log.Debug($"Audio not found: {url}");
+                    Logger.Log.Debug($"Audio not found: {source.RemoteUrl}");
                 }
                 catch (Exception ex)
                 {
@@ -1787,7 +2009,7 @@ namespace GI_Subtitles.Views
         public void PlayVoiceTest()
         {
             const string testAudioMd5 = "6f3ea6152a7864d324404f8d93a70a1a";
-            PlayMainAudioFromUrl($"{server}?md5={testAudioMd5}&token={token}");
+            PlayMainAudio(testAudioMd5);
         }
 
         private static double NormalizePlaybackSpeed(double speed)
@@ -1863,16 +2085,13 @@ namespace GI_Subtitles.Views
             }
 
             var title = GetLocalizedText("Update_Title", "Software Update");
-            var template = GetLocalizedText(
-                "Update_Message",
-                "Version {0} is available.\n\nPublished: {1}\n\nWhat's new:\n{2}\n\nChoose Yes to download and install, or No to ignore this version.");
-            var result = System.Windows.Forms.MessageBox.Show(
-                string.Format(template, manifest.Version, manifest.PublishedAt, manifest.ReleaseNotes),
-                title,
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Information);
+            var updateWindow = new UpdateWindow(manifest)
+            {
+                Owner = this
+            };
+            updateWindow.ShowDialog();
 
-            if (result == System.Windows.Forms.DialogResult.No)
+            if (updateWindow.IgnoreRequested)
             {
                 Config.Set("IgnoredUpdateVersion", manifest.Version);
                 notify.HideAvailableUpdate();
@@ -1880,45 +2099,307 @@ namespace GI_Subtitles.Views
                 return;
             }
 
+            if (!updateWindow.InstallRequested)
+            {
+                return;
+            }
+
+            string msi = null;
             try
             {
-                var msi = Path.Combine(
-                    Path.GetTempPath(),
-                    $"GI-Subtitles-{manifest.Version}-{Guid.NewGuid():N}.msi");
-                using (var client = new WebClient())
-                {
-                    await client.DownloadFileTaskAsync(new Uri(asset.Url), msi);
-                }
+                var updateFolder = GetUpdateFolder();
+                Directory.CreateDirectory(updateFolder);
+                var safeVersion = string.Join(
+                    "_", (manifest.Version ?? "update").Split(Path.GetInvalidFileNameChars()));
+                msi = Path.Combine(updateFolder, $"GI-Subtitles-{safeVersion}.msi");
+                notify.ShowUpdateStatus(
+                    "Tray_UpdateStarting", "Downloading version {0}: 0%", manifest.Version);
+                Action<int> progress = percentage =>
+                    notify.ShowUpdateStatus(
+                        "Tray_UpdateDownloading", "Downloading version {0}: {1}%",
+                        manifest.Version, percentage);
+                await DownloadUpdateAsync(new Uri(asset.Url), msi, asset.Size, progress);
 
+                notify.ShowUpdateStatus(
+                    "Tray_UpdateVerifying", "Version {0} downloaded; verifying", manifest.Version);
                 var downloaded = new FileInfo(msi);
-                if (downloaded.Length != asset.Size ||
-                    !string.Equals(GetSha256(msi), asset.Sha256, StringComparison.OrdinalIgnoreCase))
+                var actualSha256 = GetSha256(msi);
+                if (downloaded.Length != asset.Size || !string.Equals(
+                    actualSha256, asset.Sha256, StringComparison.OrdinalIgnoreCase))
                 {
+                    Logger.Log.Error(
+                        $"Update verification failed. File: {msi}; " +
+                        $"size: {downloaded.Length}/{asset.Size}; " +
+                        $"SHA256: {actualSha256}/{asset.Sha256}");
                     File.Delete(msi);
                     throw new InvalidDataException("The downloaded installer did not match the release manifest.");
                 }
 
-                var startInfo = new ProcessStartInfo
-                {
-                    FileName = "msiexec.exe",
-                    Arguments = $"/i \"{msi}\" /quiet /norestart",
-                    UseShellExecute = true,
-                    Verb = "runas"
-                };
-
-                Process.Start(startInfo);
-                Logger.Log.Debug($"Start installation: msiexec {startInfo.Arguments}");
+                Logger.Log.Info($"Update package verified successfully. File: {msi}; SHA256: {actualSha256}");
+                CleanupOldUpdatePackages(msi);
+                notify.ShowUpdateStatus(
+                    "Tray_UpdateInstalling", "Version {0} verified; preparing installation",
+                    manifest.Version);
+                StartUpdateInstallerCoordinator(msi);
                 System.Windows.Application.Current.Shutdown();
             }
             catch (Exception ex)
             {
-                Logger.Log.Error($"Failed to install application update: {ex}");
+                notify.RestoreAvailableUpdate();
+                Logger.Log.Error($"Failed to download or start application update. File: {msi ?? "(not created)"}; {ex}");
                 System.Windows.Forms.MessageBox.Show(
                     GetLocalizedText("Update_Error", "The update could not be downloaded or verified. Please try again later."),
                     title,
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             }
+        }
+
+        private static async Task DownloadUpdateAsync(
+            Uri uri,
+            string destination,
+            long expectedSize,
+            Action<int> progress)
+        {
+            Logger.Log.Info(
+                $"Starting update download. URL: {uri}; target: {destination}; " +
+                $"expected size: {expectedSize} bytes");
+
+            using (var client = new HttpClient { Timeout = TimeSpan.FromMinutes(30) })
+            using (var response = await client.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead))
+            {
+                response.EnsureSuccessStatusCode();
+                var responseSize = response.Content.Headers.ContentLength;
+                var totalSize = responseSize.GetValueOrDefault(expectedSize);
+                if (responseSize.HasValue && responseSize.Value != expectedSize)
+                {
+                    Logger.Log.Warn(
+                        $"Update server content length differs from manifest: " +
+                        $"{responseSize.Value}/{expectedSize} bytes. Target: {destination}");
+                }
+
+                using (var source = await response.Content.ReadAsStreamAsync())
+                using (var target = new FileStream(
+                    destination, FileMode.Create, FileAccess.Write, FileShare.None,
+                    81920, useAsync: true))
+                {
+                    var buffer = new byte[81920];
+                    long downloaded = 0;
+                    var nextProgress = 10;
+                    int bytesRead;
+                    while ((bytesRead = await source.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                    {
+                        await target.WriteAsync(buffer, 0, bytesRead);
+                        downloaded += bytesRead;
+
+                        if (totalSize > 0)
+                        {
+                            var percentage = (int)Math.Min(100, downloaded * 100 / totalSize);
+                            while (percentage >= nextProgress && nextProgress <= 100)
+                            {
+                                progress?.Invoke(nextProgress);
+                                Logger.Log.Info(
+                                    $"Update download progress: {nextProgress}% " +
+                                    $"({downloaded}/{totalSize} bytes). Target: {destination}");
+                                nextProgress += 10;
+                            }
+                        }
+                    }
+
+                    await target.FlushAsync();
+                    Logger.Log.Info(
+                        $"Update download completed. Target: {destination}; " +
+                        $"downloaded: {downloaded} bytes");
+                }
+            }
+        }
+
+        private static string GetUpdateFolder()
+        {
+            return Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "GI-Subtitles",
+                "Updates");
+        }
+
+        private static void CleanupOldUpdatePackages(string preferredPackage = null, int maximumPackages = 2)
+        {
+            if (maximumPackages < 1)
+            {
+                throw new ArgumentOutOfRangeException(nameof(maximumPackages));
+            }
+
+            var updateFolder = GetUpdateFolder();
+            if (!Directory.Exists(updateFolder))
+            {
+                return;
+            }
+
+            try
+            {
+                var packages = new DirectoryInfo(updateFolder)
+                    .EnumerateFiles("GI-Subtitles-*.msi", SearchOption.TopDirectoryOnly)
+                    .Where(file => (file.Attributes & FileAttributes.ReparsePoint) == 0)
+                    .OrderByDescending(file => file.LastWriteTimeUtc)
+                    .ToList();
+                if (packages.Count <= maximumPackages)
+                {
+                    return;
+                }
+
+                var keep = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                AddPackageToKeep(keep, packages, preferredPackage);
+
+                var installedVersion = Assembly.GetExecutingAssembly().GetName().Version;
+                var installedPackage = packages.FirstOrDefault(file =>
+                    IsPackageForVersion(file, installedVersion));
+                AddPackageToKeep(keep, packages, installedPackage?.FullName);
+
+                foreach (var package in packages)
+                {
+                    if (keep.Count >= maximumPackages)
+                    {
+                        break;
+                    }
+
+                    keep.Add(package.FullName);
+                }
+
+                foreach (var package in packages.Where(file => !keep.Contains(file.FullName)))
+                {
+                    try
+                    {
+                        package.Delete();
+                        Logger.Log.Info($"Removed old update package: {package.FullName}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Log.Warn($"Failed to remove old update package {package.FullName}: {ex.Message}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Log.Warn($"Failed to clean the update package folder {updateFolder}: {ex.Message}");
+            }
+        }
+
+        private static void AddPackageToKeep(
+            HashSet<string> keep,
+            IEnumerable<FileInfo> packages,
+            string packagePath)
+        {
+            if (string.IsNullOrWhiteSpace(packagePath))
+            {
+                return;
+            }
+
+            var fullPath = Path.GetFullPath(packagePath);
+            var package = packages.FirstOrDefault(file => string.Equals(
+                file.FullName, fullPath, StringComparison.OrdinalIgnoreCase));
+            if (package != null)
+            {
+                keep.Add(package.FullName);
+            }
+        }
+
+        private static bool IsPackageForVersion(FileInfo package, Version versionToMatch)
+        {
+            const string prefix = "GI-Subtitles-";
+            var name = Path.GetFileNameWithoutExtension(package.Name);
+            if (!name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            var packageVersionText = name.Substring(prefix.Length);
+            var suffix = packageVersionText.IndexOf('-');
+            if (suffix >= 0)
+            {
+                packageVersionText = packageVersionText.Substring(0, suffix);
+            }
+
+            return Version.TryParse(packageVersionText, out var packageVersion) &&
+                packageVersion.Major == versionToMatch.Major &&
+                packageVersion.Minor == versionToMatch.Minor &&
+                packageVersion.Build == versionToMatch.Build;
+        }
+
+        private static void StartUpdateInstallerCoordinator(string msi)
+        {
+            var applicationPath = Assembly.GetExecutingAssembly().Location;
+            var logFolder = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "GI-Subtitles");
+            Directory.CreateDirectory(logFolder);
+            var applicationLog = Path.Combine(logFolder, "app.log");
+            var msiLog = Path.Combine(logFolder, "update-msi.log");
+            var currentProcessId = Process.GetCurrentProcess().Id;
+
+            var script = BuildUpdateCoordinatorScript(
+                msi, applicationPath, applicationLog, msiLog, currentProcessId);
+            var encodedScript = Convert.ToBase64String(Encoding.Unicode.GetBytes(script));
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand " + encodedScript,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden
+            };
+
+            var coordinator = Process.Start(startInfo);
+            if (coordinator == null)
+            {
+                throw new InvalidOperationException("The update installer coordinator could not be started.");
+            }
+
+            Logger.Log.Info(
+                $"Update installer coordinator started. PID: {coordinator.Id}; MSI: {msi}; " +
+                $"MSI log: {msiLog}; restart target: {applicationPath}");
+        }
+
+        private static string BuildUpdateCoordinatorScript(
+            string msi,
+            string applicationPath,
+            string applicationLog,
+            string msiLog,
+            int currentProcessId)
+        {
+            var script = new StringBuilder();
+            script.AppendLine("$ErrorActionPreference = 'Stop'");
+            script.AppendLine("$msiPath = " + ToPowerShellLiteral(msi));
+            script.AppendLine("$applicationPath = " + ToPowerShellLiteral(applicationPath));
+            script.AppendLine("$applicationLog = " + ToPowerShellLiteral(applicationLog));
+            script.AppendLine("$msiLog = " + ToPowerShellLiteral(msiLog));
+            script.AppendLine("$oldProcessId = " + currentProcessId);
+            script.AppendLine("function Write-UpdaterLog([string]$message) {");
+            script.AppendLine("    $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss,fff'");
+            script.AppendLine("    Add-Content -LiteralPath $applicationLog -Encoding UTF8 -Value (('[INFO ] Time: {0} Content: Updater: {1}' -f $timestamp, $message))");
+            script.AppendLine("}");
+            script.AppendLine("try {");
+            script.AppendLine("    Wait-Process -Id $oldProcessId -ErrorAction SilentlyContinue");
+            script.AppendLine("    Write-UpdaterLog ('Application process {0} exited; starting update.' -f $oldProcessId)");
+            script.AppendLine("    $msiArguments = '/i \"' + $msiPath + '\" /quiet /norestart /L*v \"' + $msiLog + '\"'");
+            script.AppendLine("    Write-UpdaterLog ('Starting installer. MSI: {0}; MSI log: {1}' -f $msiPath, $msiLog)");
+            script.AppendLine("    $installer = Start-Process -FilePath 'msiexec.exe' -Verb RunAs -ArgumentList $msiArguments -Wait -PassThru");
+            script.AppendLine("    Write-UpdaterLog ('Installer exited with code {0}.' -f $installer.ExitCode)");
+            script.AppendLine("    if (@(0, 1641, 3010) -notcontains $installer.ExitCode) { throw ('Installer failed with exit code {0}.' -f $installer.ExitCode) }");
+            script.AppendLine("    if (-not (Test-Path -LiteralPath $applicationPath -PathType Leaf)) { throw ('Installed application not found: {0}' -f $applicationPath) }");
+            script.AppendLine("    Start-Sleep -Milliseconds 500");
+            script.AppendLine("    Write-UpdaterLog ('Restarting application: {0}. Installer source retained at: {1}' -f $applicationPath, $msiPath)");
+            script.AppendLine("    Start-Process -FilePath $applicationPath -WorkingDirectory (Split-Path -Parent $applicationPath)");
+            script.AppendLine("}");
+            script.AppendLine("catch {");
+            script.AppendLine("    Write-UpdaterLog ('Update failed: {0}. Package retained at: {1}; MSI log: {2}' -f $_.Exception.Message, $msiPath, $msiLog)");
+            script.AppendLine("    if (Test-Path -LiteralPath $applicationPath -PathType Leaf) { Start-Process -FilePath $applicationPath -WorkingDirectory (Split-Path -Parent $applicationPath) }");
+            script.AppendLine("}");
+            return script.ToString();
+        }
+
+        private static string ToPowerShellLiteral(string value)
+        {
+            return "'" + (value ?? string.Empty).Replace("'", "''") + "'";
         }
 
         private static string GetSha256(string file)

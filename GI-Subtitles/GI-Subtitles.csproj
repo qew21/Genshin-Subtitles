@@ -127,17 +127,27 @@
     <Compile Include="Core\Config\Config.cs" />
     <Compile Include="Core\Cache\LRUCache.cs" />
     <Compile Include="Common\OCRSummary.cs" />
+    <Compile Include="Common\TextMapNormalizer.cs" />
+    <Compile Include="Common\EndfieldTextMapSource.cs" />
+    <Compile Include="Common\WutheringTextMapSource.cs" />
     <Compile Include="Core\Input\HotkeySettings.cs" />
     <Compile Include="Models\GameConfig.cs" />
     <Compile Include="Models\GameConfigStore.cs" />
     <Compile Include="Models\GameMetadata.cs" />
     <Compile Include="Services\OCR\ImageProcessor.cs" />
+    <Compile Include="Services\Audio\LocalVoiceFileResolver.cs" />
     <Compile Include="Services\OCR\DialogueOptionDetector.cs" />
+    <Compile Include="Services\OCR\DarkScreenSubtitleDetector.cs" />
     <Compile Include="Core\UI\INotifyIcon.cs" />
     <Compile Include="Services\Translation\OptimizedMatcher.cs" />
+    <Compile Include="Services\Translation\OptimizedMatcherCache.cs" />
+    <Compile Include="Services\Translation\MatchDataLoader.cs" />
     <Compile Include="Core\Screen\ScreenInfo.cs" />
     <Compile Include="Views\SettingsWindow.xaml.cs">
       <DependentUpon>Views\SettingsWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\UpdateWindow.xaml.cs">
+      <DependentUpon>Views\UpdateWindow.xaml</DependentUpon>
     </Compile>
     <Compile Include="Services\Video\SrtProcessor.cs" />
     <Compile Include="Views\Video.xaml.cs">
@@ -181,6 +191,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Views\SettingsWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\UpdateWindow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

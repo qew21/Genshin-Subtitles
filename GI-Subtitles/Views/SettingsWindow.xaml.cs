@@ -70,6 +70,7 @@ namespace GI_Subtitles.Views
         private List<GameMetadata> _supportedGames = new List<GameMetadata>();
         private GameConfig _currentGameConfig;
         private bool _isInitializingOutputSelection = true;
+        private readonly SemaphoreSlim _dataLoadLock = new SemaphoreSlim(1, 1);
 
         readonly Stopwatch sw = new Stopwatch();
         readonly static string dataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GI-Subtitles");
@@ -243,6 +244,7 @@ namespace GI_Subtitles.Views
             AutoStartCheckBox.IsChecked = Config.Get("AutoStart", false);
             PlayVoiceCheckBox.IsChecked = Config.Get("PlayVoice", true);
             RecognizeDialogueOptionsCheckBox.IsChecked = Config.Get("RecognizeDialogueOptions", false);
+            UpdateSecondRegionDeleteButtonState();
         }
 
         private void ResetLocation_Click(object sender, RoutedEventArgs e)
@@ -256,6 +258,21 @@ namespace GI_Subtitles.Views
         private void SecondRegion_Click(object sender, RoutedEventArgs e)
         {
             notifyIcon.ChooseRegion2();
+            UpdateSecondRegionDeleteButtonState();
+        }
+
+        private void DeleteSecondRegion_Click(object sender, RoutedEventArgs e)
+        {
+            notifyIcon.ClearRegion2();
+            UpdateSecondRegionDeleteButtonState();
+        }
+
+        private void UpdateSecondRegionDeleteButtonState()
+        {
+            string[] region = notifyIcon?.Region2;
+            DeleteSecondRegionButton.IsEnabled = region != null && region.Length == 4 &&
+                int.TryParse(region[2], out int width) && width > 0 &&
+                int.TryParse(region[3], out int height) && height > 0;
         }
 
         private void UILangSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -481,6 +498,15 @@ namespace GI_Subtitles.Views
                 }
             }
 
+            if (fileExists && GameConfigStore.MigrateCachedRepository(
+                configPath,
+                gameName,
+                _currentGameConfig,
+                ex => Logger.Log.Error($"Failed to update {gameName}.json during migration: {ex.Message}")))
+            {
+                Logger.Log.Info($"Migrated cached repository URLs in {gameName}.json");
+            }
+
             MigrateLanguageMappings(gameName, configPath);
 
             repoUrl = _currentGameConfig.RepoUrl;
@@ -615,10 +641,10 @@ namespace GI_Subtitles.Views
                     };
                     break;
                 case "Wuthering":
-                    config.RepoUrl = "https://github.com/Dimbreath/WutheringData/commits/master.atom";
+                    config.RepoUrl = GameConfigStore.WutheringRepoUrl;
                     config.RepoType = "GitHubAtom";
-                    config.InputUrlTemplate = "https://raw.githubusercontent.com/Dimbreath/WutheringData/refs/heads/master/TextMap/{Language}/MultiText.json";
-                    config.OutputUrlTemplate = "https://raw.githubusercontent.com/Dimbreath/WutheringData/refs/heads/master/TextMap/{Language}/MultiText.json";
+                    config.InputUrlTemplate = GameConfigStore.WutheringTextMapUrlTemplate;
+                    config.OutputUrlTemplate = GameConfigStore.WutheringTextMapUrlTemplate;
                     config.TestFile = "Wuthering.png";
                     config.LanguageMapping = new Dictionary<string, string>
                     {
@@ -637,25 +663,11 @@ namespace GI_Subtitles.Views
                     };
                     break;
                 case "Endfield":
-                    config.RepoUrl = "https://github.com/XiaBei-cy/EndfieldData/commits/master.atom";
+                    config.RepoUrl = GameConfigStore.EndfieldRepoUrl;
                     config.RepoType = "GitHubAtom";
-                    config.InputUrlTemplate = "https://raw.githubusercontent.com/XiaBei-cy/EndfieldData/refs/heads/master/i18n/I18nTextTable_{Language}.json";
-                    config.OutputUrlTemplate = "https://raw.githubusercontent.com/XiaBei-cy/EndfieldData/refs/heads/master/i18n/I18nTextTable_{Language}.json";
-                    config.LanguageMapping = new Dictionary<string, string>
-                    {
-                        ["CHS"] = "CN",
-                        ["EN"] = "EN",
-                        ["JP"] = "JP",
-                        ["KR"] = "KR",
-                        ["FR"] = "FR",
-                        ["DE"] = "DE",
-                        ["ES"] = "ES",
-                        ["PT"] = "PT",
-                        ["RU"] = "RU",
-                        ["TH"] = "TH",
-                        ["ID"] = "ID",
-                        ["VI"] = "VI"
-                    };
+                    config.InputUrlTemplate = GameConfigStore.EndfieldTextMapUrlTemplate;
+                    config.OutputUrlTemplate = GameConfigStore.EndfieldTextMapUrlTemplate;
+                    config.LanguageMapping = GameConfigStore.CreateEndfieldLanguageMapping();
                     break;
                 case "BH3":
                     config.Warning = "注意：崩坏三需要从群文件下载整理的数据，不像其他游戏一样有完全匹配的文本，暂时没有高质量仓库";
@@ -831,51 +843,76 @@ namespace GI_Subtitles.Views
 
         public async Task CheckDataAsync(bool renew = false)
         {
-            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+            await _dataLoadLock.WaitAsync();
+            try
             {
-                Status.Content = "Data loading......";
-                Logger.Log.Debug(Status.Content);
-                contentDict.Clear();
-            });
-            string userName = (OutputLanguage == "CHS") ? "旅行者" : "Traveler";
-
-            if (FileExists())
-            {
-                string inputFilePath = $"{Path.Combine(dataDir, Game)}\\TextMap{InputLanguage}.json";
-                string outputFilePath1 = $"{Path.Combine(dataDir, Game)}\\TextMap{OutputLanguage}.json";
-
-                string effectiveOutputPath = outputFilePath1;
-                // When two outputs are selected, build a merged json so each key maps to two-language content
-                if (!string.IsNullOrEmpty(OutputLanguage2))
+                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
                 {
-                    string outputFilePath2 = $"{Path.Combine(dataDir, Game)}\\TextMap{OutputLanguage2}.json";
-                    effectiveOutputPath = VoiceContentHelper.BuildMultiOutputJson(inputFilePath, outputFilePath1, outputFilePath2);
+                    Status.Content = "Data loading......";
+                    Logger.Log.Debug(Status.Content);
+                });
+
+                string game = Game;
+                string inputLanguage = InputLanguage;
+                string outputLanguage = OutputLanguage;
+                string outputLanguage2 = OutputLanguage2;
+                string userName = (outputLanguage == "CHS") ? "旅行者" : "Traveler";
+
+                if (FileExists())
+                {
+                    string inputFilePath = $"{Path.Combine(dataDir, game)}\\TextMap{inputLanguage}.json";
+                    string outputFilePath1 = $"{Path.Combine(dataDir, game)}\\TextMap{outputLanguage}.json";
+
+                    LoadedMatchData loaded = await Task.Run(() =>
+                    {
+                        string effectiveOutputPath = outputFilePath1;
+                        if (!string.IsNullOrEmpty(outputLanguage2))
+                        {
+                            string outputFilePath2 = $"{Path.Combine(dataDir, game)}\\TextMap{outputLanguage2}.json";
+                            effectiveOutputPath = VoiceContentHelper.BuildMultiOutputJson(
+                                inputFilePath,
+                                outputFilePath1,
+                                outputFilePath2);
+                        }
+
+                        string contentJsonPath = Path.Combine(
+                            Path.GetDirectoryName(inputFilePath),
+                            $"{Path.GetFileNameWithoutExtension(inputFilePath)}_{Path.GetFileNameWithoutExtension(effectiveOutputPath)}.json");
+
+                        return MatchDataLoader.Load(
+                            inputFilePath,
+                            effectiveOutputPath,
+                            contentJsonPath,
+                            inputLanguage,
+                            userName,
+                            renew);
+                    });
+
+                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                    {
+                        contentDict = loaded.Content;
+                        Matcher = loaded.Matcher;
+                        if (string.IsNullOrEmpty(outputLanguage2))
+                        {
+                            Status.Content = $"Loaded {contentDict.Count} key-values，{inputLanguage} -> {outputLanguage}";
+                        }
+                        else
+                        {
+                            Status.Content = $"Loaded {contentDict.Count} key-values，{inputLanguage} -> {outputLanguage}+{outputLanguage2}";
+                        }
+                        Logger.Log.Debug(Status.Content);
+                        Logger.Log.Debug(loaded.LoadedFromMatcherCache
+                            ? "Loaded OptimizedMatcher from cache."
+                            : "Built and cached OptimizedMatcher.");
+                    });
                 }
 
-                var jsonFilePath = Path.Combine(Path.GetDirectoryName(inputFilePath),
-                    $"{Path.GetFileNameWithoutExtension(inputFilePath)}_{Path.GetFileNameWithoutExtension(effectiveOutputPath)}.json");
-                if (renew && File.Exists(jsonFilePath))
-                {
-                    File.Delete(jsonFilePath);
-                }
-                contentDict = await Task.Run(() =>
-                    VoiceContentHelper.CreateVoiceContentDictionary(inputFilePath, effectiveOutputPath, userName));
+                await System.Windows.Application.Current.Dispatcher.InvokeAsync(DisplayLocalFileDates);
             }
-            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+            finally
             {
-                if (string.IsNullOrEmpty(OutputLanguage2))
-                {
-                    Status.Content = $"Loaded {contentDict.Count} key-values，{InputLanguage} -> {OutputLanguage}";
-                }
-                else
-                {
-                    Status.Content = $"Loaded {contentDict.Count} key-values，{InputLanguage} -> {OutputLanguage}+{OutputLanguage2}";
-                }
-                Logger.Log.Debug(Status.Content);
-                Matcher = new OptimizedMatcher(contentDict, InputLanguage);
-                Logger.Log.Debug("Loaded OptimizedMatcher...");
-            });
-            DisplayLocalFileDates();
+                _dataLoadLock.Release();
+            }
         }
 
         private void DisplayLocalFileDates()
@@ -1133,7 +1170,11 @@ namespace GI_Subtitles.Views
 
                     if (File.Exists(tmpUpdateFile))
                     {
-                        if (gameName == "Genshin")
+                        if (gameName == "Wuthering")
+                        {
+                            await DownloadAndMergeWutheringPartsAsync(uri, tmpUpdateFile);
+                        }
+                        else if (gameName == "Genshin")
                         {
                             string mediumUrl = _currentGameConfig?.GetMediumDownloadUrl(language);
                             if (!string.IsNullOrEmpty(mediumUrl) &&
@@ -1151,6 +1192,10 @@ namespace GI_Subtitles.Views
                                 if (File.Exists(mediumFilePath)) File.Delete(mediumFilePath);
                                 File.Move(tmpMediumFile, mediumFilePath);
                             }
+                        }
+                        else if (gameName == "Endfield")
+                        {
+                            await DownloadAndMergeEndfieldChunksAsync(uri, tmpUpdateFile);
                         }
                         else if (gameName == "StarRail" && language == "KR")
                         {
@@ -1240,6 +1285,112 @@ namespace GI_Subtitles.Views
             finally
             {
                 if (File.Exists(secondPartPath)) File.Delete(secondPartPath);
+            }
+        }
+
+        private async Task DownloadAndMergeWutheringPartsAsync(Uri mainPartUri, string destinationPath)
+        {
+            if (!WutheringTextMapSource.TryCreateDirectoryApiUri(mainPartUri, out Uri directoryApiUri))
+            {
+                await Task.Run(() => TextMapNormalizer.NormalizeIdContentArrayFile(destinationPath));
+                return;
+            }
+
+            string directoryJson;
+            using (var request = new HttpRequestMessage(HttpMethod.Get, directoryApiUri))
+            {
+                request.Headers.UserAgent.ParseAdd("GI-Subtitles/1.6");
+                request.Headers.Accept.ParseAdd("application/vnd.github+json");
+                using (HttpResponseMessage response = await client.SendAsync(request))
+                {
+                    response.EnsureSuccessStatusCode();
+                    directoryJson = await response.Content.ReadAsStringAsync();
+                }
+            }
+
+            IReadOnlyList<Uri> partUris = WutheringTextMapSource.ParsePartUris(
+                mainPartUri, directoryJson);
+            List<Uri> overlayUris = partUris
+                .Where(uri => !string.Equals(
+                    uri.AbsoluteUri, mainPartUri.AbsoluteUri, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            var overlayPaths = new List<string>();
+            try
+            {
+                for (int index = 0; index < overlayUris.Count; index++)
+                {
+                    string overlayPath = destinationPath + $".part{index + 1}";
+                    overlayPaths.Add(overlayPath);
+                    int partNumber = index + 2;
+                    int totalParts = overlayUris.Count + 1;
+                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                    {
+                        Status.Content = $"Downloading Wuthering data part {partNumber}/{totalParts}...";
+                    });
+                    await PerformDownloadAsync(overlayUris[index], overlayPath);
+                }
+
+                await Task.Run(() =>
+                    TextMapNormalizer.MergeIdContentArrayFiles(destinationPath, overlayPaths));
+            }
+            finally
+            {
+                foreach (string overlayPath in overlayPaths)
+                {
+                    if (File.Exists(overlayPath)) File.Delete(overlayPath);
+                }
+            }
+        }
+
+        private async Task DownloadAndMergeEndfieldChunksAsync(Uri firstChunkUri, string destinationPath)
+        {
+            if (!EndfieldTextMapSource.TryCreateManifestUri(firstChunkUri, out Uri manifestUri))
+            {
+                return;
+            }
+
+            string manifestJson;
+            using (var request = new HttpRequestMessage(HttpMethod.Get, manifestUri))
+            {
+                request.Headers.UserAgent.ParseAdd("GI-Subtitles/1.6");
+                using (HttpResponseMessage response = await client.SendAsync(request))
+                {
+                    response.EnsureSuccessStatusCode();
+                    manifestJson = await response.Content.ReadAsStringAsync();
+                }
+            }
+
+            IReadOnlyList<Uri> chunkUris = EndfieldTextMapSource.ParseChunkUris(
+                firstChunkUri, manifestJson);
+            List<Uri> additionalChunkUris = chunkUris
+                .Where(uri => !string.Equals(
+                    uri.AbsoluteUri, firstChunkUri.AbsoluteUri, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            var additionalChunkPaths = new List<string>();
+            try
+            {
+                for (int index = 0; index < additionalChunkUris.Count; index++)
+                {
+                    string chunkPath = destinationPath + $".chunk{index + 1}";
+                    additionalChunkPaths.Add(chunkPath);
+                    int partNumber = index + 2;
+                    int totalParts = additionalChunkUris.Count + 1;
+                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                    {
+                        Status.Content = $"Downloading Endfield data part {partNumber}/{totalParts}...";
+                    });
+                    await PerformDownloadAsync(additionalChunkUris[index], chunkPath);
+                }
+
+                await Task.Run(() => TextMapNormalizer.MergeIdContentArrayFiles(
+                    destinationPath, additionalChunkPaths));
+            }
+            finally
+            {
+                foreach (string chunkPath in additionalChunkPaths)
+                {
+                    if (File.Exists(chunkPath)) File.Delete(chunkPath);
+                }
             }
         }
 
