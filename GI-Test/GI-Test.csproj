@@ -104,6 +104,10 @@
     <Compile Include="TestLiveOverlaySessionOcrInterval.cs" />
     <Compile Include="TestLiveOverlaySessionHint.cs" />
     <Compile Include="TestHintScreenSelection.cs" />
+    <Compile Include="TestLiveOverlaySessionActivityLog.cs" />
+    <Compile Include="TestLiveOverlaySessionPipelineLog.cs" />
+    <Compile Include="TestDuplicatePipelineLogDiagnosis.cs" />
+    <Compile Include="TestLiveOverlaySessionExtraPathRepeat.cs" />
     <Compile Include="TestLiveOverlaySessionRegionPairs.cs" />
     <Compile Include="TestLiveOverlaySessionVoicePrimary.cs" />
     <Compile Include="TestLiveOverlaySessionRegressions.cs" />

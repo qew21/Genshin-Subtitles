@@ -140,7 +140,10 @@
     <Compile Include="Core\Overlay\ConfigRegionPairStore.cs" />
     <Compile Include="Core\Overlay\OverlayLayoutRecord.cs" />
     <Compile Include="Core\Overlay\OverlayLayoutPersistence.cs" />
+    <Compile Include="Core\Overlay\ActivityLogRow.cs" />
+    <Compile Include="Core\Overlay\ActivityLogResultProjection.cs" />
     <Compile Include="Core\Overlay\HintScreenSelection.cs" />
+    <Compile Include="Core\Overlay\OperatorJob.cs" />
     <Compile Include="Core\Overlay\LiveOverlaySession.cs" />
     <Compile Include="Core\Overlay\LiveOverlaySession.OperatorActions.cs">
       <DependentUpon>LiveOverlaySession.cs</DependentUpon>
@@ -169,6 +172,9 @@
     </Compile>
     <Compile Include="Views\SettingsWindow.xaml.cs">
       <DependentUpon>Views\SettingsWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\ActivityLogWindow.xaml.cs">
+      <DependentUpon>Views\ActivityLogWindow.xaml</DependentUpon>
     </Compile>
     <Compile Include="Views\UpdateWindow.xaml.cs">
       <DependentUpon>Views\UpdateWindow.xaml</DependentUpon>
@@ -213,6 +219,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Resources\Strings.zh-CN.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\ActivityLogWindow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

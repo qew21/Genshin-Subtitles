@@ -536,6 +536,7 @@
                     <!-- Action Buttons -->
                     <WrapPanel Grid.Row="2" HorizontalAlignment="Left" Margin="0,10,0,0">
                         <Button Content="{DynamicResource Btn_OpenFolder}" Margin="0,0,20,0" Click="OpenAppDataFolder_Click"/>
+                        <Button Content="{DynamicResource Btn_ActivityLog}" Margin="0,0,20,0" Click="OpenActivityLog_Click"/>
                         <Button Content="{DynamicResource Btn_SubtitleFont}" Margin="0,0,20,0" Click="FontPreview_Click"/>
                     </WrapPanel>
 

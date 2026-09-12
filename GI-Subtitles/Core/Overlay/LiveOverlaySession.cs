@@ -317,7 +317,7 @@ namespace GI_Subtitles.Core.Overlay
             Tick();
             if (!hasCaptureRegion)
             {
-                WriteOperatorAction(HintResourceCaptureRegionMissing);
+                WriteOperatorAction(OperatorJob.Preview, null, HintResourceCaptureRegionMissing);
                 ClearPreview();
                 return;
             }
