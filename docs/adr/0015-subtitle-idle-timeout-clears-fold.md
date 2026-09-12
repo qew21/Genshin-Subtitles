@@ -1,0 +1,3 @@
+# Subtitle idle timeout clears the body and the result fold
+
+Region-pair and dark-screen subtitle bodies can linger after the operator has finished reading them; match-miss, detection-miss, and result fold all keep the current line on purpose. Subtitle idle timeout is a global whole-seconds preference (zero = off) that clears one surface’s body after that long with no newly applied recognition result on that surface alone — not the dialogue-choice echo, and not the operator hide/show mute. Expiry must also forget that surface’s result fold so the same line can show (and speak) again; clearing the pixels while leaving the fold would permanently suppress the line. Expiry is silent in the activity log and does not stop voice.

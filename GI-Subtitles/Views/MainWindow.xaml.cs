@@ -81,7 +81,8 @@ namespace GI_Subtitles.Views
             new ConfigOcrIntervalStore(),
             new ConfigRegionPairStore(),
             utcNow: null,
-            appliedGame: Config.Get("Game", "Genshin"));
+            appliedGame: Config.Get("Game", "Genshin"),
+            idleTimeoutStore: new ConfigSubtitleIdleTimeoutStore());
         private readonly List<Mat> _pairLastBinary = new List<Mat>();
         private readonly List<Mat> _pairLastOcrBinary = new List<Mat>();
         private readonly List<Bitmap> _pairCapturedBitmaps = new List<Bitmap>();

@@ -76,6 +76,9 @@
     <sys:String x:Key="RegionPair_BoxDisplayMask" xmlns:sys="clr-namespace:System;assembly=mscorlib">表示区を枠選（対 {0}）</sys:String>
     <sys:String x:Key="Config_OcrInterval_Label" xmlns:sys="clr-namespace:System;assembly=mscorlib">最小認識間隔</sys:String>
     <sys:String x:Key="Config_OcrInterval_OutOfRange" xmlns:sys="clr-namespace:System;assembly=mscorlib">現在 {0}ms、200–1000 の範囲外です。エンジンはこの値のまま動作します。変更すると範囲内に収めます。</sys:String>
+    <sys:String x:Key="Config_SubtitleIdleTimeout_Label" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕アイドルタイムアウト</sys:String>
+    <sys:String x:Key="Config_SubtitleIdleTimeout_Unit" xmlns:sys="clr-namespace:System;assembly=mscorlib">秒</sys:String>
+    <sys:String x:Key="Config_SubtitleIdleTimeout_Help" xmlns:sys="clr-namespace:System;assembly=mscorlib">領域ペアと暗幕字幕を、この秒数アイドルしたら消します。0 でオフ。範囲 0–60。</sys:String>
     <sys:String x:Key="Hint_RecognitionRunning" xmlns:sys="clr-namespace:System;assembly=mscorlib">認識中</sys:String>
     <sys:String x:Key="Hint_RecognitionStopped" xmlns:sys="clr-namespace:System;assembly=mscorlib">停止中</sys:String>
     <sys:String x:Key="Hint_CaptureRegionBoxed" xmlns:sys="clr-namespace:System;assembly=mscorlib">認識領域を選択済み</sys:String>
