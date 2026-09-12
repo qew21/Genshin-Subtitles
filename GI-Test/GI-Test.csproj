@@ -105,6 +105,9 @@
     <Compile Include="TestLiveOverlaySessionHint.cs" />
     <Compile Include="TestHintScreenSelection.cs" />
     <Compile Include="TestLiveOverlaySessionActivityLog.cs" />
+    <Compile Include="TestLiveOverlaySessionResultFold.cs" />
+    <Compile Include="TestLiveOverlaySessionMatchMissKeep.cs" />
+    <Compile Include="TestActivityLogRowFilter.cs" />
     <Compile Include="TestLiveOverlaySessionPipelineLog.cs" />
     <Compile Include="TestDuplicatePipelineLogDiagnosis.cs" />
     <Compile Include="TestLiveOverlaySessionExtraPathRepeat.cs" />

@@ -6,6 +6,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
+using GI_Subtitles.Core.Config;
 using GI_Subtitles.Core.Overlay;
 
 namespace GI_Subtitles.Views
@@ -17,6 +18,7 @@ namespace GI_Subtitles.Views
         private readonly List<ActivityLogRow> _rowSources = new List<ActivityLogRow>();
         private bool _forceClose;
         private bool _opened;
+        private ActivityLogRowFilter _filter = new ActivityLogRowFilter(ReadLogDenoise());
 
         public ActivityLogWindow(LiveOverlaySession session)
         {
@@ -61,6 +63,26 @@ namespace GI_Subtitles.Views
             Topmost = false;
         }
 
+        private static bool ReadLogDenoise()
+        {
+            return Config.Get("LogDenoise", true);
+        }
+
+        public void ApplyLogDenoiseSetting()
+        {
+            // The settings checkbox toggled: re-project now while the window is
+            // open; a hidden window picks the setting up in its next Rebuild.
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (!IsVisible || ReadLogDenoise() == _filter.HideRepeats)
+                {
+                    return;
+                }
+
+                Rebuild();
+            }));
+        }
+
         private void OnClosing(object sender, CancelEventArgs e)
         {
             if (_forceClose)
@@ -94,6 +116,7 @@ namespace GI_Subtitles.Views
 
         private void Rebuild()
         {
+            _filter = new ActivityLogRowFilter(ReadLogDenoise());
             _rows.Clear();
             _rowSources.Clear();
             SyncRows();
@@ -104,23 +127,24 @@ namespace GI_Subtitles.Views
             IReadOnlyList<ActivityLogRow> log = _session.ActivityLog;
             if (change == null)
             {
-                for (int i = 0; i < log.Count; i++)
+                IReadOnlyList<ActivityLogRow> shown = _filter.Consume(log);
+                foreach (ActivityLogRow row in shown)
                 {
-                    AddRow(log[i]);
+                    AddRow(row);
                 }
             }
             else
             {
-                int removeCount = Math.Min(change.RemovedCount, _rowSources.Count);
-                for (int i = 0; i < removeCount; i++)
+                if (change.RemovedCount > 0)
                 {
-                    _rowSources.RemoveAt(0);
-                    _rows.RemoveAt(0);
+                    _filter.RemoveFromFront(change.RemovedCount);
+                    RemoveRowsNoLongerInLog(log);
                 }
 
-                if (change.AddedRow != null)
+                IReadOnlyList<ActivityLogRow> shown = _filter.Consume(log);
+                foreach (ActivityLogRow row in shown)
                 {
-                    AddRow(change.AddedRow);
+                    AddRow(row);
                 }
 
                 if (change.UpdatedRow != null)
@@ -134,6 +158,28 @@ namespace GI_Subtitles.Views
             }
 
             EmptyState.Visibility = _rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        private void RemoveRowsNoLongerInLog(IReadOnlyList<ActivityLogRow> log)
+        {
+            while (_rowSources.Count > 0 && !ContainsRow(log, _rowSources[0]))
+            {
+                _rowSources.RemoveAt(0);
+                _rows.RemoveAt(0);
+            }
+        }
+
+        private static bool ContainsRow(IReadOnlyList<ActivityLogRow> rows, ActivityLogRow target)
+        {
+            for (int i = 0; i < rows.Count; i++)
+            {
+                if (ReferenceEquals(rows[i], target))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private void AddRow(ActivityLogRow row)
@@ -201,7 +247,17 @@ namespace GI_Subtitles.Views
                 parts[i] = ResolveText(JobResourceKey(jobs[i]), null);
             }
 
-            return string.Join(separator, parts);
+            string joined = string.Join(separator, parts);
+            if (row.IsRepeat)
+            {
+                string repeatBadge = ResolveText("ActivityLog_RepeatBadge", null);
+                if (!string.IsNullOrEmpty(repeatBadge))
+                {
+                    joined += separator + repeatBadge;
+                }
+            }
+
+            return joined;
         }
 
         private void ApplyResult(ActivityLogRowView view, ActivityLogRow row)
