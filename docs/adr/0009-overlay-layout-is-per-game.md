@@ -1,0 +1,7 @@
+# Overlay layout is per game
+
+Region pairs, voice-primary designation, extra-path displays, and extra-path scan toggles belong to the selected game, not one global copy. Today's leftover global blob migrates onto whichever game is selected at upgrade; other games start empty. The overlay swaps layout on Apply — the same beat the matcher already reloads — not on the game dropdown and not on process restart. Apply that actually changes game clears in-flight pair and extra-path subtitles, cancels add/adjust, drops the OCR queue and preview, clears the match cache, and updates the running game identity so extra-path gates follow without a restart. Boxing, pair cards, and extra-path editors stay on the last applied game while the dropdown is only browsing language packs. Dialogue-option scan stays Genshin-only; its boxed display is parked with Genshin's layout.
+
+**Considered Options**: keep extra-path displays global because they are not region pairs; copy the migrated blob onto every game; swap layout live on the dropdown; require a process restart so in-flight overlay state cannot disagree.
+
+**Consequences**: OCR interval, font size, master voice, UI language, and input/output languages stay global. A new game has no pairs and unset extra-path displays; dark-screen scan defaults on for that game but does not run until that game has a valid capture region. Non-Genshin layouts may hold an empty dialogue-option slot; runtime ignores it. Recognition stays on across confirm; the current voice line is allowed to finish.

@@ -79,7 +79,9 @@ namespace GI_Subtitles.Views
         private readonly double ChangeThreshold = Math.Max(0, Math.Min(1, Config.Get<double>("OCRThreshold", 0.01)));
         private readonly LiveOverlaySession _overlaySession = new LiveOverlaySession(
             new ConfigOcrIntervalStore(),
-            new ConfigRegionPairStore());
+            new ConfigRegionPairStore(),
+            utcNow: null,
+            appliedGame: Config.Get("Game", "Genshin"));
         private readonly List<Mat> _pairLastBinary = new List<Mat>();
         private readonly List<Mat> _pairLastOcrBinary = new List<Mat>();
         private readonly List<Mat> _pairPendingOcrBinary = new List<Mat>();
