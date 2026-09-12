@@ -537,6 +537,13 @@ namespace GI_Subtitles.Views
                 // the argument list would silently vanish from Release builds.
                 int setResult = SetWindowLong(hwnd, GwlExStyle, newStyle);
                 int lastError = Marshal.GetLastWin32Error();
+                RegionAdjustDiagnostics.HitModeApplied(
+                    hwnd,
+                    interactive: false,
+                    beforeExStyle: exStyle,
+                    newExStyle: newStyle,
+                    setResult: setResult,
+                    lastError: lastError);
                 Background = System.Windows.Media.Brushes.Transparent;
                 IsHitTestVisible = false;
                 if (OverlayCanvas != null)
@@ -551,6 +558,13 @@ namespace GI_Subtitles.Views
                 // Same hoisting requirement as the click-through branch above.
                 int setResult = SetWindowLong(hwnd, GwlExStyle, newStyle);
                 int lastError = Marshal.GetLastWin32Error();
+                RegionAdjustDiagnostics.HitModeApplied(
+                    hwnd,
+                    interactive: true,
+                    beforeExStyle: exStyle,
+                    newExStyle: newStyle,
+                    setResult: setResult,
+                    lastError: lastError);
                 ClearOverlayDisabledBit(hwnd);
                 Background = null;
                 IsHitTestVisible = true;
@@ -580,6 +594,12 @@ namespace GI_Subtitles.Views
             // change must not live inside [Conditional("DEBUG")] arguments.
             int setResult = SetWindowLong(hwnd, GwlStyle, newStyle);
             int lastError = Marshal.GetLastWin32Error();
+            RegionAdjustDiagnostics.DisabledBitCleared(
+                hwnd,
+                beforeStyle: style,
+                newStyle: newStyle,
+                setResult: setResult,
+                lastError: lastError);
         }
 
         public void UpdateText(object sender, EventArgs e)
@@ -2518,11 +2538,14 @@ namespace GI_Subtitles.Views
                 start = _overlaySession.DialogueOptionDisplay;
             }
 
-            if (clickThrough
-                || target == OverlayAdjustTarget.None
-                || start == null
-                || !start.IsValid
-                || !(sender is System.Windows.Shapes.Rectangle))
+            AdjustMouseExit exit = AdjustMouseGuard.DownExitReason(
+                clickThrough,
+                target,
+                pairIndex,
+                start != null && start.IsValid,
+                sender is System.Windows.Shapes.Rectangle);
+            RegionAdjustTrace.ElementDown(exit, target, pairIndex, start);
+            if (exit != AdjustMouseExit.None)
             {
                 return;
             }
@@ -2540,9 +2563,11 @@ namespace GI_Subtitles.Views
 
         private void RegionAdjust_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
         {
-            if (!_regionDragging
-                || e.LeftButton != MouseButtonState.Pressed
-                || _dragTarget == OverlayAdjustTarget.None)
+            AdjustMouseExit exit = AdjustMouseGuard.MoveExitReason(
+                _regionDragging,
+                e.LeftButton == MouseButtonState.Pressed,
+                _dragTarget);
+            if (exit != AdjustMouseExit.None)
             {
                 return;
             }
@@ -2571,6 +2596,12 @@ namespace GI_Subtitles.Views
 
         private void RegionAdjust_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
+            AdjustMouseExit exit = AdjustMouseGuard.UpExitReason(_regionDragging);
+            RegionAdjustTrace.ElementUp(exit);
+            if (exit != AdjustMouseExit.None)
+            {
+                return;
+            }
 
             var box = sender as System.Windows.Shapes.Rectangle;
             box?.ReleaseMouseCapture();

@@ -330,6 +330,12 @@ namespace GI_Subtitles.Core.Overlay
             if (index < 0 ||
                 (!_pairs[index].Capture.IsValid && !_pairs[index].Display.IsValid))
             {
+                RegionAdjustTrace.ArmEntryRefused(
+                    OverlayAdjustTarget.Pair,
+                    pairId,
+                    "index=" + index
+                        + " captureValid=" + (index >= 0 && _pairs[index].Capture.IsValid)
+                        + " displayValid=" + (index >= 0 && _pairs[index].Display.IsValid));
                 return false;
             }
 
@@ -348,6 +354,10 @@ namespace GI_Subtitles.Core.Overlay
             Tick();
             if (!_darkScreenDisplay.IsValid)
             {
+                RegionAdjustTrace.ArmEntryRefused(
+                    OverlayAdjustTarget.DarkScreenDisplay,
+                    0,
+                    "displayValid=False rect=" + _darkScreenDisplay.ToCsv());
                 return false;
             }
 
@@ -366,6 +376,10 @@ namespace GI_Subtitles.Core.Overlay
             Tick();
             if (!_dialogueOptionDisplay.IsValid)
             {
+                RegionAdjustTrace.ArmEntryRefused(
+                    OverlayAdjustTarget.DialogueOptionDisplay,
+                    0,
+                    "displayValid=False rect=" + _dialogueOptionDisplay.ToCsv());
                 return false;
             }
 
@@ -409,6 +423,7 @@ namespace GI_Subtitles.Core.Overlay
             EnsurePairSlot(pairIndex);
             OverlayRect nextCapture = capture ?? OverlayRect.Invalid;
             _pairs[pairIndex] = new RegionPair(_pairs[pairIndex].Id, nextCapture, _pairs[pairIndex].Display);
+            RegionAdjustTrace.CaptureSet(OverlayAdjustTarget.Pair, _pairs[pairIndex].Id, nextCapture);
             PersistPairs();
             if (ArmedPairId == _pairs[pairIndex].Id)
             {
@@ -426,6 +441,7 @@ namespace GI_Subtitles.Core.Overlay
             OverlayRect nextDisplay = display ?? OverlayRect.Invalid;
             RegionPair current = _pairs[pairIndex];
             _pairs[pairIndex] = new RegionPair(current.Id, current.Capture, nextDisplay);
+            RegionAdjustTrace.DisplaySet(OverlayAdjustTarget.Pair, current.Id, nextDisplay);
             PersistPairs();
             if (ArmedPairId == current.Id)
             {
@@ -540,6 +556,10 @@ namespace GI_Subtitles.Core.Overlay
         public void SetDarkScreenDisplay(OverlayRect display)
         {
             _darkScreenDisplay = display ?? OverlayRect.Invalid;
+            RegionAdjustTrace.DisplaySet(
+                OverlayAdjustTarget.DarkScreenDisplay,
+                0,
+                _darkScreenDisplay);
             PersistExtraPathDisplays();
             RefreshArmedExtraPath(OverlayAdjustTarget.DarkScreenDisplay, _darkScreenDisplay);
         }
@@ -552,6 +572,10 @@ namespace GI_Subtitles.Core.Overlay
         public void SetDialogueOptionDisplay(OverlayRect display)
         {
             _dialogueOptionDisplay = display ?? OverlayRect.Invalid;
+            RegionAdjustTrace.DisplaySet(
+                OverlayAdjustTarget.DialogueOptionDisplay,
+                0,
+                _dialogueOptionDisplay);
             PersistExtraPathDisplays();
             RefreshArmedExtraPath(OverlayAdjustTarget.DialogueOptionDisplay, _dialogueOptionDisplay);
         }
@@ -1656,6 +1680,11 @@ namespace GI_Subtitles.Core.Overlay
             ArmedTarget = target;
             ArmedPairId = pairId;
             RebuildAdjustOutlines();
+            RegionAdjustTrace.ArmAccepted(target, pairId, _adjustOutlines.Count);
+            for (int i = 0; i < _adjustOutlines.Count; i++)
+            {
+                RegionAdjustTrace.OutlineBuilt(_adjustOutlines[i]);
+            }
 
             AdjustChanged?.Invoke(this, EventArgs.Empty);
         }
@@ -1683,6 +1712,7 @@ namespace GI_Subtitles.Core.Overlay
                 return;
             }
 
+            RegionAdjustTrace.ArmDismissed(ArmedTarget, ArmedPairId);
             ArmedTarget = OverlayAdjustTarget.None;
             ArmedPairId = 0;
             _adjustOutlines.Clear();

@@ -126,6 +126,8 @@
     <Compile Include="TestOverlayLayoutPersistence.cs" />
     <Compile Include="TestLiveOverlaySessionAppliedGame.cs" />
     <Compile Include="TestRegionPairSettings.cs" />
+    <Compile Include="TestAdjustMouseGuard.cs" />
+    <Compile Include="TestRegionAdjustTrace.cs" />
     <Compile Include="OCRBenchmarkTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

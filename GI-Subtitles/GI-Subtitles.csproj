@@ -146,6 +146,9 @@
     <Compile Include="Core\Overlay\ActivityLogResultProjection.cs" />
     <Compile Include="Core\Overlay\HintScreenSelection.cs" />
     <Compile Include="Core\Overlay\OperatorJob.cs" />
+    <Compile Include="Core\Overlay\AdjustMouseGuard.cs" />
+    <Compile Include="Core\Overlay\RegionAdjustTrace.cs" />
+    <Compile Include="Views\RegionAdjustDiagnostics.cs" />
     <Compile Include="Core\Overlay\LiveOverlaySession.cs" />
     <Compile Include="Core\Overlay\LiveOverlaySession.OperatorActions.cs">
       <DependentUpon>LiveOverlaySession.cs</DependentUpon>
