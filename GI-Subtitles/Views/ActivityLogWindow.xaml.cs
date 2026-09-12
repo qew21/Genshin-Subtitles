@@ -7,8 +7,10 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using GI_Subtitles.Core.Config;
 using GI_Subtitles.Core.Overlay;
 
@@ -19,8 +21,14 @@ namespace GI_Subtitles.Views
         private readonly LiveOverlaySession _session;
         private readonly ObservableCollection<ActivityLogRowView> _rows = new ObservableCollection<ActivityLogRowView>();
         private readonly List<ActivityLogRow> _rowSources = new List<ActivityLogRow>();
+        private readonly ActivityLogFollowTail _followTail = new ActivityLogFollowTail();
+        private ScrollViewer _scrollViewer;
         private bool _forceClose;
         private bool _opened;
+        private bool _applyingFollowTail;
+        private bool _operatorScrolling;
+        private bool _operatorDraggingBar;
+        private bool _scrollBarHooked;
         private int _anchorIndex = -1;
         private ActivityLogRowFilter _filter = new ActivityLogRowFilter(ReadLogDenoise());
 
@@ -90,8 +98,16 @@ namespace GI_Subtitles.Views
 
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
-            // Show() alone must project the current session log (tests and the
-            // first paint); ShowOrFocus also Rebuilds when opening from hidden.
+            _scrollViewer = FindScrollViewer(LogList);
+            if (_scrollViewer != null)
+            {
+                _scrollViewer.ApplyTemplate();
+                _scrollViewer.ScrollChanged += OnScrollChanged;
+                _scrollViewer.PreviewMouseWheel += OnOperatorScrollPreview;
+                HookVerticalScrollBar(_scrollViewer);
+            }
+
+            LogList.PreviewMouseWheel += OnOperatorScrollPreview;
             Rebuild();
         }
 
@@ -132,10 +148,10 @@ namespace GI_Subtitles.Views
             _rows.Clear();
             _rowSources.Clear();
             _anchorIndex = -1;
-            SyncRows();
+            SyncRows(announceVisibleAdds: false);
         }
 
-        private void SyncRows()
+        private void SyncRows(bool announceVisibleAdds = true)
         {
             // Append path: project only newly consumed rows. Re-projecting every
             // already-shown row made ResultLines fire even when the snapshot
@@ -159,6 +175,15 @@ namespace GI_Subtitles.Views
             }
 
             EmptyState.Visibility = _rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            if (announceVisibleAdds && shown.Count > 0)
+            {
+                _followTail.VisibleContentAdded();
+                ApplyFollowTail();
+            }
+            else if (!announceVisibleAdds)
+            {
+                ApplyFollowTail();
+            }
         }
 
         private ActivityLogRowView Project(ActivityLogRow row)
@@ -315,6 +340,224 @@ namespace GI_Subtitles.Views
             }
         }
 
+        private void OnOperatorScrollPreview(object sender, MouseWheelEventArgs e)
+        {
+            MarkOperatorScrolling();
+        }
+
+        private void MarkOperatorScrolling()
+        {
+            _operatorScrolling = true;
+            Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
+            {
+                _operatorScrolling = false;
+            }));
+        }
+
+        private void OnScrollChanged(object sender, ScrollChangedEventArgs e)
+        {
+            if (_scrollViewer == null || _applyingFollowTail)
+            {
+                return;
+            }
+
+            HookVerticalScrollBar(_scrollViewer);
+
+            if (_operatorDraggingBar || _operatorScrolling)
+            {
+                _operatorScrolling = false;
+                _followTail.OperatorViewportAtBottom(IsViewportAtBottom());
+                ApplyFollowTail();
+                return;
+            }
+
+            if (!_followTail.IsFollowing)
+            {
+                return;
+            }
+
+            // Layout / virtualization / wrap remeasure report extent and viewport
+            // changes. Keep the sticky pin with a shortfall scroll only when the
+            // viewport has actually left the bottom slack — always scrolling on
+            // ExtentHeightChange fights estimate jitter and can loop forever.
+            if ((e.ExtentHeightChange != 0 || e.ViewportHeightChange != 0)
+                && !IsViewportAtBottom())
+            {
+                ScrollToNewestQuiet();
+            }
+        }
+
+        private void NewRecordsButton_Click(object sender, RoutedEventArgs e)
+        {
+            _followTail.JumpToNewest();
+            ApplyFollowTail();
+        }
+
+        private void ApplyFollowTail()
+        {
+            NewRecordsButton.Visibility = _followTail.ShowNewRecords
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+            if (_followTail.IsFollowing)
+            {
+                PinToEnd();
+            }
+        }
+
+        private void PinToEnd()
+        {
+            if (_applyingFollowTail)
+            {
+                return;
+            }
+
+            ScrollToNewestQuiet();
+            Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
+            {
+                if (!_followTail.IsFollowing || _scrollViewer == null || IsViewportAtBottom())
+                {
+                    return;
+                }
+
+                ScrollToNewestQuiet();
+            }));
+        }
+
+        private void ScrollToNewestQuiet()
+        {
+            if (_scrollViewer == null)
+            {
+                if (_rows.Count > 0)
+                {
+                    _applyingFollowTail = true;
+                    try
+                    {
+                        LogList.ScrollIntoView(_rows[_rows.Count - 1]);
+                    }
+                    finally
+                    {
+                        _applyingFollowTail = false;
+                    }
+                }
+
+                return;
+            }
+
+            double target = _scrollViewer.ScrollableHeight;
+            if (ActivityLogFollowTail.IsAtBottom(_scrollViewer.VerticalOffset, target))
+            {
+                return;
+            }
+
+            _applyingFollowTail = true;
+            try
+            {
+                // Scroll only the shortfall to the current end — not ScrollToEnd(),
+                // which walks the whole virtualized extent. While already near the
+                // tail this is ~one row (wheel-step cost class).
+                _scrollViewer.ScrollToVerticalOffset(target);
+            }
+            finally
+            {
+                _applyingFollowTail = false;
+            }
+        }
+
+        private bool IsViewportAtBottom()
+        {
+            return _scrollViewer != null
+                && ActivityLogFollowTail.IsAtBottom(_scrollViewer.VerticalOffset, _scrollViewer.ScrollableHeight);
+        }
+
+        private void EndBarDrag()
+        {
+            _operatorDraggingBar = false;
+        }
+
+        private void HookVerticalScrollBar(ScrollViewer viewer)
+        {
+            if (_scrollBarHooked || viewer == null)
+            {
+                return;
+            }
+
+            ScrollBar bar = FindVerticalScrollBar(viewer);
+            if (bar == null)
+            {
+                return;
+            }
+
+            _scrollBarHooked = true;
+            bar.PreviewMouseDown += (s, e) =>
+            {
+                if (e.LeftButton == MouseButtonState.Pressed)
+                {
+                    _operatorDraggingBar = true;
+                }
+            };
+            bar.PreviewMouseUp += (s, e) => EndBarDrag();
+            bar.LostMouseCapture += (s, e) => EndBarDrag();
+        }
+
+        private static bool IsViewportScrollKey(Key key)
+        {
+            return key == Key.PageUp
+                || key == Key.PageDown
+                || key == Key.Up
+                || key == Key.Down
+                || key == Key.Home
+                || key == Key.End;
+        }
+
+        private static ScrollViewer FindScrollViewer(DependencyObject root)
+        {
+            if (root == null)
+            {
+                return null;
+            }
+
+            if (root is ScrollViewer viewer)
+            {
+                return viewer;
+            }
+
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+            {
+                ScrollViewer child = FindScrollViewer(VisualTreeHelper.GetChild(root, i));
+                if (child != null)
+                {
+                    return child;
+                }
+            }
+
+            return null;
+        }
+
+        private static ScrollBar FindVerticalScrollBar(DependencyObject root)
+        {
+            if (root == null)
+            {
+                return null;
+            }
+
+            var bar = root as ScrollBar;
+            if (bar != null && bar.Orientation == Orientation.Vertical)
+            {
+                return bar;
+            }
+
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+            {
+                ScrollBar child = FindVerticalScrollBar(VisualTreeHelper.GetChild(root, i));
+                if (child != null)
+                {
+                    return child;
+                }
+            }
+
+            return null;
+        }
+
         // The cell TextBox consumes the bubbling mouse-down, so ListView row
         // selection has to run in the tunneling preview phase instead — but
         // only for clicks that land on a cell; anywhere else the native
@@ -380,6 +623,11 @@ namespace GI_Subtitles.Views
 
         private void OnWindowPreviewKeyDown(object sender, KeyEventArgs e)
         {
+            if (IsViewportScrollKey(e.Key))
+            {
+                MarkOperatorScrolling();
+            }
+
             if (e.Key != Key.C || (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.None)
             {
                 return;
