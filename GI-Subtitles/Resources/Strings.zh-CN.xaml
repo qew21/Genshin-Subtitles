@@ -128,6 +128,7 @@
 <sys:String x:Key="ActivityLog_Result_LanguagePackDone" xmlns:sys="clr-namespace:System;assembly=mscorlib">完成 {0}</sys:String>
 <sys:String x:Key="ActivityLog_Result_LanguagePackFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">失败 {0}</sys:String>
 <sys:String x:Key="ActivityLog_Empty" xmlns:sys="clr-namespace:System;assembly=mscorlib">本会话还没有记录。开始识别、框选或加载语言包后会显示在这里。</sys:String>
+<sys:String x:Key="ActivityLog_Copy" xmlns:sys="clr-namespace:System;assembly=mscorlib">复制</sys:String>
 <sys:String x:Key="ActivityLog_RepeatBadge" xmlns:sys="clr-namespace:System;assembly=mscorlib">重复</sys:String>
 <sys:String x:Key="Btn_ActivityLog" xmlns:sys="clr-namespace:System;assembly=mscorlib">打开活动日志</sys:String>
 <sys:String x:Key="Tray_ActivityLog" xmlns:sys="clr-namespace:System;assembly=mscorlib">活动日志</sys:String>

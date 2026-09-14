@@ -1,6 +1,7 @@
 <Window x:Class="GI_Subtitles.Views.ActivityLogWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="clr-namespace:GI_Subtitles.Views"
         Title="{DynamicResource ActivityLog_Title}"
         Width="720"
         Height="480"
@@ -10,8 +11,12 @@
         WindowStartupLocation="CenterScreen"
         ShowInTaskbar="True"
         Topmost="False"
-        ResizeMode="CanResize">
+        ResizeMode="CanResize"
+        PreviewKeyDown="OnWindowPreviewKeyDown">
     <Window.Resources>
+        <ContextMenu x:Key="LogCopyMenu" Opened="CopyMenu_Opened">
+            <MenuItem Header="{DynamicResource ActivityLog_Copy}" Click="CopyMenuItem_Click"/>
+        </ContextMenu>
         <Style x:Key="LogCellTextBox" TargetType="TextBox">
             <Setter Property="IsReadOnly" Value="True"/>
             <Setter Property="IsReadOnlyCaretVisible" Value="True"/>
@@ -20,8 +25,15 @@
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="Cursor" Value="IBeam"/>
+            <Setter Property="ContextMenu" Value="{StaticResource LogCopyMenu}"/>
+            <!-- The TextBox theme Foreground outranks inheritance; mirror the
+                 row's so the cells follow the row's effective Foreground. -->
             <Setter Property="Foreground"
                     Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListViewItem}}"/>
+            <!-- Default TextBox templates wrap PART_ContentHost in a ScrollViewer.
+                 Under a pixel-virtualized GridView that costs one inner scroller
+                 per cell (~4 per row) on every recycle/measure. Cells scroll with
+                 the list, so a Decorator host keeps selection without that tree. -->
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TextBox">
@@ -42,13 +54,18 @@
                   VirtualizingPanel.IsVirtualizing="True"
                   VirtualizingPanel.VirtualizationMode="Recycling"
                   VirtualizingPanel.ScrollUnit="Pixel"
-                  ScrollViewer.CanContentScroll="True">
+                  ScrollViewer.CanContentScroll="True"
+                  ContextMenu="{StaticResource LogCopyMenu}"
+                  PreviewMouseLeftButtonUp="LogList_PreviewMouseLeftButtonUp">
             <ListView.ItemContainerStyle>
                 <Style TargetType="ListViewItem">
+                    <EventSetter Event="PreviewMouseLeftButtonDown" Handler="RowItem_PreviewMouseLeftButtonDown"/>
                     <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
                     <Setter Property="VerticalContentAlignment" Value="Top"/>
                     <Style.Triggers>
                         <DataTrigger Binding="{Binding IsRepeat}" Value="True">
+                            <!-- Whole-row dimming so stripe, text, and
+                                 selection highlight fade together (ADR 0016). -->
                             <Setter Property="Opacity" Value="0.55"/>
                             <Setter Property="FontStyle" Value="Italic"/>
                         </DataTrigger>
@@ -81,9 +98,54 @@
                     <GridViewColumn Header="{DynamicResource ActivityLog_Column_Result}" Width="280">
                         <GridViewColumn.CellTemplate>
                             <DataTemplate>
-                                <TextBox Style="{StaticResource LogCellTextBox}"
-                                         Text="{Binding Result, Mode=OneWay}"
-                                         TextWrapping="Wrap"/>
+                                <!-- One read-only TextBox per projected line
+                                     (ADR 0016): selection comes from the same
+                                     engine that draws the glyphs. Left-edge
+                                     stripe echoes the line's result tag. -->
+                                <ItemsControl ItemsSource="{Binding ResultLines, Mode=OneWay}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Vertical"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <DockPanel>
+                                                <Border DockPanel.Dock="Left"
+                                                        Tag="ResultStripeSlot"
+                                                        Margin="0,2,0,2"
+                                                        SnapsToDevicePixels="True">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Width" Value="0"/>
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding Tag}" Value="Ocr">
+                                                                    <Setter Property="Width" Value="3"/>
+                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                    <Setter Property="Background" Value="{x:Static views:ActivityLogResultTagColors.Ocr}"/>
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding Tag}" Value="Original">
+                                                                    <Setter Property="Width" Value="3"/>
+                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                    <Setter Property="Background" Value="{x:Static views:ActivityLogResultTagColors.Original}"/>
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding Tag}" Value="Translation">
+                                                                    <Setter Property="Width" Value="3"/>
+                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                    <Setter Property="Background" Value="{x:Static views:ActivityLogResultTagColors.Translation}"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                </Border>
+                                                <TextBox Style="{StaticResource LogCellTextBox}"
+                                                         Text="{Binding Text, Mode=OneWay}"
+                                                         TextWrapping="Wrap"/>
+                                            </DockPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
                             </DataTemplate>
                         </GridViewColumn.CellTemplate>
                     </GridViewColumn>

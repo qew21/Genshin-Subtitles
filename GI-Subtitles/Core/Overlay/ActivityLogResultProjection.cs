@@ -37,20 +37,27 @@ namespace GI_Subtitles.Core.Overlay
 
         public string ContentText { get; }
 
+        /// <summary>
+        /// Tag text plus content — what one line TextBox shows and copies.
+        /// </summary>
+        public string Text
+        {
+            get { return TagText + ContentText; }
+        }
+
         public string ToText()
         {
-            return TagText + ContentText;
+            return Text;
         }
     }
 
     /// <summary>
-    /// The segmented projection of one row's result column. The segments are
-    /// the single source for both layers the window renders: the colored
-    /// TextBlock composes its runs from the lines, while the selection
-    /// TextBox and the row-copy TSV read <see cref="PlainText"/>, so copied
-    /// text always equals displayed text. Every compose call builds fresh
-    /// line instances, which the window's bindings rely on to re-fire when a
-    /// row is re-projected or a container is recycled.
+    /// The segmented projection of one row's result column. Each line feeds
+    /// one read-only TextBox in the result cell; <see cref="PlainText"/> is
+    /// the same lines joined for the row-copy TSV, so copied text always
+    /// equals displayed text. Every compose call builds fresh line
+    /// instances, which the window's bindings rely on to re-fire when a row
+    /// is re-projected or a container is recycled.
     /// </summary>
     public sealed class ActivityLogResultProjection
     {

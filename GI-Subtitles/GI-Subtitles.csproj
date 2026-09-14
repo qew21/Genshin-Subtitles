@@ -211,6 +211,7 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Views\OverlayHintChrome.cs" />
+    <Compile Include="Views\ActivityLogResultTagColors.cs" />
     <Page Include="Resources\Strings.en-US.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
