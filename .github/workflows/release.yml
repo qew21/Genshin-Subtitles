@@ -277,7 +277,9 @@ jobs:
 
   deploy-website:
     name: Deploy website downloads
-    if: ${{ (github.event_name == 'push' || inputs.publish) && !contains(github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name, '-') }}
+    # Upstream only: forks lack the deploy secrets and must never touch the
+    # stable channel, even if a bare (un-hyphenated) tag is pushed by accident.
+    if: ${{ github.repository == 'qew21/Genshin-Subtitles' && (github.event_name == 'push' || inputs.publish) && !contains(github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name, '-') }}
     needs: release
     runs-on: ubuntu-24.04
     environment: production
