@@ -172,6 +172,51 @@ namespace GI_Subtitles.Models
             };
         }
 
+        public static Dictionary<string, string> CreateZenlessLanguageMapping()
+        {
+            return new Dictionary<string, string>
+            {
+                ["CHS"] = "",
+                ["CHT"] = "_CHT",
+                ["JP"] = "_JA",
+                ["EN"] = "_EN",
+                ["KR"] = "_KO",
+                ["PT"] = "_PT",
+                ["RU"] = "_RU",
+                ["TH"] = "_TH",
+                ["VI"] = "_VI",
+                ["DE"] = "_DE",
+                ["ES"] = "_ES",
+                ["FR"] = "_FR",
+                ["ID"] = "_ID"
+            };
+        }
+
+        public static bool MigrateZenlessLanguageMapping(GameConfig config)
+        {
+            if (config == null) return false;
+
+            if (config.LanguageMapping == null)
+            {
+                config.LanguageMapping = new Dictionary<string, string>();
+            }
+
+            bool changed = false;
+            if (!config.LanguageMapping.TryGetValue("KR", out string korean) || korean == "_KR")
+            {
+                config.LanguageMapping["KR"] = "_KO";
+                changed = true;
+            }
+            if (!config.LanguageMapping.TryGetValue("CHT", out string traditionalChinese) ||
+                traditionalChinese != "_CHT")
+            {
+                config.LanguageMapping["CHT"] = "_CHT";
+                changed = true;
+            }
+
+            return changed;
+        }
+
         private static bool IsLegacyWutheringUrl(string url)
         {
             if (!Uri.TryCreate(url, UriKind.Absolute, out Uri uri)) return false;
