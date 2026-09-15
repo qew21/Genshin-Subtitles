@@ -106,6 +106,7 @@
     <Compile Include="TestHintScreenSelection.cs" />
     <Compile Include="TestLiveOverlaySessionRegionPairs.cs" />
     <Compile Include="TestLiveOverlaySessionVoicePrimary.cs" />
+    <Compile Include="TestLiveOverlaySessionRegressions.cs" />
     <Compile Include="TestLiveOverlaySessionPreviewAndAdjust.cs" />
     <Compile Include="TestRegionPairSettings.cs" />
     <Compile Include="OCRBenchmarkTests.cs" />
