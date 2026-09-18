@@ -8,6 +8,17 @@
 
   <Canvas>
     <Image Name="BackgroundImage" Opacity="0.5" />
+    <TextBlock Name="PromptLabel"
+               Canvas.Left="32" Canvas.Top="32"
+               FontSize="28"
+               FontWeight="SemiBold"
+               Foreground="White"
+               IsHitTestVisible="False"
+               Visibility="Collapsed">
+      <TextBlock.Effect>
+        <DropShadowEffect Color="Black" BlurRadius="8" ShadowDepth="0" Opacity="0.9"/>
+      </TextBlock.Effect>
+    </TextBlock>
     <Border Name="SelectionBorder" Width="0" Height="0" ClipToBounds="True">
       <Grid>
         <Canvas>

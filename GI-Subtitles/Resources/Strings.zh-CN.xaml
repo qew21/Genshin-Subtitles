@@ -59,10 +59,40 @@
     <sys:String x:Key="Help_Instructions" xmlns:sys="clr-namespace:System;assembly=mscorlib">使用步骤</sys:String>
     <sys:String x:Key="Help_Step1" xmlns:sys="clr-namespace:System;assembly=mscorlib">1. 使用流程：语言包管理界面下载对应文件，打开游戏选择对话区域，使用快捷键开始识别和展示。</sys:String>
     <sys:String x:Key="Help_Step2" xmlns:sys="clr-namespace:System;assembly=mscorlib">2. 可通过快捷键 Ctrl+Shift+S 启动/暂停；Ctrl+Shift+R 选择识别区域；Ctrl+Shift+H 隐藏字幕。若冲突，可在「快捷键」标签修改。</sys:String>
-    <sys:String x:Key="Help_Step3" xmlns:sys="clr-namespace:System;assembly=mscorlib">3. 鼠标悬停字幕变为手形时，可拖动调整位置（建议游戏使用「无边框窗口」模式而非独占全屏）。</sys:String>
+    <sys:String x:Key="Help_Step3" xmlns:sys="clr-namespace:System;assembly=mscorlib">3. 在「区域对」页点击「调整区域」武装后，抓哪个框动哪个矩形：拖识别区框，下一拍起从新位置采样；拖显示区框，字幕实时跟随。预览全部与显示识别区热键会画出每对的识别区（绿）和显示区（金）。建议游戏使用「无边框窗口」模式而非独占全屏。</sys:String>
 
     <!-- Config Tab -->
     <sys:String x:Key="Tab_Config" xmlns:sys="clr-namespace:System;assembly=mscorlib">其他配置选项</sys:String>
+    <sys:String x:Key="Tab_RegionPairs" xmlns:sys="clr-namespace:System;assembly=mscorlib">区域对</sys:String>
+    <sys:String x:Key="Btn_AddRegionPair" xmlns:sys="clr-namespace:System;assembly=mscorlib">添加区域对</sys:String>
+    <sys:String x:Key="Btn_PreviewAll" xmlns:sys="clr-namespace:System;assembly=mscorlib">预览全部</sys:String>
+    <sys:String x:Key="RegionPair_Empty" xmlns:sys="clr-namespace:System;assembly=mscorlib">还没有区域对。</sys:String>
+    <sys:String x:Key="RegionPair_OverCap" xmlns:sys="clr-namespace:System;assembly=mscorlib">超出添加上限</sys:String>
+    <sys:String x:Key="RegionPair_PairLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">对</sys:String>
+    <sys:String x:Key="RegionPair_Capture" xmlns:sys="clr-namespace:System;assembly=mscorlib">识别区</sys:String>
+    <sys:String x:Key="RegionPair_Display" xmlns:sys="clr-namespace:System;assembly=mscorlib">显示区</sys:String>
+    <sys:String x:Key="RegionPair_Unset" xmlns:sys="clr-namespace:System;assembly=mscorlib">未设</sys:String>
+    <sys:String x:Key="Btn_BoxRegion" xmlns:sys="clr-namespace:System;assembly=mscorlib">框选</sys:String>
+    <sys:String x:Key="Btn_DeletePair" xmlns:sys="clr-namespace:System;assembly=mscorlib">删除</sys:String>
+    <sys:String x:Key="Btn_AdjustRegion" xmlns:sys="clr-namespace:System;assembly=mscorlib">调整区域</sys:String>
+    <sys:String x:Key="Overlay_PairOutlineLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">对 {0}</sys:String>
+    <sys:String x:Key="Btn_SetVoicePrimary" xmlns:sys="clr-namespace:System;assembly=mscorlib">设为配音主区</sys:String>
+    <sys:String x:Key="Btn_VoicePrimaryOn" xmlns:sys="clr-namespace:System;assembly=mscorlib">配音主区</sys:String>
+    <sys:String x:Key="RegionPair_VoicePrimaryCurrent" xmlns:sys="clr-namespace:System;assembly=mscorlib">配音主区在「区域对」页指定，当前对 {0}。</sys:String>
+    <sys:String x:Key="RegionPair_VoicePrimaryNone" xmlns:sys="clr-namespace:System;assembly=mscorlib">配音主区在「区域对」页指定，当前没有。</sys:String>
+    <sys:String x:Key="RegionPair_BoxCaptureMask" xmlns:sys="clr-namespace:System;assembly=mscorlib">框选识别区（对 {0}）</sys:String>
+    <sys:String x:Key="RegionPair_BoxDisplayMask" xmlns:sys="clr-namespace:System;assembly=mscorlib">框选显示区（对 {0}）</sys:String>
+    <sys:String x:Key="Config_OcrInterval_Label" xmlns:sys="clr-namespace:System;assembly=mscorlib">最小识图间隔</sys:String>
+    <sys:String x:Key="Config_OcrInterval_OutOfRange" xmlns:sys="clr-namespace:System;assembly=mscorlib">当前 {0}ms，超出 200–1000。引擎仍按此值跑。改动后会夹进范围。</sys:String>
+    <sys:String x:Key="Hint_RecognitionRunning" xmlns:sys="clr-namespace:System;assembly=mscorlib">识别中</sys:String>
+    <sys:String x:Key="Hint_RecognitionStopped" xmlns:sys="clr-namespace:System;assembly=mscorlib">已停止</sys:String>
+    <sys:String x:Key="Hint_CaptureRegionBoxed" xmlns:sys="clr-namespace:System;assembly=mscorlib">已选识别区</sys:String>
+    <sys:String x:Key="Hint_SubtitlesHidden" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕已隐藏</sys:String>
+    <sys:String x:Key="Hint_SubtitlesShown" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕已显示</sys:String>
+    <sys:String x:Key="Hint_Refreshed" xmlns:sys="clr-namespace:System;assembly=mscorlib">已刷新</sys:String>
+    <sys:String x:Key="Hint_RefreshFoundNoText" xmlns:sys="clr-namespace:System;assembly=mscorlib">未识别到文本</sys:String>
+    <sys:String x:Key="Hint_VoiceSpeed" xmlns:sys="clr-namespace:System;assembly=mscorlib">倍速 {0}×</sys:String>
+    <sys:String x:Key="Hint_CaptureRegionMissing" xmlns:sys="clr-namespace:System;assembly=mscorlib">未设置识别区</sys:String>
     <sys:String x:Key="Config_Pad_Label" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕偏移 (Pad)</sys:String>
     <sys:String x:Key="Config_Pad_Hint" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕显示在识别区域下方的像素数</sys:String>
     <sys:String x:Key="Config_Pad_Horizontal" xmlns:sys="clr-namespace:System;assembly=mscorlib">水平偏移：</sys:String>
@@ -73,8 +103,20 @@
     <sys:String x:Key="Config_Multiline" xmlns:sys="clr-namespace:System;assembly=mscorlib">启用多行识别（推荐开启）</sys:String>
     <sys:String x:Key="Config_AutoStart" xmlns:sys="clr-namespace:System;assembly=mscorlib">开机自动启动</sys:String>
     <sys:String x:Key="Config_PlayVoice" xmlns:sys="clr-namespace:System;assembly=mscorlib">启用支线配音</sys:String>
+    <sys:String x:Key="Config_RecognizeDarkScreenSubtitles" xmlns:sys="clr-namespace:System;assembly=mscorlib">识别暗屏字幕</sys:String>
+    <sys:String x:Key="Config_RecognizeDarkScreenSubtitles_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">在暗屏过场中自动检测中央字幕带并显示翻译。不是区域对，也不占用对话选项的识别。</sys:String>
     <sys:String x:Key="Config_RecognizeDialogueOptions" xmlns:sys="clr-namespace:System;assembly=mscorlib">识别对话选项</sys:String>
     <sys:String x:Key="Config_RecognizeDialogueOptions_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">自动定位右侧对话选项；鼠标选择后识别实际点击的选项并触发翻译和 AI 配音。</sys:String>
+    <sys:String x:Key="ExtraPath_BoxDisplay" xmlns:sys="clr-namespace:System;assembly=mscorlib">框选显示区</sys:String>
+    <sys:String x:Key="ExtraPath_ClearDefault" xmlns:sys="clr-namespace:System;assembly=mscorlib">清回默认</sys:String>
+    <sys:String x:Key="ExtraPath_DarkScreenFollowBand" xmlns:sys="clr-namespace:System;assembly=mscorlib">跟候选带</sys:String>
+    <sys:String x:Key="ExtraPath_DialogueFollowVoicePrimary" xmlns:sys="clr-namespace:System;assembly=mscorlib">跟配音主区</sys:String>
+    <sys:String x:Key="ExtraPath_DisplaySet" xmlns:sys="clr-namespace:System;assembly=mscorlib">已指定显示区</sys:String>
+    <sys:String x:Key="ExtraPath_BoxDarkScreenMask" xmlns:sys="clr-namespace:System;assembly=mscorlib">框选暗屏显示区</sys:String>
+    <sys:String x:Key="ExtraPath_BoxDialogueOptionMask" xmlns:sys="clr-namespace:System;assembly=mscorlib">框选对话选项显示区</sys:String>
+    <sys:String x:Key="Overlay_DarkScreenOutlineLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">暗屏</sys:String>
+    <sys:String x:Key="Overlay_DialogueOptionOutlineLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">选项</sys:String>
+    <sys:String x:Key="Overlay_DarkScreenCandidateOutlineLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">检测带</sys:String>
     <sys:String x:Key="Btn_TestVoice" xmlns:sys="clr-namespace:System;assembly=mscorlib">测试配音</sys:String>
     <sys:String x:Key="Btn_TestVoice_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">模拟识别到“笑死我了。”并测试对应配音。</sys:String>
     <sys:String x:Key="Btn_OpenFolder" xmlns:sys="clr-namespace:System;assembly=mscorlib">打开程序文件夹</sys:String>

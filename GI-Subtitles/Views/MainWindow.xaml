@@ -5,20 +5,29 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:GI_Subtitles.Views"
         mc:Ignorable="d"
-        WindowStyle="None" Height="20"  ShowInTaskbar="False" Topmost="True" Background="Transparent" AllowsTransparency="True" MouseDown="Window_MouseDown" Cursor="Hand">
-    <Grid Background="Transparent" ClipToBounds="True">
-        <!-- Content always fixed at the center position -->
+        WindowStyle="None"
+        Height="20"
+        ShowInTaskbar="False"
+        Topmost="True"
+        Background="Transparent"
+        AllowsTransparency="True"
+        ShowActivated="False"
+        Focusable="False"
+        IsHitTestVisible="False">
+    <Canvas x:Name="OverlayCanvas" Background="Transparent" IsHitTestVisible="False">
         <Button x:Name="DragButton"
                 Width="20" Height="20"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Top"
+                Canvas.Left="0"
+                Canvas.Top="0"
                 Background="#00FFFFFF"
                 BorderThickness="0"
-                Cursor="SizeAll" 
-            Visibility="Hidden"
-                 Panel.ZIndex="8">
-            <Image Source="../Resources/drag.png" MouseDown="DragButton_MouseDown" Stretch="Uniform" Width="20" Height="20"  HorizontalAlignment="Center"
-                VerticalAlignment="Center" />
+                Cursor="SizeAll"
+                Visibility="Collapsed"
+                Panel.ZIndex="8"
+                IsHitTestVisible="False">
+            <Image Source="../Resources/drag.png" Stretch="Uniform" Width="20" Height="20"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center" />
         </Button>
         <TextBox x:Name="SubtitleText"
                  TextWrapping="Wrap"
@@ -31,13 +40,36 @@
                  Background="Transparent"
                  BorderThickness="0"
                  IsReadOnly="True"
-                 AcceptsReturn="True"/>
-        
-        <!-- Header and persistent voice-speed badge displayed above the subtitle content. -->
+                 AcceptsReturn="True"
+                 IsHitTestVisible="False"/>
+
+        <TextBlock x:Name="DarkScreenText"
+                   TextWrapping="Wrap"
+                   FontFamily="{DynamicResource SubtitleFontFamily}"
+                   Foreground="White"
+                   TextAlignment="Center"
+                   FontWeight="Bold"
+                   Background="Transparent"
+                   Visibility="Collapsed"
+                   IsHitTestVisible="False"/>
+        <TextBlock x:Name="DialogueChoiceText"
+                   TextWrapping="Wrap"
+                   FontFamily="{DynamicResource SubtitleFontFamily}"
+                   Foreground="White"
+                   TextAlignment="Center"
+                   FontWeight="Bold"
+                   FontSize="14"
+                   Visibility="Collapsed"
+                   IsHitTestVisible="False">
+            <TextBlock.RenderTransform>
+                <TranslateTransform Y="-20"/>
+            </TextBlock.RenderTransform>
+        </TextBlock>
         <StackPanel x:Name="HeaderPanel"
                     Orientation="Horizontal"
                     HorizontalAlignment="Center"
-                    VerticalAlignment="Center">
+                    VerticalAlignment="Top"
+                    IsHitTestVisible="False">
             <StackPanel.RenderTransform>
                 <TranslateTransform Y="-20"/>
             </StackPanel.RenderTransform>
@@ -45,15 +77,6 @@
                        TextWrapping="Wrap"
                        FontFamily="{DynamicResource SubtitleFontFamily}"
                        Foreground="White"
-                       TextAlignment="Center"
-                       FontWeight="Bold"
-                       FontSize="14"
-                       VerticalAlignment="Center"
-                       Visibility="Collapsed"/>
-            <TextBlock x:Name="DialogueChoiceText"
-                       TextWrapping="Wrap"
-                       FontFamily="{DynamicResource SubtitleFontFamily}"
-                       Foreground="{Binding ElementName=HeaderText, Path=Foreground}"
                        TextAlignment="Center"
                        FontWeight="Bold"
                        FontSize="14"
@@ -73,6 +96,5 @@
                            Text=""/>
             </Border>
         </StackPanel>
-    </Grid>
+    </Canvas>
 </Window>
-

@@ -39,6 +39,7 @@ using System.Windows.Interop;
 using Microsoft.Win32;
 using GI_Subtitles.Core.Config;
 using GI_Subtitles.Core.Input;
+using GI_Subtitles.Core.Overlay;
 using GI_Subtitles.Core.UI;
 using GI_Subtitles.Models;
 using GI_Subtitles.Services.Translation;
@@ -81,6 +82,17 @@ namespace GI_Subtitles.Views
         double Scale = 1;
         INotifyIcon notifyIcon;
         private readonly string _version;
+        private readonly LiveOverlaySession _overlaySession;
+        private readonly RegionPairSettings _pairSettings;
+        private readonly ObservableCollection<RegionPairCard> _pairCards = new ObservableCollection<RegionPairCard>();
+        private OcrIntervalSettingsView _ocrIntervalView;
+        private bool _ocrIntervalBinding;
+        private bool _syncingLayoutUi;
+
+        public RegionPairSettings PairSettings
+        {
+            get { return _pairSettings; }
+        }
         // Windows API functions for registering and unregistering hotkeys
         [DllImport("user32.dll")]
         private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
@@ -136,9 +148,24 @@ namespace GI_Subtitles.Views
             window.RefreshUrl();
         }
 
-        public SettingsWindow(string version, INotifyIcon notify, double scale = 1)
+        public SettingsWindow(string version, INotifyIcon notify, double scale, LiveOverlaySession overlaySession)
         {
+            if (overlaySession == null)
+            {
+                throw new ArgumentNullException(nameof(overlaySession));
+            }
+
             _version = version;
+            _overlaySession = overlaySession;
+            _pairSettings = new RegionPairSettings(overlaySession);
+            _overlaySession.AdjustChanged += (sender, args) =>
+            {
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    RefreshPairPage();
+                    RefreshExtraPathDisplayRows();
+                }));
+            };
             InitializeComponent();
             SourceInitialized += (sender, args) => FitWindowToWorkingArea();
             Scale = scale;
@@ -225,29 +252,81 @@ namespace GI_Subtitles.Views
             // Bind button events
             saveButton.Click += SaveButton_Click;
             resetButton.Click += ResetButton_Click;
-            // Pad
-            int pad = Config.GetPad(86);
-            int padHorizontal = Config.GetPadHorizontal(0);
-            PadTextBox.Text = pad.ToString();
-            PadHorizontalTextBox.Text = padHorizontal.ToString();
-
-            // Region: parse the string "x,y,w,h"
-            var regionStr = Config.Get("Region", "763,1797,2226,110");
-            var parts = regionStr.Split(',');
-            if (parts.Length == 4)
-            {
-                RegionX.Text = parts[0];
-                RegionY.Text = parts[1];
-                RegionWidth.Text = parts[2];
-                RegionHeight.Text = parts[3];
-            }
+            RegionPairCards.ItemsSource = _pairCards;
 
             // Boolean flags
             AutoStartCheckBox.IsChecked = Config.Get("AutoStart", false);
             PlayVoiceCheckBox.IsChecked = Config.Get("PlayVoice", true);
-            RecognizeDialogueOptionsCheckBox.IsChecked = Config.Get("RecognizeDialogueOptions", false);
-            UpdateSecondRegionDeleteButtonState();
+            BindOcrIntervalSettings();
+            RefreshAppliedLayoutUi();
+            IsVisibleChanged += SettingsWindow_IsVisibleChanged;
         }
+
+        private void SettingsWindow_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            if (IsVisible)
+            {
+                BindOcrIntervalSettings();
+                RefreshAppliedLayoutUi();
+            }
+        }
+
+        private void BindOcrIntervalSettings()
+        {
+            if (OcrIntervalTextBox == null)
+            {
+                return;
+            }
+
+            _ocrIntervalBinding = true;
+            try
+            {
+                _ocrIntervalView = _overlaySession.OpenOcrIntervalSettings();
+                OcrIntervalTextBox.Text = _ocrIntervalView.BoxText;
+                UpdateOcrIntervalWarning();
+            }
+            finally
+            {
+                _ocrIntervalBinding = false;
+            }
+        }
+
+        private void UpdateOcrIntervalWarning()
+        {
+            if (OcrIntervalOutOfRangeWarning == null || _ocrIntervalView == null
+                || !_ocrIntervalView.IsOutOfRange)
+            {
+                if (OcrIntervalOutOfRangeWarning != null)
+                {
+                    OcrIntervalOutOfRangeWarning.Visibility = Visibility.Collapsed;
+                    OcrIntervalOutOfRangeWarning.Text = string.Empty;
+                }
+                return;
+            }
+
+            string format = TryFindResource("Config_OcrInterval_OutOfRange") as string;
+            OcrIntervalOutOfRangeWarning.Text = string.IsNullOrEmpty(format)
+                ? string.Empty
+                : string.Format(format, _ocrIntervalView.BoxText);
+            OcrIntervalOutOfRangeWarning.Visibility = Visibility.Visible;
+        }
+
+        private void OcrIntervalTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (_ocrIntervalBinding || _ocrIntervalView == null)
+            {
+                return;
+            }
+
+            _ocrIntervalView.BoxText = OcrIntervalTextBox.Text;
+            _ocrIntervalView.Commit();
+            OcrIntervalTextBox.Text = _ocrIntervalView.BoxText;
+            UpdateOcrIntervalWarning();
+        }
+
+
+
+
 
         private void FitWindowToWorkingArea()
         {
@@ -272,32 +351,167 @@ namespace GI_Subtitles.Views
             Height = Math.Min(Height, availableHeight);
         }
 
-        private void ResetLocation_Click(object sender, RoutedEventArgs e)
+        public void RefreshPairPage()
         {
-            Config.Set("Pad", new int[] { 86, 0 });
-            PadTextBox.Text = "86";
-            PadHorizontalTextBox.Text = "0";
-            UpdateMainWindowPosition();
+            if (RegionPairCards == null)
+            {
+                return;
+            }
+
+            _pairCards.Clear();
+            foreach (RegionPairCard card in _pairSettings.Cards)
+            {
+                _pairCards.Add(card);
+            }
+
+            if (RegionPairEmptyState != null)
+            {
+                RegionPairEmptyState.Visibility = _pairSettings.IsEmpty
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+            }
+
+            if (AddRegionPairButton != null)
+            {
+                AddRegionPairButton.IsEnabled = _pairSettings.CanAdd;
+            }
+
+            UpdateVoicePrimaryHint();
         }
 
-        private void SecondRegion_Click(object sender, RoutedEventArgs e)
+        private void UpdateVoicePrimaryHint()
         {
-            notifyIcon.ChooseRegion2();
-            UpdateSecondRegionDeleteButtonState();
+            if (VoicePrimaryHint == null)
+            {
+                return;
+            }
+
+            int ordinal = _pairSettings.VoicePrimaryOrdinal;
+            if (ordinal <= 0)
+            {
+                VoicePrimaryHint.Text = TryFindResource("RegionPair_VoicePrimaryNone") as string ?? string.Empty;
+                return;
+            }
+
+            string format = TryFindResource("RegionPair_VoicePrimaryCurrent") as string;
+            VoicePrimaryHint.Text = string.IsNullOrEmpty(format)
+                ? string.Empty
+                : string.Format(format, ordinal);
         }
 
-        private void DeleteSecondRegion_Click(object sender, RoutedEventArgs e)
+        private void AddRegionPair_Click(object sender, RoutedEventArgs e)
         {
-            notifyIcon.ClearRegion2();
-            UpdateSecondRegionDeleteButtonState();
+            notifyIcon.AddRegionPair();
+            RefreshPairPage();
         }
 
-        private void UpdateSecondRegionDeleteButtonState()
+        private void PreviewAll_Click(object sender, RoutedEventArgs e)
         {
-            string[] region = notifyIcon?.Region2;
-            DeleteSecondRegionButton.IsEnabled = region != null && region.Length == 4 &&
-                int.TryParse(region[2], out int width) && width > 0 &&
-                int.TryParse(region[3], out int height) && height > 0;
+            _overlaySession.PreviewCaptureRegion(
+                _overlaySession.HasValidCapture,
+                RecognizeDarkScreenSubtitlesCheckBox.IsChecked == true);
+        }
+
+        private void AdjustRegion_Click(object sender, RoutedEventArgs e)
+        {
+            int pairId = PairIdFromSender(sender);
+            if (pairId <= 0)
+            {
+                return;
+            }
+
+            _pairSettings.TryToggleRegionAdjust(pairId);
+            RefreshPairPage();
+        }
+
+        private void SettingsWindow_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key != System.Windows.Input.Key.Escape || _overlaySession.IsClickThrough)
+            {
+                return;
+            }
+
+            _pairSettings.CancelRegionAdjust();
+            RefreshPairPage();
+            RefreshExtraPathDisplayRows();
+            e.Handled = true;
+        }
+
+        private void RegionPairCard_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            var card = (sender as FrameworkElement)?.DataContext as RegionPairCard;
+            if (card == null)
+            {
+                return;
+            }
+
+            _pairSettings.Select(card.Id);
+            RefreshPairPage();
+        }
+
+        private void DeleteRegionPair_Click(object sender, RoutedEventArgs e)
+        {
+            int pairId = PairIdFromSender(sender);
+            if (pairId <= 0)
+            {
+                return;
+            }
+
+            _pairSettings.Delete(pairId);
+            RefreshPairPage();
+        }
+
+        private void BoxCapture_Click(object sender, RoutedEventArgs e)
+        {
+            int pairId = PairIdFromSender(sender);
+            if (pairId <= 0)
+            {
+                return;
+            }
+
+            notifyIcon.BoxCapture(pairId);
+            RefreshPairPage();
+        }
+
+        private void BoxDisplay_Click(object sender, RoutedEventArgs e)
+        {
+            int pairId = PairIdFromSender(sender);
+            if (pairId <= 0)
+            {
+                return;
+            }
+
+            notifyIcon.BoxDisplay(pairId);
+            RefreshPairPage();
+        }
+
+        private void DesignateVoicePrimary_Click(object sender, RoutedEventArgs e)
+        {
+            int pairId = PairIdFromSender(sender);
+            if (pairId <= 0)
+            {
+                return;
+            }
+
+            _pairSettings.TryDesignate(pairId);
+            RefreshPairPage();
+        }
+
+        private static int PairIdFromSender(object sender)
+        {
+            var element = sender as FrameworkElement;
+            if (element == null)
+            {
+                return 0;
+            }
+
+            if (element.Tag is int id)
+            {
+                return id;
+            }
+
+            int parsed;
+            return int.TryParse(element.Tag as string, out parsed) ? parsed : 0;
         }
 
         private void UILangSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -355,6 +569,8 @@ namespace GI_Subtitles.Views
 
                 // Update window title so that it reflects the new language
                 UpdateWindowTitle();
+                UpdateOcrIntervalWarning();
+                RefreshPairPage();
             }
             finally
             {
@@ -868,53 +1084,82 @@ namespace GI_Subtitles.Views
                 string outputLanguage = OutputLanguage;
                 string outputLanguage2 = OutputLanguage2;
                 string userName = (outputLanguage == "CHS") ? "旅行者" : "Traveler";
+                string packLabel = string.IsNullOrEmpty(outputLanguage2)
+                    ? $"{inputLanguage} -> {outputLanguage}"
+                    : $"{inputLanguage} -> {outputLanguage}+{outputLanguage2}";
 
                 if (FileExists())
                 {
                     string inputFilePath = $"{Path.Combine(dataDir, game)}\\TextMap{inputLanguage}.json";
                     string outputFilePath1 = $"{Path.Combine(dataDir, game)}\\TextMap{outputLanguage}.json";
 
-                    LoadedMatchData loaded = await Task.Run(() =>
-                    {
-                        string effectiveOutputPath = outputFilePath1;
-                        if (!string.IsNullOrEmpty(outputLanguage2))
-                        {
-                            string outputFilePath2 = $"{Path.Combine(dataDir, game)}\\TextMap{outputLanguage2}.json";
-                            effectiveOutputPath = VoiceContentHelper.BuildMultiOutputJson(
-                                inputFilePath,
-                                outputFilePath1,
-                                outputFilePath2);
-                        }
-
-                        string contentJsonPath = Path.Combine(
-                            Path.GetDirectoryName(inputFilePath),
-                            $"{Path.GetFileNameWithoutExtension(inputFilePath)}_{Path.GetFileNameWithoutExtension(effectiveOutputPath)}.json");
-
-                        return MatchDataLoader.Load(
-                            inputFilePath,
-                            effectiveOutputPath,
-                            contentJsonPath,
-                            inputLanguage,
-                            userName,
-                            renew);
-                    });
-
                     await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
                     {
-                        contentDict = loaded.Content;
-                        Matcher = loaded.Matcher;
-                        if (string.IsNullOrEmpty(outputLanguage2))
+                        _overlaySession.NoteLanguagePackLoadStarted(packLabel);
+                    });
+
+                    LoadedMatchData loaded;
+                    try
+                    {
+                        loaded = await Task.Run(() =>
                         {
-                            Status.Content = $"Loaded {contentDict.Count} key-values，{inputLanguage} -> {outputLanguage}";
-                        }
-                        else
+                            string effectiveOutputPath = outputFilePath1;
+                            if (!string.IsNullOrEmpty(outputLanguage2))
+                            {
+                                string outputFilePath2 = $"{Path.Combine(dataDir, game)}\\TextMap{outputLanguage2}.json";
+                                effectiveOutputPath = VoiceContentHelper.BuildMultiOutputJson(
+                                    inputFilePath,
+                                    outputFilePath1,
+                                    outputFilePath2);
+                            }
+
+                            string contentJsonPath = Path.Combine(
+                                Path.GetDirectoryName(inputFilePath),
+                                $"{Path.GetFileNameWithoutExtension(inputFilePath)}_{Path.GetFileNameWithoutExtension(effectiveOutputPath)}.json");
+
+                            return MatchDataLoader.Load(
+                                inputFilePath,
+                                effectiveOutputPath,
+                                contentJsonPath,
+                                inputLanguage,
+                                userName,
+                                renew);
+                        });
+
+                        await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
                         {
-                            Status.Content = $"Loaded {contentDict.Count} key-values，{inputLanguage} -> {outputLanguage}+{outputLanguage2}";
-                        }
-                        Logger.Log.Debug(Status.Content);
-                        Logger.Log.Debug(loaded.LoadedFromMatcherCache
-                            ? "Loaded OptimizedMatcher from cache."
-                            : "Built and cached OptimizedMatcher.");
+                            contentDict = loaded.Content;
+                            Matcher = loaded.Matcher;
+                            if (string.IsNullOrEmpty(outputLanguage2))
+                            {
+                                Status.Content = $"Loaded {contentDict.Count} key-values，{inputLanguage} -> {outputLanguage}";
+                            }
+                            else
+                            {
+                                Status.Content = $"Loaded {contentDict.Count} key-values，{inputLanguage} -> {outputLanguage}+{outputLanguage2}";
+                            }
+                            Logger.Log.Debug(Status.Content);
+                            Logger.Log.Debug(loaded.LoadedFromMatcherCache
+                                ? "Loaded OptimizedMatcher from cache."
+                                : "Built and cached OptimizedMatcher.");
+                            _overlaySession.NoteLanguagePackLoadFinished(packLabel, true);
+                        });
+                    }
+                    catch
+                    {
+                        await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                        {
+                            _overlaySession.NoteLanguagePackLoadFinished(packLabel, false);
+                        });
+                        throw;
+                    }
+                }
+                else
+                {
+                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                    {
+                        _overlaySession.NoteLanguagePackLoadStarted(packLabel);
+                        _overlaySession.NoteLanguagePackLoadFinished(packLabel, false);
                     });
                 }
 
@@ -1146,6 +1391,8 @@ namespace GI_Subtitles.Views
             Config.Set("Input", InputLanguage);
             Config.Set("Output", OutputLanguage);
             Config.Set("Output2", OutputLanguage2 ?? "");
+            _overlaySession.ApplyGame(Game);
+            RefreshAppliedLayoutUi();
 
             DisplayLocalFileDates();
 
@@ -1172,6 +1419,12 @@ namespace GI_Subtitles.Views
             string tmpUpdateFile = fullPath + ".update.tmp";
             string mediumFilePath = VoiceContentHelper.GetGenshinMediumFilePath(fullPath);
             string tmpMediumFile = string.IsNullOrEmpty(mediumFilePath) ? string.Empty : mediumFilePath + ".tmp";
+            string packLabel = string.IsNullOrEmpty(language) ? fileName : language;
+
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                _overlaySession.NoteLanguagePackDownloadStarted(packLabel);
+            });
 
             while (attempt < MaxRetries && !success)
             {
@@ -1272,6 +1525,11 @@ namespace GI_Subtitles.Views
                     });
                 }
             }
+
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                _overlaySession.NoteLanguagePackDownloadFinished(packLabel, success);
+            });
         }
 
         private async Task DownloadAndMergeStarRailKoreanPartAsync(Uri firstPartUri, string destinationPath)
@@ -1659,6 +1917,8 @@ namespace GI_Subtitles.Views
             Process.Start("explorer.exe", dir);
         }
 
+
+
         private void ConvertButton_Click(object sender, RoutedEventArgs e)
         {
             var dialog = new Microsoft.Win32.OpenFileDialog
@@ -1928,99 +2188,6 @@ namespace GI_Subtitles.Views
 
         }
 
-        private void PreviewRegion_Click(object sender, RoutedEventArgs e)
-        {
-            notifyIcon.ShowRegionOverlay();
-        }
-
-        private void PadTextBox_LostFocus(object sender, RoutedEventArgs e)
-        {
-            if (int.TryParse(PadTextBox.Text, out int pad))
-            {
-                int padHorizontal = Config.GetPadHorizontal(0);
-                Config.Set("Pad", new int[] { pad, padHorizontal });
-                UpdateMainWindowPosition();
-            }
-        }
-
-        private void PadHorizontalTextBox_LostFocus(object sender, RoutedEventArgs e)
-        {
-            if (int.TryParse(PadHorizontalTextBox.Text, out int padHorizontal))
-            {
-                int pad = Config.GetPad(86);
-                Config.Set("Pad", new int[] { pad, padHorizontal });
-                UpdateMainWindowPosition();
-            }
-        }
-
-        private void PadVerticalIncrease_Click(object sender, RoutedEventArgs e)
-        {
-            if (int.TryParse(PadTextBox.Text, out int pad))
-            {
-                pad++;
-                PadTextBox.Text = pad.ToString();
-                int padHorizontal = int.TryParse(PadHorizontalTextBox.Text, out int ph) ? ph : 0;
-                Config.Set("Pad", new int[] { pad, padHorizontal });
-                UpdateMainWindowPosition();
-            }
-        }
-
-        private void PadVerticalDecrease_Click(object sender, RoutedEventArgs e)
-        {
-            if (int.TryParse(PadTextBox.Text, out int pad))
-            {
-                pad--;
-                PadTextBox.Text = pad.ToString();
-                int padHorizontal = int.TryParse(PadHorizontalTextBox.Text, out int ph) ? ph : 0;
-                Config.Set("Pad", new int[] { pad, padHorizontal });
-                UpdateMainWindowPosition();
-            }
-        }
-
-        private void PadHorizontalIncrease_Click(object sender, RoutedEventArgs e)
-        {
-            if (int.TryParse(PadHorizontalTextBox.Text, out int padHorizontal))
-            {
-                padHorizontal++;
-                PadHorizontalTextBox.Text = padHorizontal.ToString();
-                int pad = int.TryParse(PadTextBox.Text, out int p) ? p : 86;
-                Config.Set("Pad", new int[] { pad, padHorizontal });
-                UpdateMainWindowPosition();
-            }
-        }
-
-        private void PadHorizontalDecrease_Click(object sender, RoutedEventArgs e)
-        {
-            if (int.TryParse(PadHorizontalTextBox.Text, out int padHorizontal))
-            {
-                padHorizontal--;
-                PadHorizontalTextBox.Text = padHorizontal.ToString();
-                int pad = int.TryParse(PadTextBox.Text, out int p) ? p : 86;
-                Config.Set("Pad", new int[] { pad, padHorizontal });
-                UpdateMainWindowPosition();
-            }
-        }
-
-        private void UpdateMainWindowPosition()
-        {
-            if (System.Windows.Application.Current.MainWindow is MainWindow mainWindow)
-            {
-                mainWindow.UpdateWindowPosition();
-            }
-        }
-
-        private void RegionField_LostFocus(object sender, RoutedEventArgs e)
-        {
-            if (int.TryParse(RegionX.Text, out _) &&
-                int.TryParse(RegionY.Text, out _) &&
-                int.TryParse(RegionWidth.Text, out _) &&
-                int.TryParse(RegionHeight.Text, out _))
-            {
-                string region = $"{RegionX.Text},{RegionY.Text},{RegionWidth.Text},{RegionHeight.Text}";
-                Config.Set("Region", region);
-            }
-        }
-
         private void AutoStartCheckBox_Checked(object sender, RoutedEventArgs e)
         {
             Config.Set("AutoStart", AutoStartCheckBox.IsChecked == true);
@@ -2085,6 +2252,8 @@ namespace GI_Subtitles.Views
             }
         }
 
+
+
         private void TestVoice_Click(object sender, RoutedEventArgs e)
         {
             if (System.Windows.Application.Current.MainWindow is MainWindow mainWindow)
@@ -2093,16 +2262,175 @@ namespace GI_Subtitles.Views
             }
         }
 
-        private void RecognizeDialogueOptionsCheckBox_Checked(object sender, RoutedEventArgs e)
+        private void RecognizeDarkScreenSubtitlesCheckBox_Checked(object sender, RoutedEventArgs e)
         {
-            if (!_uiLangInitialized)
+            if (!_uiLangInitialized || _syncingLayoutUi)
             {
                 return;
             }
 
-            Config.Set(
-                "RecognizeDialogueOptions",
-                RecognizeDialogueOptionsCheckBox.IsChecked == true);
+            _overlaySession.SetDarkScreenScan(RecognizeDarkScreenSubtitlesCheckBox.IsChecked == true);
+            RefreshExtraPathDisplayRows();
+        }
+
+        private void RecognizeDialogueOptionsCheckBox_Checked(object sender, RoutedEventArgs e)
+        {
+            if (!_uiLangInitialized || _syncingLayoutUi)
+            {
+                return;
+            }
+
+            _overlaySession.SetDialogueOptionScan(RecognizeDialogueOptionsCheckBox.IsChecked == true);
+            RefreshExtraPathDisplayRows();
+        }
+
+        private void RefreshAppliedLayoutUi()
+        {
+            _syncingLayoutUi = true;
+            try
+            {
+                if (RecognizeDarkScreenSubtitlesCheckBox != null)
+                {
+                    RecognizeDarkScreenSubtitlesCheckBox.IsChecked = _overlaySession.DarkScreenScanOn;
+                }
+
+                if (RecognizeDialogueOptionsCheckBox != null)
+                {
+                    RecognizeDialogueOptionsCheckBox.IsChecked = _overlaySession.DialogueOptionScanOn;
+                }
+            }
+            finally
+            {
+                _syncingLayoutUi = false;
+            }
+
+            RefreshPairPage();
+            RefreshExtraPathDisplayRows();
+        }
+
+        private void BoxDarkScreenDisplay_Click(object sender, RoutedEventArgs e)
+        {
+            notifyIcon.BoxDarkScreenDisplay();
+            RefreshExtraPathDisplayRows();
+        }
+
+        private void BoxDialogueOptionDisplay_Click(object sender, RoutedEventArgs e)
+        {
+            notifyIcon.BoxDialogueOptionDisplay();
+            RefreshExtraPathDisplayRows();
+        }
+
+        private void AdjustDarkScreenDisplay_Click(object sender, RoutedEventArgs e)
+        {
+            _overlaySession.TryToggleDarkScreenDisplayAdjust();
+            RefreshPairPage();
+            RefreshExtraPathDisplayRows();
+        }
+
+        private void AdjustDialogueOptionDisplay_Click(object sender, RoutedEventArgs e)
+        {
+            _overlaySession.TryToggleDialogueOptionDisplayAdjust();
+            RefreshPairPage();
+            RefreshExtraPathDisplayRows();
+        }
+
+        private void ClearDarkScreenDisplay_Click(object sender, RoutedEventArgs e)
+        {
+            _overlaySession.ClearDarkScreenDisplay();
+            RefreshExtraPathDisplayRows();
+        }
+
+        private void ClearDialogueOptionDisplay_Click(object sender, RoutedEventArgs e)
+        {
+            _overlaySession.ClearDialogueOptionDisplay();
+            RefreshExtraPathDisplayRows();
+        }
+
+        public void RefreshExtraPathDisplayRows()
+        {
+            bool darkScanOn = RecognizeDarkScreenSubtitlesCheckBox != null
+                && RecognizeDarkScreenSubtitlesCheckBox.IsChecked == true;
+            if (DarkScreenDisplayRow != null)
+            {
+                DarkScreenDisplayRow.Visibility = darkScanOn ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            UpdateExtraPathStatus(
+                DarkScreenDisplayStatus,
+                _overlaySession.DarkScreenDisplay,
+                "ExtraPath_DarkScreenFollowBand");
+            UpdateExtraPathAdjustButton(
+                AdjustDarkScreenDisplayButton,
+                _overlaySession.DarkScreenDisplay.IsValid,
+                _overlaySession.ArmedTarget == OverlayAdjustTarget.DarkScreenDisplay);
+
+            bool genshin = _overlaySession.IsAppliedGenshin;
+            if (!genshin && _overlaySession.ArmedTarget == OverlayAdjustTarget.DialogueOptionDisplay)
+            {
+                _overlaySession.CancelRegionAdjust();
+            }
+
+            if (DialogueOptionScanPanel != null)
+            {
+                DialogueOptionScanPanel.Visibility = genshin ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            bool dialogueScanOn = genshin
+                && RecognizeDialogueOptionsCheckBox != null
+                && RecognizeDialogueOptionsCheckBox.IsChecked == true;
+            if (DialogueOptionDisplayRow != null)
+            {
+                DialogueOptionDisplayRow.Visibility = dialogueScanOn ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            UpdateExtraPathStatus(
+                DialogueOptionDisplayStatus,
+                _overlaySession.DialogueOptionDisplay,
+                "ExtraPath_DialogueFollowVoicePrimary");
+            UpdateExtraPathAdjustButton(
+                AdjustDialogueOptionDisplayButton,
+                _overlaySession.DialogueOptionDisplay.IsValid,
+                _overlaySession.ArmedTarget == OverlayAdjustTarget.DialogueOptionDisplay);
+        }
+
+        private void UpdateExtraPathStatus(System.Windows.Controls.TextBlock status, OverlayRect display, string unsetKey)
+        {
+            if (status == null)
+            {
+                return;
+            }
+
+            if (display == null || !display.IsValid)
+            {
+                status.Text = TryFindResource(unsetKey) as string ?? string.Empty;
+                return;
+            }
+
+            string setLabel = TryFindResource("ExtraPath_DisplaySet") as string ?? string.Empty;
+            status.Text = setLabel + " " + display.X + ", " + display.Y + ", " + display.Width + ", " + display.Height;
+        }
+
+        private static void UpdateExtraPathAdjustButton(
+            System.Windows.Controls.Button button,
+            bool canAdjust,
+            bool armed)
+        {
+            if (button == null)
+            {
+                return;
+            }
+
+            button.IsEnabled = canAdjust || armed;
+            if (armed)
+            {
+                button.BorderBrush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0xD4, 0xB4, 0x4A));
+                button.BorderThickness = new Thickness(2);
+            }
+            else
+            {
+                button.ClearValue(System.Windows.Controls.Control.BorderBrushProperty);
+                button.ClearValue(System.Windows.Controls.Control.BorderThicknessProperty);
+            }
         }
 
         private void Hyperlink_RequestNavigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)

@@ -125,6 +125,26 @@
       <SubType>Designer</SubType>
     </ApplicationDefinition>
     <Compile Include="Core\Config\Config.cs" />
+    <Compile Include="Core\Config\IConfigMap.cs" />
+    <Compile Include="Core\Config\AppConfigMap.cs" />
+    <Compile Include="Core\Overlay\IOcrIntervalStore.cs" />
+    <Compile Include="Core\Overlay\IRegionPairStore.cs" />
+    <Compile Include="Core\Overlay\OverlayRect.cs" />
+    <Compile Include="Core\Overlay\PairFrameSample.cs" />
+    <Compile Include="Core\Overlay\ExtraPathSample.cs" />
+    <Compile Include="Core\Overlay\ExtraPathBody.cs" />
+    <Compile Include="Core\Overlay\PairSubtitleBody.cs" />
+    <Compile Include="Core\Overlay\RegionOutline.cs" />
+    <Compile Include="Core\Overlay\RegionPair.cs" />
+    <Compile Include="Core\Overlay\ConfigOcrIntervalStore.cs" />
+    <Compile Include="Core\Overlay\ConfigRegionPairStore.cs" />
+    <Compile Include="Core\Overlay\OverlayLayoutRecord.cs" />
+    <Compile Include="Core\Overlay\OverlayLayoutPersistence.cs" />
+    <Compile Include="Core\Overlay\HintScreenSelection.cs" />
+    <Compile Include="Core\Overlay\LiveOverlaySession.cs" />
+    <Compile Include="Core\Overlay\LiveOverlaySession.OperatorActions.cs">
+      <DependentUpon>LiveOverlaySession.cs</DependentUpon>
+    </Compile>
     <Compile Include="Core\Cache\LRUCache.cs" />
     <Compile Include="Common\OCRSummary.cs" />
     <Compile Include="Common\TextMapNormalizer.cs" />
@@ -136,7 +156,6 @@
     <Compile Include="Models\GameMetadata.cs" />
     <Compile Include="Services\OCR\ImageProcessor.cs" />
     <Compile Include="Services\Audio\LocalVoiceFileResolver.cs" />
-    <Compile Include="Services\OCR\RecognitionRegionFallback.cs" />
     <Compile Include="Services\OCR\DialogueOptionDetector.cs" />
     <Compile Include="Services\OCR\DarkScreenSubtitleDetector.cs" />
     <Compile Include="Core\UI\INotifyIcon.cs" />
@@ -144,6 +163,7 @@
     <Compile Include="Services\Translation\OptimizedMatcherCache.cs" />
     <Compile Include="Services\Translation\MatchDataLoader.cs" />
     <Compile Include="Core\Screen\ScreenInfo.cs" />
+    <Compile Include="Views\RegionPairSettings.cs" />
     <Compile Include="Views\Font.xaml.cs">
       <DependentUpon>Font.xaml</DependentUpon>
     </Compile>
@@ -183,6 +203,7 @@
       <DependentUpon>Views\MainWindow.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="Views\OverlayHintChrome.cs" />
     <Page Include="Resources\Strings.en-US.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>

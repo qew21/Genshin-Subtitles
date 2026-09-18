@@ -6,7 +6,8 @@
         MinHeight="360" MinWidth="620"
         Icon="../Resources/mask.ico" 
         Topmost="True"
-        WindowStartupLocation="CenterOwner">
+        WindowStartupLocation="CenterOwner"
+        PreviewKeyDown="SettingsWindow_PreviewKeyDown">
 
     <Window.Resources>
         <!-- Unified button style -->
@@ -43,6 +44,8 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
 
         <!-- Link-style TextBox -->
         <Style TargetType="TextBox" x:Key="LinkTextBox">
@@ -267,8 +270,167 @@
                 </Grid>
             </TabItem>
 
-           
-            <!-- Tab 3: Configuration -->
+            <!-- Tab 3: Region pairs -->
+            <TabItem Header="{DynamicResource Tab_RegionPairs}">
+                <DockPanel Margin="12">
+                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,10">
+                        <Button x:Name="AddRegionPairButton"
+                                Content="{DynamicResource Btn_AddRegionPair}"
+                                Style="{StaticResource PrimaryButton}"
+                                Click="AddRegionPair_Click"/>
+                        <Button Content="{DynamicResource Btn_PreviewAll}"
+                                Style="{StaticResource PrimaryButton}"
+                                Click="PreviewAll_Click"/>
+                    </StackPanel>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <Grid x:Name="RegionPairEmptyState" Margin="0,0,0,10" MinHeight="72">
+                                <Rectangle Stroke="#C8C8C8" StrokeDashArray="4 3" StrokeThickness="1" Fill="#FAFAFA"/>
+                                <TextBlock Margin="16,12"
+                                           TextWrapping="Wrap"
+                                           Foreground="#555555"
+                                           VerticalAlignment="Center"
+                                           Text="{DynamicResource RegionPair_Empty}"/>
+                            </Grid>
+                            <ItemsControl x:Name="RegionPairCards">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Margin="0,0,0,8" Padding="8" CornerRadius="4" Cursor="Hand"
+                                                MouseLeftButtonDown="RegionPairCard_MouseLeftButtonDown">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="BorderBrush" Value="#CFCFCF"/>
+                                                    <Setter Property="Background" Value="#FAFAFA"/>
+                                                    <Setter Property="BorderThickness" Value="1"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsVoicePrimary}" Value="True">
+                                                            <Setter Property="BorderBrush" Value="#D4B44A"/>
+                                                            <Setter Property="Background" Value="#FFFDF6"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                            <Setter Property="BorderThickness" Value="2"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <StackPanel>
+                                                <DockPanel LastChildFill="True" Margin="0,0,0,6">
+                                                    <Button DockPanel.Dock="Right"
+                                                            Content="{DynamicResource Btn_DeletePair}"
+                                                            Padding="10,2"
+                                                            Tag="{Binding Id}"
+                                                            Click="DeleteRegionPair_Click"/>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Text="{DynamicResource RegionPair_PairLabel}"
+                                                                   VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                                        <TextBlock Text="{Binding Ordinal}"
+                                                                   VerticalAlignment="Center" FontWeight="SemiBold"
+                                                                   Margin="4,0,0,0"/>
+                                                        <Border Margin="8,0,0,0" Padding="6,1" Background="#FFF4CE"
+                                                                Visibility="{Binding IsOverAddCap, Converter={StaticResource BoolToVis}}">
+                                                            <TextBlock Text="{DynamicResource RegionPair_OverCap}"
+                                                                       Foreground="#7A5A00" FontSize="11"/>
+                                                        </Border>
+                                                    </StackPanel>
+                                                </DockPanel>
+                                                <Grid Margin="0,0,0,4">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="64"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0" Text="{DynamicResource RegionPair_Capture}" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="1" VerticalAlignment="Center" Margin="0,0,8,0">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Text" Value="{Binding CaptureText}"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding CaptureText}" Value="">
+                                                                        <Setter Property="Text" Value="{DynamicResource RegionPair_Unset}"/>
+                                                                        <Setter Property="Foreground" Value="Gray"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                    <Button Grid.Column="2"
+                                                            Content="{DynamicResource Btn_BoxRegion}"
+                                                            Padding="10,2"
+                                                            Tag="{Binding Id}"
+                                                            Click="BoxCapture_Click"/>
+                                                </Grid>
+                                                <Grid Margin="0,0,0,6">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="64"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0" Text="{DynamicResource RegionPair_Display}" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="1" VerticalAlignment="Center" Margin="0,0,8,0">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Text" Value="{Binding DisplayText}"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding DisplayText}" Value="">
+                                                                        <Setter Property="Text" Value="{DynamicResource RegionPair_Unset}"/>
+                                                                        <Setter Property="Foreground" Value="Gray"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                    <Button Grid.Column="2"
+                                                            Content="{DynamicResource Btn_BoxRegion}"
+                                                            Padding="10,2"
+                                                            Tag="{Binding Id}"
+                                                            Click="BoxDisplay_Click"/>
+                                                </Grid>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Button Padding="10,2"
+                                                            Tag="{Binding Id}"
+                                                            Click="AdjustRegion_Click"
+                                                            Margin="0,0,8,0">
+                                                        <Button.Style>
+                                                            <Style TargetType="Button">
+                                                                <Setter Property="Content" Value="{DynamicResource Btn_AdjustRegion}"/>
+                                                                <Setter Property="IsEnabled" Value="{Binding CanAdjustRegion}"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsAdjustArmed}" Value="True">
+                                                                        <Setter Property="IsEnabled" Value="True"/>
+                                                                        <Setter Property="BorderBrush" Value="#D4B44A"/>
+                                                                        <Setter Property="BorderThickness" Value="2"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Button.Style>
+                                                    </Button>
+                                                    <Button Padding="10,2"
+                                                            Tag="{Binding Id}"
+                                                            Click="DesignateVoicePrimary_Click">
+                                                        <Button.Style>
+                                                            <Style TargetType="Button">
+                                                                <Setter Property="Content" Value="{DynamicResource Btn_SetVoicePrimary}"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsVoicePrimary}" Value="True">
+                                                                        <Setter Property="Content" Value="{DynamicResource Btn_VoicePrimaryOn}"/>
+                                                                        <Setter Property="IsEnabled" Value="False"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Button.Style>
+                                                    </Button>
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </ScrollViewer>
+                </DockPanel>
+            </TabItem>
+
+            <!-- Tab 4: Configuration -->
             <TabItem Header="{DynamicResource Tab_Config}">
                 <Grid Margin="20">
                     <Grid.RowDefinitions>
@@ -279,57 +441,26 @@
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
-                    <!-- Pad -->
-                    <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,12">
-                        <TextBlock Text="{DynamicResource Config_Pad_Label}" VerticalAlignment="Center" Width="200"/>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,8,0">
-                            <Button Content="−" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,2,0" Click="PadVerticalDecrease_Click"/>
-                            <TextBox x:Name="PadTextBox" Width="60" VerticalContentAlignment="Center" Text="86" LostFocus="PadTextBox_LostFocus"/>
-                            <Button Content="+" Width="24" Height="24" VerticalAlignment="Center" Margin="2,0,8,0" Click="PadVerticalIncrease_Click"/>
+                    <!-- OCR interval -->
+                    <StackPanel Grid.Row="0" Margin="0,0,0,12">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="{DynamicResource Config_OcrInterval_Label}" VerticalAlignment="Center" Width="200"/>
+                            <TextBox x:Name="OcrIntervalTextBox" Width="60" VerticalContentAlignment="Center"
+                                     LostFocus="OcrIntervalTextBox_LostFocus"/>
+                            <TextBlock Text="ms" VerticalAlignment="Center" Margin="6,0,0,0"/>
                         </StackPanel>
-                        <TextBlock Text="{DynamicResource Config_Pad_Horizontal}" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,8,0">
-                            <Button Content="−" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,2,0" Click="PadHorizontalDecrease_Click"/>
-                            <TextBox x:Name="PadHorizontalTextBox" Width="60" VerticalContentAlignment="Center" Text="0" LostFocus="PadHorizontalTextBox_LostFocus"/>
-                            <Button Content="+" Width="24" Height="24" VerticalAlignment="Center" Margin="2,0,0,0" Click="PadHorizontalIncrease_Click"/>
-                        </StackPanel>
-                        <TextBlock Text="{DynamicResource Config_Pad_Hint}" VerticalAlignment="Center" Foreground="Gray" FontStyle="Italic"/>
+                        <TextBlock x:Name="OcrIntervalOutOfRangeWarning"
+                                   Margin="200,4,0,0"
+                                   TextWrapping="Wrap"
+                                   Foreground="Gray"
+                                   FontStyle="Italic"
+                                   Visibility="Collapsed"/>
                     </StackPanel>
 
-                    <!-- Region -->
-                    <GroupBox Header="{DynamicResource Config_Region_Label}" Grid.Row="1" Margin="0,0,0,12">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="X:" Margin="0,0,4,0"/>
-                                <TextBox x:Name="RegionX" LostFocus="RegionField_LostFocus" Width="60" Text="763" Margin="0,0,8,0"/>
-
-                                <TextBlock Text="Y:" Margin="0,0,4,0"/>
-                                <TextBox x:Name="RegionY" LostFocus="RegionField_LostFocus" Width="60" Text="1797" Margin="0,0,8,0"/>
-
-                                <TextBlock Text="{DynamicResource Config_Width}" Margin="0,0,4,0"/>
-                                <TextBox x:Name="RegionWidth" LostFocus="RegionField_LostFocus" Width="60" Text="2226" Margin="0,0,8,0"/>
-
-                                <TextBlock Text="{DynamicResource Config_Height}" Margin="0,0,4,0"/>
-                                <TextBox x:Name="RegionHeight" LostFocus="RegionField_LostFocus" Width="60" Text="110" Margin="0,0,8,0"/>
-                            </StackPanel>
-
-                            <Button Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center"
-                        ToolTip="{DynamicResource Config_PreviewRegion_Tooltip}"
-                        Click="PreviewRegion_Click" Width="28" Height="28">
-                                <TextBlock Text="👁️" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </Button>
-                        </Grid>
-                    </GroupBox>
-
                     <!-- Boolean Flags -->
-                    <StackPanel Grid.Row="2" Margin="0,0,0,12">
+                    <StackPanel Grid.Row="1" Margin="0,0,0,12">
                         <CheckBox x:Name="AutoStartCheckBox" Checked="AutoStartCheckBox_Checked" Unchecked="AutoStartCheckBox_Checked" Content="{DynamicResource Config_AutoStart}" Margin="0,0,0,6"/>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                             <CheckBox x:Name="PlayVoiceCheckBox"
                                       Checked="PlayVoiceCheckBox_Checked"
                                       Unchecked="PlayVoiceCheckBox_Checked"
@@ -341,36 +472,71 @@
                                     Click="TestVoice_Click"
                                     Padding="10,2"/>
                         </StackPanel>
-                        <CheckBox x:Name="RecognizeDialogueOptionsCheckBox"
-                                  Checked="RecognizeDialogueOptionsCheckBox_Checked"
-                                  Unchecked="RecognizeDialogueOptionsCheckBox_Checked"
-                                  Content="{DynamicResource Config_RecognizeDialogueOptions}"
-                                  ToolTip="{DynamicResource Config_RecognizeDialogueOptions_Tooltip}"
+                        <TextBlock x:Name="VoicePrimaryHint"
+                                   Margin="22,0,0,6"
+                                   TextWrapping="Wrap"
+                                   Foreground="Gray"
+                                   FontStyle="Italic"/>
+                        <CheckBox x:Name="RecognizeDarkScreenSubtitlesCheckBox"
+                                  Checked="RecognizeDarkScreenSubtitlesCheckBox_Checked"
+                                  Unchecked="RecognizeDarkScreenSubtitlesCheckBox_Checked"
+                                  Content="{DynamicResource Config_RecognizeDarkScreenSubtitles}"
+                                  ToolTip="{DynamicResource Config_RecognizeDarkScreenSubtitles_Tooltip}"
                                   Margin="0,0,0,6"/>
+                        <StackPanel x:Name="DarkScreenDisplayRow" Margin="22,0,0,10" Visibility="Collapsed">
+                            <TextBlock x:Name="DarkScreenDisplayStatus"
+                                       Margin="0,0,0,6"
+                                       TextWrapping="Wrap"
+                                       Foreground="#555555"/>
+                            <StackPanel Orientation="Horizontal">
+                                <Button Content="{DynamicResource ExtraPath_BoxDisplay}"
+                                        Click="BoxDarkScreenDisplay_Click"
+                                        Padding="10,2"
+                                        Margin="0,0,8,0"/>
+                                <Button x:Name="AdjustDarkScreenDisplayButton"
+                                        Content="{DynamicResource Btn_AdjustRegion}"
+                                        Click="AdjustDarkScreenDisplay_Click"
+                                        Padding="10,2"
+                                        Margin="0,0,8,0"/>
+                                <Button Content="{DynamicResource ExtraPath_ClearDefault}"
+                                        Click="ClearDarkScreenDisplay_Click"
+                                        Padding="10,2"/>
+                            </StackPanel>
+                        </StackPanel>
+                        <StackPanel x:Name="DialogueOptionScanPanel">
+                            <CheckBox x:Name="RecognizeDialogueOptionsCheckBox"
+                                      Checked="RecognizeDialogueOptionsCheckBox_Checked"
+                                      Unchecked="RecognizeDialogueOptionsCheckBox_Checked"
+                                      Content="{DynamicResource Config_RecognizeDialogueOptions}"
+                                      ToolTip="{DynamicResource Config_RecognizeDialogueOptions_Tooltip}"
+                                      Margin="0,0,0,6"/>
+                            <StackPanel x:Name="DialogueOptionDisplayRow" Margin="22,0,0,10" Visibility="Collapsed">
+                                <TextBlock x:Name="DialogueOptionDisplayStatus"
+                                           Margin="0,0,0,6"
+                                           TextWrapping="Wrap"
+                                           Foreground="#555555"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="{DynamicResource ExtraPath_BoxDisplay}"
+                                            Click="BoxDialogueOptionDisplay_Click"
+                                            Padding="10,2"
+                                            Margin="0,0,8,0"/>
+                                    <Button x:Name="AdjustDialogueOptionDisplayButton"
+                                            Content="{DynamicResource Btn_AdjustRegion}"
+                                            Click="AdjustDialogueOptionDisplay_Click"
+                                            Padding="10,2"
+                                            Margin="0,0,8,0"/>
+                                    <Button Content="{DynamicResource ExtraPath_ClearDefault}"
+                                            Click="ClearDialogueOptionDisplay_Click"
+                                            Padding="10,2"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </StackPanel>
                     </StackPanel>
 
                     <!-- Action Buttons -->
-                    <WrapPanel Grid.Row="3" HorizontalAlignment="Left" Margin="0,10,0,0">
-                        <Button Content="{DynamicResource Btn_ResetLocation}" Margin="0,0,20,0" Click="ResetLocation_Click"/>
-                        <Button x:Name="SecondRegionButton"
-                                Content="{DynamicResource Btn_SecondRegion}"
-                                Margin="0,0,4,0"
-                                Click="SecondRegion_Click"/>
-                        <Button x:Name="DeleteSecondRegionButton"
-                                Width="28"
-                                Height="28"
-                                Margin="0,0,20,0"
-                                IsEnabled="False"
-                                ToolTip="{DynamicResource Btn_DeleteSecondRegion_Tooltip}"
-                                Click="DeleteSecondRegion_Click">
-                            <TextBlock FontFamily="Segoe MDL2 Assets"
-                                       FontSize="14"
-                                       Text="&#xE74D;"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"/>
-                        </Button>
+                    <WrapPanel Grid.Row="2" HorizontalAlignment="Left" Margin="0,10,0,0">
                         <Button Content="{DynamicResource Btn_OpenFolder}" Margin="0,0,20,0" Click="OpenAppDataFolder_Click"/>
-                        <Button Content="{DynamicResource Btn_SubtitleFont}" Click="FontPreview_Click"></Button>
+                        <Button Content="{DynamicResource Btn_SubtitleFont}" Margin="0,0,20,0" Click="FontPreview_Click"/>
                     </WrapPanel>
 
                 </Grid>

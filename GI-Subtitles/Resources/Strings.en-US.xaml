@@ -52,9 +52,39 @@
     <sys:String x:Key="Help_Instructions" xmlns:sys="clr-namespace:System;assembly=mscorlib">Usage Instructions</sys:String>
     <sys:String x:Key="Help_Step1" xmlns:sys="clr-namespace:System;assembly=mscorlib">1. Workflow: In the Language Pack Manager, download the required files, then in-game select the dialogue area and use the hotkey to start recognition and display.</sys:String>
     <sys:String x:Key="Help_Step2" xmlns:sys="clr-namespace:System;assembly=mscorlib">2. You can use Ctrl+Shift+S to start/pause, Ctrl+Shift+R to select the recognition area, and Ctrl+Shift+H to hide subtitles. If there is a conflict, you can modify them in the "Hotkeys" tab.</sys:String>
-    <sys:String x:Key="Help_Step3" xmlns:sys="clr-namespace:System;assembly=mscorlib">3. When the cursor becomes a hand over the subtitles, you can drag to adjust the position (it is recommended to use "borderless windowed" instead of exclusive fullscreen in-game).</sys:String>
+    <sys:String x:Key="Help_Step3" xmlns:sys="clr-namespace:System;assembly=mscorlib">3. On the Region pairs page, click Adjust region to arm, then grab whichever frame you want to move: dragging the capture frame re-samples from the new spot on the next beat; dragging the display frame moves the subtitle live. Preview all and the show-regions hotkey outline each pair's capture (green) and display (gold). Use borderless windowed mode rather than exclusive fullscreen.</sys:String>
 
     <sys:String x:Key="Tab_Config" xmlns:sys="clr-namespace:System;assembly=mscorlib">Other Settings</sys:String>
+    <sys:String x:Key="Tab_RegionPairs" xmlns:sys="clr-namespace:System;assembly=mscorlib">Region pairs</sys:String>
+    <sys:String x:Key="Btn_AddRegionPair" xmlns:sys="clr-namespace:System;assembly=mscorlib">Add region pair</sys:String>
+    <sys:String x:Key="Btn_PreviewAll" xmlns:sys="clr-namespace:System;assembly=mscorlib">Preview all</sys:String>
+    <sys:String x:Key="RegionPair_Empty" xmlns:sys="clr-namespace:System;assembly=mscorlib">There are no region pairs.</sys:String>
+    <sys:String x:Key="RegionPair_OverCap" xmlns:sys="clr-namespace:System;assembly=mscorlib">Over the add limit</sys:String>
+    <sys:String x:Key="RegionPair_PairLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">Pair</sys:String>
+    <sys:String x:Key="RegionPair_Capture" xmlns:sys="clr-namespace:System;assembly=mscorlib">Capture</sys:String>
+    <sys:String x:Key="RegionPair_Display" xmlns:sys="clr-namespace:System;assembly=mscorlib">Display</sys:String>
+    <sys:String x:Key="RegionPair_Unset" xmlns:sys="clr-namespace:System;assembly=mscorlib">Not set</sys:String>
+    <sys:String x:Key="Btn_BoxRegion" xmlns:sys="clr-namespace:System;assembly=mscorlib">Box</sys:String>
+    <sys:String x:Key="Btn_DeletePair" xmlns:sys="clr-namespace:System;assembly=mscorlib">Delete</sys:String>
+    <sys:String x:Key="Btn_AdjustRegion" xmlns:sys="clr-namespace:System;assembly=mscorlib">Adjust region</sys:String>
+    <sys:String x:Key="Overlay_PairOutlineLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">Pair {0}</sys:String>
+    <sys:String x:Key="Btn_SetVoicePrimary" xmlns:sys="clr-namespace:System;assembly=mscorlib">Set as voice-primary</sys:String>
+    <sys:String x:Key="Btn_VoicePrimaryOn" xmlns:sys="clr-namespace:System;assembly=mscorlib">Voice-primary</sys:String>
+    <sys:String x:Key="RegionPair_VoicePrimaryCurrent" xmlns:sys="clr-namespace:System;assembly=mscorlib">Voice-primary is set on the Region pairs page; current is pair {0}.</sys:String>
+    <sys:String x:Key="RegionPair_VoicePrimaryNone" xmlns:sys="clr-namespace:System;assembly=mscorlib">Voice-primary is set on the Region pairs page; none currently.</sys:String>
+    <sys:String x:Key="RegionPair_BoxCaptureMask" xmlns:sys="clr-namespace:System;assembly=mscorlib">Box capture region (pair {0})</sys:String>
+    <sys:String x:Key="RegionPair_BoxDisplayMask" xmlns:sys="clr-namespace:System;assembly=mscorlib">Box display region (pair {0})</sys:String>
+    <sys:String x:Key="Config_OcrInterval_Label" xmlns:sys="clr-namespace:System;assembly=mscorlib">Minimum OCR interval</sys:String>
+    <sys:String x:Key="Config_OcrInterval_OutOfRange" xmlns:sys="clr-namespace:System;assembly=mscorlib">Current {0}ms, outside 200–1000. The engine is still using this value. An edit will clamp it into range.</sys:String>
+    <sys:String x:Key="Hint_RecognitionRunning" xmlns:sys="clr-namespace:System;assembly=mscorlib">Recognizing</sys:String>
+    <sys:String x:Key="Hint_RecognitionStopped" xmlns:sys="clr-namespace:System;assembly=mscorlib">Stopped</sys:String>
+    <sys:String x:Key="Hint_CaptureRegionBoxed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Capture region set</sys:String>
+    <sys:String x:Key="Hint_SubtitlesHidden" xmlns:sys="clr-namespace:System;assembly=mscorlib">Subtitles hidden</sys:String>
+    <sys:String x:Key="Hint_SubtitlesShown" xmlns:sys="clr-namespace:System;assembly=mscorlib">Subtitles shown</sys:String>
+    <sys:String x:Key="Hint_Refreshed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Refreshed</sys:String>
+    <sys:String x:Key="Hint_RefreshFoundNoText" xmlns:sys="clr-namespace:System;assembly=mscorlib">No text recognized</sys:String>
+    <sys:String x:Key="Hint_VoiceSpeed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Speed {0}×</sys:String>
+    <sys:String x:Key="Hint_CaptureRegionMissing" xmlns:sys="clr-namespace:System;assembly=mscorlib">No capture region</sys:String>
     <sys:String x:Key="Config_Pad_Label" xmlns:sys="clr-namespace:System;assembly=mscorlib">Subtitle Offset (Pad)</sys:String>
     <sys:String x:Key="Config_Pad_Hint" xmlns:sys="clr-namespace:System;assembly=mscorlib">Vertical pixel offset below the recognition area</sys:String>
     <sys:String x:Key="Config_Pad_Horizontal" xmlns:sys="clr-namespace:System;assembly=mscorlib">Horizontal Offset:</sys:String>
@@ -65,8 +95,20 @@
     <sys:String x:Key="Config_Multiline" xmlns:sys="clr-namespace:System;assembly=mscorlib">Enable multi-line recognition</sys:String>
     <sys:String x:Key="Config_AutoStart" xmlns:sys="clr-namespace:System;assembly=mscorlib">Start with Windows</sys:String>
     <sys:String x:Key="Config_PlayVoice" xmlns:sys="clr-namespace:System;assembly=mscorlib">Enable voice</sys:String>
+    <sys:String x:Key="Config_RecognizeDarkScreenSubtitles" xmlns:sys="clr-namespace:System;assembly=mscorlib">Recognize dark-screen subtitles</sys:String>
+    <sys:String x:Key="Config_RecognizeDarkScreenSubtitles_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Detects the central subtitle band on a mostly-dark cutscene and shows the translation. This is not a region pair.</sys:String>
     <sys:String x:Key="Config_RecognizeDialogueOptions" xmlns:sys="clr-namespace:System;assembly=mscorlib">Recognize dialogue choices</sys:String>
     <sys:String x:Key="Config_RecognizeDialogueOptions_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Automatically locates dialogue choices and voices the option selected with the mouse.</sys:String>
+    <sys:String x:Key="ExtraPath_BoxDisplay" xmlns:sys="clr-namespace:System;assembly=mscorlib">Box display region</sys:String>
+    <sys:String x:Key="ExtraPath_ClearDefault" xmlns:sys="clr-namespace:System;assembly=mscorlib">Reset to default</sys:String>
+    <sys:String x:Key="ExtraPath_DarkScreenFollowBand" xmlns:sys="clr-namespace:System;assembly=mscorlib">Follows the candidate band</sys:String>
+    <sys:String x:Key="ExtraPath_DialogueFollowVoicePrimary" xmlns:sys="clr-namespace:System;assembly=mscorlib">Follows the voice-primary pair</sys:String>
+    <sys:String x:Key="ExtraPath_DisplaySet" xmlns:sys="clr-namespace:System;assembly=mscorlib">Display region set</sys:String>
+    <sys:String x:Key="ExtraPath_BoxDarkScreenMask" xmlns:sys="clr-namespace:System;assembly=mscorlib">Box dark-screen display</sys:String>
+    <sys:String x:Key="ExtraPath_BoxDialogueOptionMask" xmlns:sys="clr-namespace:System;assembly=mscorlib">Box dialogue-option display</sys:String>
+    <sys:String x:Key="Overlay_DarkScreenOutlineLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">Dark-screen</sys:String>
+    <sys:String x:Key="Overlay_DialogueOptionOutlineLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">Option</sys:String>
+    <sys:String x:Key="Overlay_DarkScreenCandidateOutlineLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">Candidate</sys:String>
     <sys:String x:Key="Btn_TestVoice" xmlns:sys="clr-namespace:System;assembly=mscorlib">Test voice</sys:String>
     <sys:String x:Key="Btn_TestVoice_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Simulate recognizing “笑死我了。” and play its mapped voice.</sys:String>
     <sys:String x:Key="Btn_OpenFolder" xmlns:sys="clr-namespace:System;assembly=mscorlib">Open App Folder</sys:String>

@@ -63,7 +63,27 @@ namespace GI_Subtitles.Core.Config
             {
                 jo[kv.Key] = kv.Value;
             }
-            File.WriteAllText(SettingsFile, jo.ToString(Formatting.Indented));
+
+            string tempFile = SettingsFile + ".tmp";
+            File.WriteAllText(tempFile, jo.ToString(Formatting.Indented));
+            try
+            {
+                if (File.Exists(SettingsFile))
+                {
+                    File.Replace(tempFile, SettingsFile, null);
+                }
+                else
+                {
+                    File.Move(tempFile, SettingsFile);
+                }
+            }
+            finally
+            {
+                if (File.Exists(tempFile))
+                {
+                    File.Delete(tempFile);
+                }
+            }
         }
 
         public static T Get<T>(string key, T defaultValue = default)
@@ -80,6 +100,19 @@ namespace GI_Subtitles.Core.Config
         {
             _settings[key] = JToken.FromObject(value);
             Save();
+        }
+
+        public static bool Contains(string key)
+        {
+            return _settings.ContainsKey(key);
+        }
+
+        public static void Remove(string key)
+        {
+            if (_settings.Remove(key))
+            {
+                Save();
+            }
         }
 
         public static int GetPad(int defaultValue = 0)

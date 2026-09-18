@@ -228,6 +228,14 @@ namespace Screenshot
         /// </summary>
         public static Rect GetRegion()
         {
+            return GetRegion(null);
+        }
+
+        /// <summary>
+        /// Get the user's selected region, with optional mask copy on the overlay.
+        /// </summary>
+        public static Rect GetRegion(string prompt)
+        {
             DebugLogger.Log("========== Start a new screenshot session ==========");
 
             var options = new ScreenshotOptions();
@@ -282,6 +290,7 @@ namespace Screenshot
                 Topmost = true,
                 ShowInTaskbar = false,
                 BorderThickness = new Thickness(0),
+                Prompt = prompt,
                 BackgroundImage =
                 {
                     Source = bitmap,

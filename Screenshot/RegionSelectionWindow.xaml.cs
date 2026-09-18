@@ -18,6 +18,18 @@ namespace Screenshot
 
         public Rect? SelectedRegion { get; private set; }
 
+        public string Prompt
+        {
+            get { return PromptLabel.Text; }
+            set
+            {
+                PromptLabel.Text = value ?? string.Empty;
+                PromptLabel.Visibility = string.IsNullOrWhiteSpace(value)
+                    ? Visibility.Collapsed
+                    : Visibility.Visible;
+            }
+        }
+
         protected override void OnKeyDown(KeyEventArgs e)
         {
             base.OnKeyDown(e);
