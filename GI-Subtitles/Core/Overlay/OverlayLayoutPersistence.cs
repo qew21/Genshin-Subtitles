@@ -25,8 +25,12 @@ namespace GI_Subtitles.Core.Overlay
             {
                 [NormalizeGame(selectedGame)] = CaptureGlobal(config)
             };
+
+            // Set the new root in one atomic Config.Save operation. Keep the legacy
+            // keys as a recoverable backup; they are ignored once OverlayLayouts exists
+            // and can be removed by a later cleanup migration after the new layout has
+            // been verified in production.
             config.Set(LayoutsConfigKey, layouts);
-            RemoveGlobal(config);
             return true;
         }
 
@@ -107,20 +111,6 @@ namespace GI_Subtitles.Core.Overlay
                     PadHorizontal = padHorizontal
                 }
             };
-        }
-
-        private static void RemoveGlobal(IConfigMap config)
-        {
-            config.Remove(ConfigRegionPairStore.PairsConfigKey);
-            config.Remove(ConfigRegionPairStore.VoicePrimaryIdConfigKey);
-            config.Remove(ConfigRegionPairStore.NextPairIdConfigKey);
-            config.Remove(ConfigRegionPairStore.DarkScreenDisplayConfigKey);
-            config.Remove(ConfigRegionPairStore.DialogueOptionDisplayConfigKey);
-            config.Remove(ConfigRegionPairStore.DarkScreenScanConfigKey);
-            config.Remove(ConfigRegionPairStore.DialogueOptionScanConfigKey);
-            config.Remove("Region");
-            config.Remove("Region2");
-            config.Remove("Pad");
         }
 
         private static void ReadPad(IConfigMap config, out int vertical, out int horizontal)
