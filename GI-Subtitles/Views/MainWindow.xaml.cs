@@ -82,6 +82,7 @@ namespace GI_Subtitles.Views
             new ConfigRegionPairStore());
         private readonly List<Mat> _pairLastBinary = new List<Mat>();
         private readonly List<Mat> _pairLastOcrBinary = new List<Mat>();
+        private readonly List<Mat> _pairPendingOcrBinary = new List<Mat>();
         private readonly List<Bitmap> _pairCapturedBitmaps = new List<Bitmap>();
         private readonly List<Mat> _pairCapturedMats = new List<Mat>();
         private readonly List<System.Windows.Controls.TextBlock> _extraPairBodies = new List<System.Windows.Controls.TextBlock>();
@@ -798,9 +799,33 @@ namespace GI_Subtitles.Views
             {
                 _pairLastBinary.Add(null);
                 _pairLastOcrBinary.Add(null);
+                _pairPendingOcrBinary.Add(null);
                 _pairCapturedBitmaps.Add(null);
                 _pairCapturedMats.Add(null);
             }
+        }
+
+        private void CommitPairOcrBaseline(int pairIndex)
+        {
+            if (pairIndex < 0 || pairIndex >= _pairPendingOcrBinary.Count)
+            {
+                return;
+            }
+
+            _pairLastOcrBinary[pairIndex]?.Dispose();
+            _pairLastOcrBinary[pairIndex] = _pairPendingOcrBinary[pairIndex];
+            _pairPendingOcrBinary[pairIndex] = null;
+        }
+
+        private void DiscardPairOcrBaseline(int pairIndex)
+        {
+            if (pairIndex < 0 || pairIndex >= _pairPendingOcrBinary.Count)
+            {
+                return;
+            }
+
+            _pairPendingOcrBinary[pairIndex]?.Dispose();
+            _pairPendingOcrBinary[pairIndex] = null;
         }
 
         private void EnsureExtraPairBodies(int pairCount)
@@ -937,12 +962,9 @@ namespace GI_Subtitles.Views
             }
 
             Mat lastBinary = idx < _pairLastBinary.Count ? _pairLastBinary[idx] : null;
-            if (lastBinary != null)
-            {
-                EnsurePairBuffers(idx + 1);
-                _pairLastOcrBinary[idx]?.Dispose();
-                _pairLastOcrBinary[idx] = lastBinary.Clone();
-            }
+            EnsurePairBuffers(idx + 1);
+            _pairPendingOcrBinary[idx]?.Dispose();
+            _pairPendingOcrBinary[idx] = lastBinary?.Clone();
 
             Mat frame = _pairCapturedMats[idx];
             Bitmap bitmap = _pairCapturedBitmaps[idx];
@@ -1214,6 +1236,11 @@ namespace GI_Subtitles.Views
             }
             finally
             {
+                if (pairIndex.HasValue)
+                {
+                    DiscardPairOcrBaseline(pairIndex.Value);
+                }
+
                 int processedWidth = frameToProcess?.IsDisposed == false ? frameToProcess.Width : 0;
                 int processedHeight = frameToProcess?.IsDisposed == false ? frameToProcess.Height : 0;
                 if (!string.IsNullOrEmpty(darkScreenHash) &&
@@ -1268,6 +1295,14 @@ namespace GI_Subtitles.Views
             {
                 if (usable)
                 {
+                    if (matchMiss)
+                    {
+                        DiscardPairOcrBaseline(appliedPair);
+                    }
+                    else
+                    {
+                        CommitPairOcrBaseline(appliedPair);
+                    }
                     _forceVoiceReplayRequested = true;
                     _overlaySession.ApplyPairResult(
                         appliedPair,
@@ -1284,6 +1319,7 @@ namespace GI_Subtitles.Views
                 }
                 else
                 {
+                    DiscardPairOcrBaseline(appliedPair);
                     Logger.Log.Warn("Forced OCR refresh produced no usable text; keeping the current subtitle without replay.");
                     _overlaySession.ApplyPairResult(appliedPair, miss: true, force: true);
                     _overlaySession.Refresh(hasCaptureRegion: true, foundText: false);
@@ -1319,6 +1355,7 @@ namespace GI_Subtitles.Views
 
             if (!usable)
             {
+                DiscardPairOcrBaseline(pairIndex.Value);
                 _overlaySession.NoteOcrMiss();
                 _overlaySession.CompleteOcr(miss: true);
                 return;
@@ -1331,6 +1368,14 @@ namespace GI_Subtitles.Views
                 recognizedText,
                 original,
                 matchMiss);
+            if (matchMiss)
+            {
+                DiscardPairOcrBaseline(pairIndex.Value);
+            }
+            else
+            {
+                CommitPairOcrBaseline(pairIndex.Value);
+            }
             MaybePlayPairVoice(key, content, header);
             ApplyPairOverlay();
         }
@@ -2259,6 +2304,11 @@ namespace GI_Subtitles.Views
             {
                 _pairLastOcrBinary[i]?.Dispose();
                 _pairLastOcrBinary[i] = null;
+            }
+            for (int i = 0; i < _pairPendingOcrBinary.Count; i++)
+            {
+                _pairPendingOcrBinary[i]?.Dispose();
+                _pairPendingOcrBinary[i] = null;
             }
             for (int i = 0; i < _pairCapturedBitmaps.Count; i++)
             {
