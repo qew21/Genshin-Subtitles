@@ -18,8 +18,8 @@ namespace GI_Subtitles.Core.Overlay
         public const int DialogueOptionScanIntervalMs = 400;
         public const int DarkScreenOcrSlot = -2;
         public const int DialogueOptionsOcrSlot = -1;
-        public const int EnginePairCap = 8;
         public const int SettingsPairCap = 4;
+        public const int EnginePairCap = SettingsPairCap;
         private const string DialogueChoiceEchoPrefix = "◆ ";
 
         private readonly IOcrIntervalStore _store;
@@ -405,9 +405,9 @@ namespace GI_Subtitles.Core.Overlay
 
         public void SetCapture(int pairIndex, OverlayRect capture)
         {
-            if (pairIndex < 0)
+            if (pairIndex < 0 || pairIndex >= SettingsPairCap)
             {
-                throw new ArgumentOutOfRangeException(nameof(pairIndex));
+                return;
             }
 
             EnsurePairSlot(pairIndex);
@@ -918,11 +918,14 @@ namespace GI_Subtitles.Core.Overlay
 
             IReadOnlyList<RegionPairRecord> stored = _pairStore.ReadPairs();
             bool wroteLegacy = false;
+            bool truncated = false;
             if (stored != null && stored.Count > 0)
             {
-                foreach (RegionPairRecord record in stored)
+                int count = Math.Min(SettingsPairCap, stored.Count);
+                truncated = stored.Count > count;
+                for (int i = 0; i < count; i++)
                 {
-                    _pairs.Add(FromRecord(record));
+                    _pairs.Add(FromRecord(stored[i]));
                 }
             }
             else
@@ -938,7 +941,7 @@ namespace GI_Subtitles.Core.Overlay
             SyncPairRuntime();
             bool identitiesChanged = EnsureIdentities();
             LoadExtraPathDisplays();
-            if (wroteLegacy || identitiesChanged)
+            if (wroteLegacy || identitiesChanged || truncated)
             {
                 PersistPairs();
             }
