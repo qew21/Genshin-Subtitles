@@ -1436,11 +1436,13 @@ namespace GI_Subtitles.Views
 
             if (!Config.Get<bool>("PlayVoice", false) || !contentChanged || string.IsNullOrEmpty(key))
             {
+                _overlaySession.NoteVoicePlaybackEnded();
                 return;
             }
 
             if (!forceVoiceReplay && AudioList.Contains(key))
             {
+                _overlaySession.NoteVoicePlaybackEnded();
                 return;
             }
 
