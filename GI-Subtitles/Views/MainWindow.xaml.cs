@@ -648,9 +648,10 @@ namespace GI_Subtitles.Views
                 return;
             }
 
-            System.Windows.Point canvasPoint = DisplayToCanvas(display);
-            double width = display.Width / Scale;
-            double height = display.Height / Scale;
+            double displayScale = GetDisplayScale(display);
+            System.Windows.Point canvasPoint = DisplayToCanvas(display, displayScale);
+            double width = display.Width / displayScale;
+            double height = display.Height / displayScale;
             Canvas.SetLeft(SubtitleText, canvasPoint.X);
             Canvas.SetTop(SubtitleText, canvasPoint.Y);
             SubtitleText.Width = width;
@@ -686,12 +687,13 @@ namespace GI_Subtitles.Views
                 return;
             }
 
-            System.Windows.Point canvasPoint = DisplayToCanvas(body.Display);
+            double displayScale = GetDisplayScale(body.Display);
+            System.Windows.Point canvasPoint = DisplayToCanvas(body.Display, displayScale);
             Canvas.SetLeft(DarkScreenText, canvasPoint.X);
             Canvas.SetTop(DarkScreenText, canvasPoint.Y);
-            DarkScreenText.Width = body.Display.Width / Scale;
-            DarkScreenText.Height = body.Display.Height / Scale;
-            DarkScreenText.MaxHeight = body.Display.Height / Scale;
+            DarkScreenText.Width = body.Display.Width / displayScale;
+            DarkScreenText.Height = body.Display.Height / displayScale;
+            DarkScreenText.MaxHeight = body.Display.Height / displayScale;
             DarkScreenText.FontSize = Config.Get<int>("Size");
             DarkScreenText.Text = string.IsNullOrEmpty(body.Header)
                 ? body.Content
@@ -709,10 +711,11 @@ namespace GI_Subtitles.Views
                 return;
             }
 
-            System.Windows.Point canvasPoint = DisplayToCanvas(echo.Display);
+            double displayScale = GetDisplayScale(echo.Display);
+            System.Windows.Point canvasPoint = DisplayToCanvas(echo.Display, displayScale);
             Canvas.SetLeft(DialogueChoiceText, canvasPoint.X);
             Canvas.SetTop(DialogueChoiceText, canvasPoint.Y);
-            DialogueChoiceText.Width = echo.Display.Width / Scale;
+            DialogueChoiceText.Width = echo.Display.Width / displayScale;
             DialogueChoiceText.Text = echo.Content;
             DialogueChoiceText.Visibility = Visibility.Visible;
             System.Windows.Controls.Panel.SetZIndex(DialogueChoiceText, echo.RecognitionOrder);
@@ -721,8 +724,8 @@ namespace GI_Subtitles.Views
             if (!echo.FollowsVoicePrimary)
             {
                 transform.Y = 0;
-                DialogueChoiceText.Height = echo.Display.Height / Scale;
-                DialogueChoiceText.MaxHeight = echo.Display.Height / Scale;
+                DialogueChoiceText.Height = echo.Display.Height / displayScale;
+                DialogueChoiceText.MaxHeight = echo.Display.Height / displayScale;
                 DialogueChoiceText.FontSize = Config.Get<int>("Size");
                 return;
             }
@@ -773,11 +776,12 @@ namespace GI_Subtitles.Views
                 return;
             }
 
-            System.Windows.Point canvasPoint = DisplayToCanvas(body.Display);
+            double displayScale = GetDisplayScale(body.Display);
+            System.Windows.Point canvasPoint = DisplayToCanvas(body.Display, displayScale);
             Canvas.SetLeft(block, canvasPoint.X);
             Canvas.SetTop(block, canvasPoint.Y);
-            block.Width = body.Display.Width / Scale;
-            block.Height = body.Display.Height / Scale;
+            block.Width = body.Display.Width / displayScale;
+            block.Height = body.Display.Height / displayScale;
             block.FontSize = Config.Get<int>("Size");
             block.Text = string.IsNullOrEmpty(body.Header)
                 ? body.Content
@@ -788,9 +792,35 @@ namespace GI_Subtitles.Views
 
         private System.Windows.Point DisplayToCanvas(OverlayRect display)
         {
+            return DisplayToCanvas(display, GetDisplayScale(display));
+        }
+
+        private System.Windows.Point DisplayToCanvas(OverlayRect display, double displayScale)
+        {
             return new System.Windows.Point(
-                display.X / Scale - SystemParameters.VirtualScreenLeft,
-                display.Y / Scale - SystemParameters.VirtualScreenTop);
+                display.X / displayScale - SystemParameters.VirtualScreenLeft,
+                display.Y / displayScale - SystemParameters.VirtualScreenTop);
+        }
+
+        private double GetDisplayScale(OverlayRect display)
+        {
+            if (display == null || !display.IsValid)
+            {
+                return Scale;
+            }
+
+            var anchor = new System.Drawing.Point(
+                display.X + display.Width / 2,
+                display.Y + display.Height / 2);
+            foreach (Screen screen in Screen.AllScreens)
+            {
+                if (screen.Bounds.Contains(anchor))
+                {
+                    return GetScaleForScreen(screen);
+                }
+            }
+
+            return Scale;
         }
 
         private void EnsurePairBuffers(int count)
@@ -2428,9 +2458,10 @@ namespace GI_Subtitles.Views
             }
 
             OverlayRect rect = outline.Rect;
-            System.Windows.Point canvasPoint = DisplayToCanvas(rect);
-            double width = rect.Width / Scale;
-            double height = rect.Height / Scale;
+            double displayScale = GetDisplayScale(rect);
+            System.Windows.Point canvasPoint = DisplayToCanvas(rect, displayScale);
+            double width = rect.Width / displayScale;
+            double height = rect.Height / displayScale;
             SolidColorBrush stroke = BrushForOutline(outline);
 
             var box = new System.Windows.Shapes.Rectangle
@@ -2583,9 +2614,10 @@ namespace GI_Subtitles.Views
             System.Windows.Point now = e.GetPosition(OverlayCanvas);
             double deltaX = now.X - _dragStartMouse.X;
             double deltaY = now.Y - _dragStartMouse.Y;
+            double dragScale = GetDisplayScale(_dragStartRect);
             var moved = new OverlayRect(
-                (int)Math.Round(_dragStartRect.X + deltaX * Scale),
-                (int)Math.Round(_dragStartRect.Y + deltaY * Scale),
+                (int)Math.Round(_dragStartRect.X + deltaX * dragScale),
+                (int)Math.Round(_dragStartRect.Y + deltaY * dragScale),
                 _dragStartRect.Width,
                 _dragStartRect.Height);
             ApplyDraggedRegion(moved);
@@ -2720,11 +2752,12 @@ namespace GI_Subtitles.Views
             }
 
             // Same mixed-DPI treatment as subtitle placement: physical px over system scale.
+            double targetScale = GetDisplayScale(target);
             return new System.Windows.Rect(
-                target.X / Scale,
-                target.Y / Scale,
-                target.Width / Scale,
-                target.Height / Scale);
+                target.X / targetScale,
+                target.Y / targetScale,
+                target.Width / targetScale,
+                target.Height / targetScale);
         }
 
         private string ResolveHintText()
