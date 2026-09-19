@@ -317,7 +317,7 @@ namespace GI_Subtitles.Core.Overlay
             Tick();
             if (!hasCaptureRegion)
             {
-                WriteOperatorAction(HintResourceCaptureRegionMissing);
+                WriteOperatorAction(OperatorJob.Preview, null, HintResourceCaptureRegionMissing);
                 ClearPreview();
                 return;
             }
@@ -802,6 +802,20 @@ namespace GI_Subtitles.Core.Overlay
             if (pairIndex < 0 || pairIndex >= _pairs.Count)
             {
                 return;
+            }
+
+            // Force-refresh bypasses CompleteOcr, so write its pipeline row here
+            // before EmitVoicePlayRequest records the row that will receive Voice.
+            if (force)
+            {
+                WritePipelineForSlot(
+                    pairIndex,
+                    miss,
+                    content,
+                    ocrText,
+                    original,
+                    matchMiss,
+                    isRepeat: false);
             }
 
             PairRecognitionResult result = PairRecognitionResult.From(miss, matchMiss, header, content, ocrText);

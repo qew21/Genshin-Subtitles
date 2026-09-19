@@ -196,6 +196,7 @@ namespace GI_Subtitles.Views
         string dataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GI-Subtitles");
         INotifyIcon notify;
         SettingsWindow data;
+        ActivityLogWindow _activityLogWindow;
         SoundPlayer player = new SoundPlayer();
         private System.Drawing.Rectangle screenBounds = Screen.PrimaryScreen.Bounds;
         bool ShowText = true;
@@ -311,10 +312,14 @@ namespace GI_Subtitles.Views
             data = new SettingsWindow(version, notify, Scale, _overlaySession);
             data.InitializeKey(handle);
             notify.SetData(data);
+            _activityLogWindow = new ActivityLogWindow(_overlaySession);
+            notify.SetActivityLogOpener(ShowActivityLog);
+            data.OpenActivityLogRequested += (sender, args) => ShowActivityLog();
             data.IsVisibleChanged += (sender, args) =>
             {
                 if (!data.IsVisible)
                 {
+                    _activityLogWindow.ClearStayAbove();
                 }
             };
             CleanupOldUpdatePackages();
@@ -2359,6 +2364,17 @@ namespace GI_Subtitles.Views
             _overlaySession.PreviewCaptureRegion(
                 _overlaySession.HasValidCapture,
                 _overlaySession.DarkScreenScanOn);
+        }
+
+        private void ShowActivityLog()
+        {
+            if (_activityLogWindow == null)
+            {
+                _activityLogWindow = new ActivityLogWindow(_overlaySession);
+            }
+
+            bool settingsOpen = data != null && data.IsVisible;
+            _activityLogWindow.ShowOrFocus(settingsOpen);
         }
 
         private void OnHintChanged()

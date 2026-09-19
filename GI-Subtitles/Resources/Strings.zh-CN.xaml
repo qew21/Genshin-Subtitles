@@ -93,6 +93,43 @@
     <sys:String x:Key="Hint_RefreshFoundNoText" xmlns:sys="clr-namespace:System;assembly=mscorlib">未识别到文本</sys:String>
     <sys:String x:Key="Hint_VoiceSpeed" xmlns:sys="clr-namespace:System;assembly=mscorlib">倍速 {0}×</sys:String>
     <sys:String x:Key="Hint_CaptureRegionMissing" xmlns:sys="clr-namespace:System;assembly=mscorlib">未设置识别区</sys:String>
+<sys:String x:Key="ActivityLog_Title" xmlns:sys="clr-namespace:System;assembly=mscorlib">活动日志</sys:String>
+<sys:String x:Key="ActivityLog_Column_Time" xmlns:sys="clr-namespace:System;assembly=mscorlib">时间</sys:String>
+<sys:String x:Key="ActivityLog_Column_RegionPair" xmlns:sys="clr-namespace:System;assembly=mscorlib">区域对</sys:String>
+<sys:String x:Key="ActivityLog_Column_Job" xmlns:sys="clr-namespace:System;assembly=mscorlib">作业</sys:String>
+<sys:String x:Key="ActivityLog_Column_Result" xmlns:sys="clr-namespace:System;assembly=mscorlib">结果</sys:String>
+<sys:String x:Key="ActivityLog_Scope_Global" xmlns:sys="clr-namespace:System;assembly=mscorlib">全局</sys:String>
+<sys:String x:Key="ActivityLog_Scope_Pair" xmlns:sys="clr-namespace:System;assembly=mscorlib">区域对 {0}</sys:String>
+<sys:String x:Key="ActivityLog_Scope_VoicePrimary" xmlns:sys="clr-namespace:System;assembly=mscorlib">区域对 {0}（配音主区）</sys:String>
+<sys:String x:Key="ActivityLog_Scope_DarkScreen" xmlns:sys="clr-namespace:System;assembly=mscorlib">暗屏</sys:String>
+<sys:String x:Key="ActivityLog_Scope_DialogueOptions" xmlns:sys="clr-namespace:System;assembly=mscorlib">对话选项</sys:String>
+<sys:String x:Key="ActivityLog_JobSeparator" xmlns:sys="clr-namespace:System;assembly=mscorlib"> · </sys:String>
+<sys:String x:Key="ActivityLog_Job_StartRecognition" xmlns:sys="clr-namespace:System;assembly=mscorlib">开始识别</sys:String>
+<sys:String x:Key="ActivityLog_Job_StopRecognition" xmlns:sys="clr-namespace:System;assembly=mscorlib">停止识别</sys:String>
+<sys:String x:Key="ActivityLog_Job_HideSubtitles" xmlns:sys="clr-namespace:System;assembly=mscorlib">隐藏字幕</sys:String>
+<sys:String x:Key="ActivityLog_Job_ShowSubtitles" xmlns:sys="clr-namespace:System;assembly=mscorlib">显示字幕</sys:String>
+<sys:String x:Key="ActivityLog_Job_BoxCapture" xmlns:sys="clr-namespace:System;assembly=mscorlib">框选识别区</sys:String>
+<sys:String x:Key="ActivityLog_Job_Refresh" xmlns:sys="clr-namespace:System;assembly=mscorlib">刷新</sys:String>
+<sys:String x:Key="ActivityLog_Job_VoiceSpeed" xmlns:sys="clr-namespace:System;assembly=mscorlib">配音倍速</sys:String>
+<sys:String x:Key="ActivityLog_Job_Preview" xmlns:sys="clr-namespace:System;assembly=mscorlib">预览</sys:String>
+<sys:String x:Key="ActivityLog_Job_Capture" xmlns:sys="clr-namespace:System;assembly=mscorlib">截屏</sys:String>
+<sys:String x:Key="ActivityLog_Job_Ocr" xmlns:sys="clr-namespace:System;assembly=mscorlib">OCR</sys:String>
+<sys:String x:Key="ActivityLog_Job_Match" xmlns:sys="clr-namespace:System;assembly=mscorlib">匹配</sys:String>
+<sys:String x:Key="ActivityLog_Job_Voice" xmlns:sys="clr-namespace:System;assembly=mscorlib">配音</sys:String>
+<sys:String x:Key="ActivityLog_Job_LanguagePackLoad" xmlns:sys="clr-namespace:System;assembly=mscorlib">语言包加载</sys:String>
+<sys:String x:Key="ActivityLog_Job_LanguagePackDownload" xmlns:sys="clr-namespace:System;assembly=mscorlib">语言包下载</sys:String>
+<sys:String x:Key="ActivityLog_Result_DetectionMiss" xmlns:sys="clr-namespace:System;assembly=mscorlib">检测 miss</sys:String>
+<sys:String x:Key="ActivityLog_Result_Tag_Ocr" xmlns:sys="clr-namespace:System;assembly=mscorlib">[OCR]</sys:String>
+<sys:String x:Key="ActivityLog_Result_Tag_Original" xmlns:sys="clr-namespace:System;assembly=mscorlib">[原文]</sys:String>
+<sys:String x:Key="ActivityLog_Result_Tag_Translation" xmlns:sys="clr-namespace:System;assembly=mscorlib">[译文]</sys:String>
+<sys:String x:Key="ActivityLog_Result_Quoted" xmlns:sys="clr-namespace:System;assembly=mscorlib">「{0}」</sys:String>
+<sys:String x:Key="ActivityLog_Result_MatchMiss" xmlns:sys="clr-namespace:System;assembly=mscorlib" xml:space="preserve"> 匹配 miss</sys:String>
+<sys:String x:Key="ActivityLog_Result_LanguagePackStart" xmlns:sys="clr-namespace:System;assembly=mscorlib">开始 {0}</sys:String>
+<sys:String x:Key="ActivityLog_Result_LanguagePackDone" xmlns:sys="clr-namespace:System;assembly=mscorlib">完成 {0}</sys:String>
+<sys:String x:Key="ActivityLog_Result_LanguagePackFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">失败 {0}</sys:String>
+<sys:String x:Key="ActivityLog_Empty" xmlns:sys="clr-namespace:System;assembly=mscorlib">本会话还没有记录。开始识别、框选或加载语言包后会显示在这里。</sys:String>
+<sys:String x:Key="Btn_ActivityLog" xmlns:sys="clr-namespace:System;assembly=mscorlib">打开活动日志</sys:String>
+<sys:String x:Key="Tray_ActivityLog" xmlns:sys="clr-namespace:System;assembly=mscorlib">活动日志</sys:String>
     <sys:String x:Key="Config_Pad_Label" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕偏移 (Pad)</sys:String>
     <sys:String x:Key="Config_Pad_Hint" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕显示在识别区域下方的像素数</sys:String>
     <sys:String x:Key="Config_Pad_Horizontal" xmlns:sys="clr-namespace:System;assembly=mscorlib">水平偏移：</sys:String>
