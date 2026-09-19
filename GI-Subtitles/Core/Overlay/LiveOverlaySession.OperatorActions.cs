@@ -7,6 +7,7 @@ namespace GI_Subtitles.Core.Overlay
     public sealed partial class LiveOverlaySession
     {
         public const int HintDurationMs = 2000;
+        public const int MaxActivityLogRows = 2000;
 
         private const string HintResourceRecognitionRunning = "Hint_RecognitionRunning";
         private const string HintResourceRecognitionStopped = "Hint_RecognitionStopped";
@@ -29,7 +30,7 @@ namespace GI_Subtitles.Core.Overlay
 
         public event EventHandler HintChanged;
 
-        public event EventHandler ActivityLogChanged;
+        public event EventHandler<ActivityLogChangedEventArgs> ActivityLogChanged;
 
         public IReadOnlyList<ActivityLogRow> ActivityLog
         {
@@ -135,8 +136,13 @@ namespace GI_Subtitles.Core.Overlay
         {
             if (_pendingVoiceLogIndex >= 0 && _pendingVoiceLogIndex < _activityLog.Count)
             {
-                _activityLog[_pendingVoiceLogIndex].IncludeVoiceJob();
-                ActivityLogChanged?.Invoke(this, EventArgs.Empty);
+                ActivityLogRow row = _activityLog[_pendingVoiceLogIndex];
+                if (row.IncludeVoiceJob())
+                {
+                    ActivityLogChanged?.Invoke(
+                        this,
+                        new ActivityLogChangedEventArgs(null, row, removedCount: 0));
+                }
             }
 
             _pendingVoiceLogIndex = -1;
@@ -362,7 +368,7 @@ namespace GI_Subtitles.Core.Overlay
             bool matchMiss,
             bool isRepeat)
         {
-            _activityLog.Add(new ActivityLogRow(
+            var row = new ActivityLogRow(
                 utcTimestamp,
                 jobs,
                 scope,
@@ -375,8 +381,29 @@ namespace GI_Subtitles.Core.Overlay
                 translation,
                 detectionMiss,
                 matchMiss,
-                isRepeat));
-            ActivityLogChanged?.Invoke(this, EventArgs.Empty);
+                isRepeat);
+            _activityLog.Add(row);
+
+            int removedCount = _activityLog.Count - MaxActivityLogRows;
+            if (removedCount > 0)
+            {
+                _activityLog.RemoveRange(0, removedCount);
+                if (_pendingVoiceLogIndex >= 0)
+                {
+                    if (_pendingVoiceLogIndex < removedCount)
+                    {
+                        _pendingVoiceLogIndex = -1;
+                    }
+                    else
+                    {
+                        _pendingVoiceLogIndex -= removedCount;
+                    }
+                }
+            }
+
+            ActivityLogChanged?.Invoke(
+                this,
+                new ActivityLogChangedEventArgs(row, null, removedCount));
         }
 
         private void RememberVoiceLogRow()

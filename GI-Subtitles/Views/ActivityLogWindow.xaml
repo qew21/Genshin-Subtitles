@@ -36,6 +36,15 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <Style x:Key="LogCellRichTextBox" TargetType="RichTextBox">
+            <Setter Property="IsReadOnly" Value="True"/>
+            <Setter Property="IsTabStop" Value="False"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Foreground"
+                    Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListViewItem}}"/>
+        </Style>
     </Window.Resources>
     <Grid>
         <ListView x:Name="LogList"
@@ -81,9 +90,9 @@
                     <GridViewColumn Header="{DynamicResource ActivityLog_Column_Result}" Width="280">
                         <GridViewColumn.CellTemplate>
                             <DataTemplate>
-                                <TextBox Style="{StaticResource LogCellTextBox}"
-                                         Text="{Binding Result, Mode=OneWay}"
-                                         TextWrapping="Wrap"/>
+                                <RichTextBox Style="{StaticResource LogCellRichTextBox}"
+                                             DataContextChanged="ResultRichTextBox_DataContextChanged"
+                                             AcceptsTab="False"/>
                             </DataTemplate>
                         </GridViewColumn.CellTemplate>
                     </GridViewColumn>

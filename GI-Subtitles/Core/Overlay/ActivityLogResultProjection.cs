@@ -46,11 +46,11 @@ namespace GI_Subtitles.Core.Overlay
     /// <summary>
     /// The segmented projection of one row's result column. The segments are
     /// the single source for both layers the window renders: the colored
-    /// TextBlock composes its runs from the lines, while the selection
-    /// TextBox and the row-copy TSV read <see cref="PlainText"/>, so copied
-    /// text always equals displayed text. Every compose call builds fresh
-    /// line instances, which the window's bindings rely on to re-fire when a
-    /// row is re-projected or a container is recycled.
+    /// RichTextBox composes its runs from the lines, while row-copy TSV reads
+    /// <see cref="PlainText"/>, so copied text always equals displayed text.
+    /// Every compose call builds fresh line instances, which the window's
+    /// bindings rely on to re-fire when a row is re-projected or a container
+    /// is recycled.
     /// </summary>
     public sealed class ActivityLogResultProjection
     {

@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Documents;
+using System.Windows.Media;
 using GI_Subtitles.Core.Overlay;
 
 namespace GI_Subtitles.Views
@@ -14,7 +17,6 @@ namespace GI_Subtitles.Views
         private readonly List<ActivityLogRow> _rowSources = new List<ActivityLogRow>();
         private bool _forceClose;
         private bool _opened;
-        private int _consumedCount;
 
         public ActivityLogWindow(LiveOverlaySession session)
         {
@@ -77,7 +79,7 @@ namespace GI_Subtitles.Views
             _forceClose = true;
         }
 
-        private void OnActivityLogChanged(object sender, EventArgs e)
+        private void OnActivityLogChanged(object sender, ActivityLogChangedEventArgs e)
         {
             Dispatcher.BeginInvoke(new Action(() =>
             {
@@ -86,7 +88,7 @@ namespace GI_Subtitles.Views
                     return;
                 }
 
-                SyncRows();
+                SyncRows(e);
             }));
         }
 
@@ -94,33 +96,50 @@ namespace GI_Subtitles.Views
         {
             _rows.Clear();
             _rowSources.Clear();
-            _consumedCount = 0;
             SyncRows();
         }
 
-        private void SyncRows()
+        private void SyncRows(ActivityLogChangedEventArgs change = null)
         {
             IReadOnlyList<ActivityLogRow> log = _session.ActivityLog;
-            for (int i = _consumedCount; i < log.Count; i++)
+            if (change == null)
             {
-                ActivityLogRow row = log[i];
-                _rows.Add(Project(row));
-                _rowSources.Add(row);
-            }
-
-            _consumedCount = log.Count;
-
-            // Mutation-only notifies (e.g. voice folded into a prior row) refresh
-            // already-projected views without appending.
-            if (_consumedCount == _rowSources.Count)
-            {
-                for (int i = 0; i < _rowSources.Count; i++)
+                for (int i = 0; i < log.Count; i++)
                 {
-                    ApplyProjection(_rows[i], _rowSources[i]);
+                    AddRow(log[i]);
+                }
+            }
+            else
+            {
+                int removeCount = Math.Min(change.RemovedCount, _rowSources.Count);
+                for (int i = 0; i < removeCount; i++)
+                {
+                    _rowSources.RemoveAt(0);
+                    _rows.RemoveAt(0);
+                }
+
+                if (change.AddedRow != null)
+                {
+                    AddRow(change.AddedRow);
+                }
+
+                if (change.UpdatedRow != null)
+                {
+                    int index = _rowSources.IndexOf(change.UpdatedRow);
+                    if (index >= 0)
+                    {
+                        ApplyProjection(_rows[index], change.UpdatedRow);
+                    }
                 }
             }
 
             EmptyState.Visibility = _rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        private void AddRow(ActivityLogRow row)
+        {
+            _rows.Add(Project(row));
+            _rowSources.Add(row);
         }
 
         private ActivityLogRowView Project(ActivityLogRow row)
@@ -187,8 +206,127 @@ namespace GI_Subtitles.Views
 
         private void ApplyResult(ActivityLogRowView view, ActivityLogRow row)
         {
-            ActivityLogResultProjection projection = ActivityLogResultComposer.Compose(row, ResolveText);
-            view.Result = projection.PlainText;
+            view.ResultProjection = ActivityLogResultComposer.Compose(row, ResolveText);
+        }
+
+        private void ResultRichTextBox_DataContextChanged(
+            object sender,
+            DependencyPropertyChangedEventArgs e)
+        {
+            if (e.OldValue is ActivityLogRowView oldView)
+            {
+                oldView.PropertyChanged -= ResultView_PropertyChanged;
+            }
+
+            if (e.NewValue is ActivityLogRowView newView)
+            {
+                newView.PropertyChanged += ResultView_PropertyChanged;
+            }
+
+            RenderResult(sender as RichTextBox);
+        }
+
+        private void ResultView_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(ActivityLogRowView.ResultProjection))
+            {
+                Dispatcher.BeginInvoke(new Action(() =>
+                    RenderResultForView(sender as ActivityLogRowView)));
+            }
+        }
+
+        private void RenderResultForView(ActivityLogRowView view)
+        {
+            if (view == null)
+            {
+                return;
+            }
+
+            foreach (RichTextBox box in FindResultBoxes())
+            {
+                if (ReferenceEquals(box.DataContext, view))
+                {
+                    RenderResult(box);
+                }
+            }
+        }
+
+        private IEnumerable<RichTextBox> FindResultBoxes()
+        {
+            return FindVisualChildren<RichTextBox>(this);
+        }
+
+        private static IEnumerable<T> FindVisualChildren<T>(DependencyObject root)
+            where T : DependencyObject
+        {
+            if (root == null)
+            {
+                yield break;
+            }
+
+            int count = VisualTreeHelper.GetChildrenCount(root);
+            for (int i = 0; i < count; i++)
+            {
+                DependencyObject child = VisualTreeHelper.GetChild(root, i);
+                if (child is T typed)
+                {
+                    yield return typed;
+                }
+
+                foreach (T descendant in FindVisualChildren<T>(child))
+                {
+                    yield return descendant;
+                }
+            }
+        }
+
+        private void RenderResult(RichTextBox box)
+        {
+            if (box == null)
+            {
+                return;
+            }
+
+            box.Document.Blocks.Clear();
+            ActivityLogRowView view = box.DataContext as ActivityLogRowView;
+            ActivityLogResultProjection projection = view?.ResultProjection;
+            if (projection == null)
+            {
+                return;
+            }
+
+            foreach (ActivityLogResultLine line in projection.Lines)
+            {
+                var paragraph = new Paragraph
+                {
+                    Margin = new Thickness(0)
+                };
+                if (!string.IsNullOrEmpty(line.TagText))
+                {
+                    paragraph.Inlines.Add(new Run(line.TagText)
+                    {
+                        Foreground = TagBrush(line.Tag)
+                    });
+                }
+
+                paragraph.Inlines.Add(new Run(line.ContentText));
+                box.Document.Blocks.Add(paragraph);
+            }
+        }
+
+        private static Brush TagBrush(ActivityLogResultTag tag)
+        {
+            switch (tag)
+            {
+                case ActivityLogResultTag.Ocr:
+                    return Brushes.SlateGray;
+                case ActivityLogResultTag.Original:
+                    return Brushes.SteelBlue;
+                case ActivityLogResultTag.Translation:
+                    return Brushes.DarkGreen;
+                default:
+                    return Brushes.Transparent;
+            }
         }
 
         private static string JobResourceKey(OperatorJob job)
@@ -262,7 +400,7 @@ namespace GI_Subtitles.Views
         private string _time;
         private string _regionPair;
         private string _job;
-        private string _result;
+        private ActivityLogResultProjection _resultProjection;
         private bool _isRepeat;
 
         public event PropertyChangedEventHandler PropertyChanged;
@@ -285,10 +423,10 @@ namespace GI_Subtitles.Views
             set { SetField(ref _job, value, nameof(Job)); }
         }
 
-        public string Result
+        public ActivityLogResultProjection ResultProjection
         {
-            get { return _result; }
-            set { SetField(ref _result, value, nameof(Result)); }
+            get { return _resultProjection; }
+            set { SetField(ref _resultProjection, value, nameof(ResultProjection)); }
         }
 
         public bool IsRepeat
