@@ -804,6 +804,20 @@ namespace GI_Subtitles.Core.Overlay
                 return;
             }
 
+            // Force-refresh bypasses CompleteOcr, so write its pipeline row here
+            // before EmitVoicePlayRequest records the row that will receive Voice.
+            if (force)
+            {
+                WritePipelineForSlot(
+                    pairIndex,
+                    miss,
+                    content,
+                    ocrText,
+                    original,
+                    matchMiss,
+                    isRepeat: false);
+            }
+
             PairRecognitionResult result = PairRecognitionResult.From(miss, matchMiss, header, content, ocrText);
             bool folded = !force && result.SameAs(_lastResults[pairIndex]);
             if (!(miss && force))
