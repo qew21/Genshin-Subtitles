@@ -68,9 +68,11 @@ namespace GI_Test
             Assert.AreEqual(appliedOrder, session.PairBodies[0].RecognitionOrder);
             Assert.IsNull(session.TakeVoicePlayRequest());
             Assert.AreEqual(
-                1,
+                2,
                 session.ActivityLog.Count,
-                "ApplyPairResult itself writes no row; the force path's row is the operator Refresh row.");
+                "A forced match miss writes its pipeline row; the operator Refresh row is emitted separately by the caller.");
+            Assert.IsTrue(session.ActivityLog[1].MatchMiss);
+            Assert.AreEqual("partial", session.ActivityLog[1].OcrText);
         }
 
         [TestMethod]
