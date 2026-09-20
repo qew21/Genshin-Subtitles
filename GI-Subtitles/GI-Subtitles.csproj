@@ -176,6 +176,11 @@
     <Compile Include="Views\ActivityLogWindow.xaml.cs">
       <DependentUpon>Views\ActivityLogWindow.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Views\TextSearch\BaseTextSearch.cs" />
+    <Compile Include="Views\TextSearch\Line.cs" />
+    <Compile Include="Views\TextSearch\Searcher.cs" />
+    <Compile Include="Views\TextSearch\TextSearch.xaml.cs" />
+    <Compile Include="Views\TextSearch\Util.cs" />
     <Compile Include="Views\UpdateWindow.xaml.cs">
       <DependentUpon>Views\UpdateWindow.xaml</DependentUpon>
     </Compile>
@@ -230,6 +235,7 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="Views\TextSearch\TextSearch.xaml" />
     <Page Include="Views\UpdateWindow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>

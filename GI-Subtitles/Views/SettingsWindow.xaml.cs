@@ -2465,5 +2465,15 @@ namespace GI_Subtitles.Views
             };
             font.ShowDialog();
         }
+
+        private void TextSearchButton_Click(object sender, RoutedEventArgs e)
+        {
+            var textSearch = new TextSearch.TextSearch
+            {
+                Owner = this,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner
+            };
+            textSearch.ShowDialog();
+        }
     }
 }

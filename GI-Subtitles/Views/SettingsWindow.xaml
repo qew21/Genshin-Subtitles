@@ -229,6 +229,9 @@
                             <Button x:Name="RegionButton" Style="{StaticResource PrimaryButton}"
                                     Content="{DynamicResource Btn_Region}" Click="RegionButton_Click"
                                     ToolTip="{DynamicResource Help_Region}"/>
+                            <Button x:Name="TextSearchButton" Style="{StaticResource PrimaryButton}"
+                                    Content="{DynamicResource Btn_TextSearch}" Click="TextSearchButton_Click"
+                                    ToolTip=""/>
                         </WrapPanel>
                     </Grid>
                 </ScrollViewer>

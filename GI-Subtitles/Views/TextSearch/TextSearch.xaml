@@ -1,0 +1,101 @@
+﻿<textSearch:BaseTextSearch x:Class="GI_Subtitles.Views.TextSearch.TextSearch"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:local="clr-namespace:GI_Subtitles.Views"
+        xmlns:textSearch="clr-namespace:GI_Subtitles.Views.TextSearch"
+        mc:Ignorable="d"
+        Title="{DynamicResource TextSearchWindTitle}"
+        Height="450" Width="800"
+        SizeChanged="TextSearch_OnSizeChanged">
+
+    <Grid Margin="5">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0">
+            <GroupBox
+                Name="SearchingGrpBox"
+                Header="{DynamicResource SearchSettingGrpBoxTitle}">
+                <StackPanel Orientation="Horizontal">
+                    <GroupBox Header="{DynamicResource GameToSearchGrpBoxTitle}" Margin="0, 0, 10, 0">
+                        <ComboBox
+                            Name="GameSelector"
+                            Width="120"
+                            VerticalAlignment="Center" />
+                    </GroupBox>
+
+                    <GroupBox Header="{DynamicResource LangSettingGrpBoxTitle}" Margin="0, 0, 10, 0">
+                        <StackPanel Orientation="Vertical">
+                            <StackPanel Orientation="Horizontal" Margin="0, 0, 0, 5">
+                                <TextBlock Text="{DynamicResource SourceLang}" Width="50"></TextBlock>
+                                <ComboBox
+                                    Name="SourceLangSelector" Width="120" VerticalAlignment="Center"
+                                    SelectionChanged="SourceLangSelector_OnSelectionChanged" />
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{DynamicResource TargetLang}" Width="50"></TextBlock>
+                                <ComboBox
+                                    Name="TargetLangSelector" Width="120" VerticalAlignment="Center"
+                                    IsEnabled="False"
+                                    SelectionChanged="TargetLangSelector_OnSelectionChanged" />
+                            </StackPanel>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <Button
+                        Width="70" Height="30"
+                        Content="{DynamicResource SearchButton}"
+                        Margin="0, 0, 10, 0"
+                        Click="SearchBtn_OnClick" />
+                </StackPanel>
+            </GroupBox>
+        </Grid>
+
+        <!-- TODO: Consider mitigate the performance degradation when scores of lines added. -->
+        <!-- NOTE: The performace issue is caused by virtualization of <ListView> turned off. -->
+        <Grid Grid.Row="1" Name="TextGrid">
+            <StackPanel Orientation="Horizontal">
+                <Grid>
+                    <ListView
+                        Name="TextListView"
+                        SizeChanged="TextListView_OnSizeChanged"
+                        VirtualizingStackPanel.IsVirtualizing="False"
+                        ScrollViewer.VerticalScrollBarVisibility="Visible">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding LineNum}" Width="30" />
+                                    <TextBox
+                                        Name="SourceTextBox"
+                                        Uid="{Binding TextBoxUid, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                        Text="{Binding SourceText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                        TextWrapping="Wrap"
+                                        PreviewKeyDown="SourceTextBox_OnPreviewKeyDown"
+                                        Loaded="SourceTextBox_OnLoaded" 
+                                        Width="{Binding TextBoxWidth, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                        Height="{Binding TextBoxHeight, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                    <CheckBox Width="55" Margin="5, 0, 5, 0">RegEx</CheckBox>
+                                    <TextBox
+                                        Name="TargetTextBox"
+                                        IsEnabled="False"
+                                        Uid="{Binding TextBoxUid, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                        Text="{Binding TargetText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                        TextWrapping="Wrap"
+                                        Width="{Binding TextBoxWidth, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                        Height="{Binding TextBoxHeight, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </Grid>
+            </StackPanel>
+        </Grid>
+    </Grid>
+
+</textSearch:BaseTextSearch>
