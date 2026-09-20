@@ -167,6 +167,7 @@
     <sys:String x:Key="Btn_DeleteSecondRegion_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">删除第二识别区域</sys:String>
     <sys:String x:Key="Btn_Voice" xmlns:sys="clr-namespace:System;assembly=mscorlib">支线配音</sys:String>
     <sys:String x:Key="Btn_SubtitleFont" xmlns:sys="clr-namespace:System;assembly=mscorlib">更改字体</sys:String>
+    <sys:String x:Key="Btn_TextSearch" xmlns:sys="clr-namespace:System;assembly=mscorlib">文本搜索</sys:String>
 
     <!-- Notify Icon Menu -->
     <sys:String x:Key="Tray_FontSize" xmlns:sys="clr-namespace:System;assembly=mscorlib">字号选择</sys:String>
@@ -211,4 +212,30 @@
     <sys:String x:Key="FontSetTitle" xmlns:sys="clr-namespace:System;assembly=mscorlib">字体已设置</sys:String>
     <sys:String x:Key="FontChoosePrompt" xmlns:sys="clr-namespace:System;assembly=mscorlib">请选择一种字体</sys:String>
     <sys:String x:Key="FontNoSelectionTitle" xmlns:sys="clr-namespace:System;assembly=mscorlib">未选择字体</sys:String>
+    
+    <!-- Text Search Window -->
+    <sys:String x:Key="TextSearchWindTitle" xmlns:sys="clr-namespace:System;assembly=mscorlib">文本搜索</sys:String>
+    <sys:String x:Key="GameToSearchGrpBoxTitle" xmlns:sys="clr-namespace:System;assembly=mscorlib">游戏</sys:String>
+    <sys:String x:Key="LangSettingGrpBoxTitle" xmlns:sys="clr-namespace:System;assembly=mscorlib">语言</sys:String>
+    <sys:String x:Key="SourceLang" xmlns:sys="clr-namespace:System;assembly=mscorlib">源语言</sys:String>
+    <sys:String x:Key="TargetLang" xmlns:sys="clr-namespace:System;assembly=mscorlib">目标语言</sys:String>
+    <sys:String x:Key="SearchSettingGrpBoxTitle" xmlns:sys="clr-namespace:System;assembly=mscorlib">搜索设置</sys:String>
+    <sys:String x:Key="SearchButton" xmlns:sys="clr-namespace:System;assembly=mscorlib">搜索</sys:String>
+    <sys:String x:Key="ResultGrpBoxTitle" xmlns:sys="clr-namespace:System;assembly=mscorlib">搜索结果</sys:String>
+    
+    <sys:String x:Key="GameNotSetPrompt" xmlns:sys="clr-namespace:System;assembly=mscorlib">选择一个游戏</sys:String>
+    <sys:String x:Key="SourceLangNotSetPrompt" xmlns:sys="clr-namespace:System;assembly=mscorlib">选择一个源语言</sys:String>
+    <sys:String x:Key="TargetLangNotSetPrompt" xmlns:sys="clr-namespace:System;assembly=mscorlib">选择一个目标语言</sys:String>
+    <sys:String x:Key="RemovingNonemptyTextBoxPrompt" xmlns:sys="clr-namespace:System;assembly=mscorlib">
+        You are about to removing a line with content.&#10;Continue?
+    </sys:String>
+    <sys:String x:Key="GameFolderNotExitsPrompt" xmlns:sys="clr-namespace:System;assembly=mscorlib">
+        游戏（{0}）文本目录不存在。请在“语言包管理”页选择该游戏，并下载{1}语言包和{2}语言包。
+    </sys:String>
+    <sys:String x:Key="SourceLangTextMapNotExitsPrompt" xmlns:sys="clr-namespace:System;assembly=mscorlib">
+        源语言（{0}）文本表不存在。请在“语言包管理”页下载。
+    </sys:String>
+    <sys:String x:Key="TargetLangTextMapNotExitsPrompt" xmlns:sys="clr-namespace:System;assembly=mscorlib">
+        目标语言（{0}）文本表不存在。请在“语言包管理”页下载。
+    </sys:String>
 </ResourceDictionary>
