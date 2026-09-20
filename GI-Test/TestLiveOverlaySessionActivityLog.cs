@@ -164,6 +164,22 @@ namespace GI_Test
         }
 
         [TestMethod]
+        public void ActivityLog_RetainsOnlyTheNewestRows()
+        {
+            LiveOverlaySession session = CreateSession();
+
+            for (int i = 0; i < LiveOverlaySession.MaxActivityLogRows + 1; i++)
+            {
+                session.ChangeVoiceSpeed(i);
+            }
+
+            Assert.AreEqual(LiveOverlaySession.MaxActivityLogRows, session.ActivityLog.Count);
+            CollectionAssert.AreEqual(
+                new object[] { "1" },
+                session.ActivityLog[0].ResultFormatArguments);
+        }
+
+        [TestMethod]
         public void OcrMissesAndSettingsBoxing_DoNotEnterTheFunnel()
         {
             LiveOverlaySession session = CreateSessionWithPairs(1);

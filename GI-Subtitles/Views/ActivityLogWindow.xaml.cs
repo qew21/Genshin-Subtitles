@@ -30,6 +30,7 @@ namespace GI_Subtitles.Views
         private bool _operatorDraggingBar;
         private bool _scrollBarHooked;
         private int _anchorIndex = -1;
+        private TextBox _rightClickedCell;
         private ActivityLogRowFilter _filter = new ActivityLogRowFilter(ReadLogDenoise());
 
         public ActivityLogWindow(LiveOverlaySession session)
@@ -129,7 +130,7 @@ namespace GI_Subtitles.Views
             _forceClose = true;
         }
 
-        private void OnActivityLogChanged(object sender, EventArgs e)
+        private void OnActivityLogChanged(object sender, ActivityLogChangedEventArgs e)
         {
             Dispatcher.BeginInvoke(new Action(() =>
             {
@@ -138,7 +139,7 @@ namespace GI_Subtitles.Views
                     return;
                 }
 
-                SyncRows();
+                SyncRows(e);
             }));
         }
 
@@ -151,26 +152,41 @@ namespace GI_Subtitles.Views
             SyncRows(announceVisibleAdds: false);
         }
 
-        private void SyncRows(bool announceVisibleAdds = true)
+        private void SyncRows(
+            ActivityLogChangedEventArgs change = null,
+            bool announceVisibleAdds = true)
         {
-            // Append path: project only newly consumed rows. Re-projecting every
-            // already-shown row made ResultLines fire even when the snapshot
-            // did not change. Mutation-only notifies (Consume returns nothing)
-            // still refresh existing views — e.g. voice folded into a prior row.
-            // Hidden repeats are still consumed so they are never reconsidered;
-            // the session record itself is never modified (ADR 0008 / 0010).
-            IReadOnlyList<ActivityLogRow> shown = _filter.Consume(_session.ActivityLog);
-            foreach (ActivityLogRow row in shown)
+            IReadOnlyList<ActivityLogRow> log = _session.ActivityLog;
+            IReadOnlyList<ActivityLogRow> shown;
+            if (change == null)
             {
-                _rows.Add(Project(row));
-                _rowSources.Add(row);
-            }
-
-            if (shown.Count == 0)
-            {
-                for (int i = 0; i < _rowSources.Count; i++)
+                shown = _filter.Consume(log);
+                foreach (ActivityLogRow row in shown)
                 {
-                    ApplyProjection(_rows[i], _rowSources[i]);
+                    AddRow(row);
+                }
+            }
+            else
+            {
+                if (change.RemovedCount > 0)
+                {
+                    _filter.RemoveFromFront(change.RemovedCount);
+                    RemoveRowsNoLongerInLog(log);
+                }
+
+                shown = _filter.Consume(log);
+                foreach (ActivityLogRow row in shown)
+                {
+                    AddRow(row);
+                }
+
+                if (change.UpdatedRow != null)
+                {
+                    int index = _rowSources.IndexOf(change.UpdatedRow);
+                    if (index >= 0)
+                    {
+                        ApplyProjection(_rows[index], change.UpdatedRow);
+                    }
                 }
             }
 
@@ -184,6 +200,34 @@ namespace GI_Subtitles.Views
             {
                 ApplyFollowTail();
             }
+        }
+
+        private void RemoveRowsNoLongerInLog(IReadOnlyList<ActivityLogRow> log)
+        {
+            while (_rowSources.Count > 0 && !ContainsRow(log, _rowSources[0]))
+            {
+                _rowSources.RemoveAt(0);
+                _rows.RemoveAt(0);
+            }
+        }
+
+        private static bool ContainsRow(IReadOnlyList<ActivityLogRow> rows, ActivityLogRow target)
+        {
+            for (int i = 0; i < rows.Count; i++)
+            {
+                if (ReferenceEquals(rows[i], target))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private void AddRow(ActivityLogRow row)
+        {
+            _rows.Add(Project(row));
+            _rowSources.Add(row);
         }
 
         private ActivityLogRowView Project(ActivityLogRow row)
@@ -490,7 +534,7 @@ namespace GI_Subtitles.Views
             _scrollBarHooked = true;
             bar.PreviewMouseDown += (s, e) =>
             {
-                if (e.LeftButton == MouseButtonState.Pressed)
+                if (e.ChangedButton == MouseButton.Left)
                 {
                     _operatorDraggingBar = true;
                 }
@@ -621,6 +665,15 @@ namespace GI_Subtitles.Views
             }
         }
 
+        private void OnWindowPreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            // ContextMenu.PlacementTarget can be a ListView or an outer
+            // ItemsControl. Capture the actual source before WPF moves focus to
+            // the menu, so copy cannot discover a different row by traversing
+            // the whole host later.
+            _rightClickedCell = FindAncestor<TextBox>(e.OriginalSource as DependencyObject);
+        }
+
         private void OnWindowPreviewKeyDown(object sender, KeyEventArgs e)
         {
             if (IsViewportScrollKey(e.Key))
@@ -667,23 +720,28 @@ namespace GI_Subtitles.Views
             CopySelectedRowsToClipboard();
         }
 
+        private void CopyMenu_Closed(object sender, RoutedEventArgs e)
+        {
+            _rightClickedCell = null;
+        }
+
         // While a context menu is open, keyboard focus sits on the menu, so
-        // the right-clicked cell has to come from the placement target. The
-        // result column hosts N line TextBoxes; PlacementTarget may be one of
-        // them or a parent (ItemsControl / list), so walk for a selection.
-        private static string GetCellSelection(ContextMenu menu)
+        // the right-clicked cell comes from the source captured during the
+        // preview mouse event. A direct TextBox placement target is retained
+        // for keyboard/programmatic menu opening; parent hosts are never
+        // recursively searched.
+        private string GetCellSelection(ContextMenu menu)
         {
             TextBox cell = null;
             if (menu != null)
             {
-                cell = menu.PlacementTarget as TextBox;
-                if (cell == null || cell.SelectionLength == 0)
+                cell = _rightClickedCell;
+                if (cell == null)
                 {
-                    cell = FindTextBoxWithSelection(menu.PlacementTarget as DependencyObject);
+                    cell = menu.PlacementTarget as TextBox;
                 }
             }
-
-            if (cell == null || cell.SelectionLength == 0)
+            else
             {
                 cell = Keyboard.FocusedElement as TextBox;
             }
@@ -691,30 +749,6 @@ namespace GI_Subtitles.Views
             if (cell != null && cell.SelectionLength > 0)
             {
                 return cell.SelectedText;
-            }
-
-            return null;
-        }
-
-        private static TextBox FindTextBoxWithSelection(DependencyObject root)
-        {
-            if (root == null)
-            {
-                return null;
-            }
-
-            if (root is TextBox box && box.SelectionLength > 0)
-            {
-                return box;
-            }
-
-            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
-            {
-                TextBox child = FindTextBoxWithSelection(VisualTreeHelper.GetChild(root, i));
-                if (child != null)
-                {
-                    return child;
-                }
             }
 
             return null;

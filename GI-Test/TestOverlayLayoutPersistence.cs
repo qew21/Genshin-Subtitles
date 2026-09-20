@@ -184,7 +184,10 @@ namespace GI_Test
             Assert.AreEqual("zh-CN", settings.Get("UILang", string.Empty));
             Assert.AreEqual("CHS", settings.Get("Input", string.Empty));
             Assert.AreEqual("EN", settings.Get("Output", string.Empty));
-            Assert.IsFalse(settings.Contains(ConfigRegionPairStore.PairsConfigKey));
+            // Migration is recoverable: the new per-game root is authoritative,
+            // while the legacy global keys remain available as a backup.
+            Assert.IsTrue(settings.Contains(OverlayLayoutPersistence.LayoutsConfigKey));
+            Assert.IsTrue(settings.Contains(ConfigRegionPairStore.PairsConfigKey));
         }
 
         [TestMethod]

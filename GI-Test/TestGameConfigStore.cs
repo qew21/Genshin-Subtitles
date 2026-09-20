@@ -115,6 +115,37 @@ namespace GI_Test
         }
 
         [TestMethod]
+        public void ZenlessTraditionalChinese_UsesUpstreamFileName()
+        {
+            var config = new GameConfig
+            {
+                OutputUrlTemplate = "https://git.mero.moe/dimbreath/ZenlessData/raw/branch/master/TextMap/TextMap{Language}TemplateTb.json",
+                LanguageMapping = GameConfigStore.CreateZenlessLanguageMapping()
+            };
+
+            Assert.AreEqual(
+                "https://git.mero.moe/dimbreath/ZenlessData/raw/branch/master/TextMap/TextMap_CHTTemplateTb.json",
+                config.GetDownloadUrl("CHT", false));
+        }
+
+        [TestMethod]
+        public void LegacyZenlessLanguageMapping_AddsTraditionalChineseSuffix()
+        {
+            var config = new GameConfig
+            {
+                LanguageMapping = new System.Collections.Generic.Dictionary<string, string>
+                {
+                    ["KR"] = "_KO"
+                }
+            };
+
+            Assert.IsTrue(GameConfigStore.MigrateZenlessLanguageMapping(config));
+            Assert.AreEqual("_KO", config.LanguageMapping["KR"]);
+            Assert.AreEqual("_CHT", config.LanguageMapping["CHT"]);
+            Assert.IsFalse(GameConfigStore.MigrateZenlessLanguageMapping(config));
+        }
+
+        [TestMethod]
         public void LegacyWutheringCache_IsMigratedAndPersisted()
         {
             AssertLegacyCacheIsMigratedAndPersisted(

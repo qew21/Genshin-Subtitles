@@ -146,22 +146,24 @@ namespace GI_Test
                 matchMiss: false,
                 force: true);
             Assert.AreEqual(
-                1,
+                2,
                 session.ActivityLog.Count,
-                "ApplyPairResult itself writes no row; the force path's row is the operator Refresh row.");
+                "A forced apply writes its pipeline row before the separate operator Refresh row.");
             Assert.IsTrue(session.PairBodies[0].RecognitionOrder > autoOrder);
             Assert.IsNotNull(session.TakeVoicePlayRequest());
+            Assert.AreEqual(OperatorJob.Capture, session.ActivityLog[1].Job);
+            Assert.IsFalse(session.ActivityLog[1].IsRepeat);
 
             session.Refresh(hasCaptureRegion: true, foundText: true);
-            Assert.AreEqual(2, session.ActivityLog.Count);
-            Assert.AreEqual(OperatorJob.Refresh, session.ActivityLog[1].Job);
-            Assert.IsFalse(session.ActivityLog[1].IsRepeat);
+            Assert.AreEqual(3, session.ActivityLog.Count);
+            Assert.AreEqual(OperatorJob.Refresh, session.ActivityLog[2].Job);
+            Assert.IsFalse(session.ActivityLog[2].IsRepeat);
 
             now = now.AddMilliseconds(session.EngineOcrIntervalMs);
             session.Beat(PairFrameSample.ChangedAndStable());
             session.CompleteOcr(miss: false, content: "line", ocrText: "line", original: "orig");
-            Assert.AreEqual(3, session.ActivityLog.Count);
-            Assert.IsTrue(session.ActivityLog[2].IsRepeat, "A same-result auto run after the force apply is a repeat row again.");
+            Assert.AreEqual(4, session.ActivityLog.Count);
+            Assert.IsTrue(session.ActivityLog[3].IsRepeat, "A same-result auto run after the force apply is a repeat row again.");
         }
 
         [TestMethod]
