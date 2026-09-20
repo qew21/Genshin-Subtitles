@@ -128,6 +128,7 @@
 <sys:String x:Key="ActivityLog_Result_LanguagePackDone" xmlns:sys="clr-namespace:System;assembly=mscorlib">完成 {0}</sys:String>
 <sys:String x:Key="ActivityLog_Result_LanguagePackFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">失败 {0}</sys:String>
 <sys:String x:Key="ActivityLog_Empty" xmlns:sys="clr-namespace:System;assembly=mscorlib">本会话还没有记录。开始识别、框选或加载语言包后会显示在这里。</sys:String>
+<sys:String x:Key="ActivityLog_RepeatBadge" xmlns:sys="clr-namespace:System;assembly=mscorlib">重复</sys:String>
 <sys:String x:Key="Btn_ActivityLog" xmlns:sys="clr-namespace:System;assembly=mscorlib">打开活动日志</sys:String>
 <sys:String x:Key="Tray_ActivityLog" xmlns:sys="clr-namespace:System;assembly=mscorlib">活动日志</sys:String>
     <sys:String x:Key="Config_Pad_Label" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕偏移 (Pad)</sys:String>
@@ -140,6 +141,8 @@
     <sys:String x:Key="Config_Multiline" xmlns:sys="clr-namespace:System;assembly=mscorlib">启用多行识别（推荐开启）</sys:String>
     <sys:String x:Key="Config_AutoStart" xmlns:sys="clr-namespace:System;assembly=mscorlib">开机自动启动</sys:String>
     <sys:String x:Key="Config_PlayVoice" xmlns:sys="clr-namespace:System;assembly=mscorlib">启用支线配音</sys:String>
+    <sys:String x:Key="Config_LogDenoise" xmlns:sys="clr-namespace:System;assembly=mscorlib">活动日志隐藏重复识别行</sys:String>
+    <sys:String x:Key="Config_LogDenoise_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">关闭后活动日志窗口显示每一次运行，重复识别行以弱化样式标出。只影响日志窗口的显示，不删除任何记录，也不影响字幕与配音。</sys:String>
     <sys:String x:Key="Config_RecognizeDarkScreenSubtitles" xmlns:sys="clr-namespace:System;assembly=mscorlib">识别暗屏字幕</sys:String>
     <sys:String x:Key="Config_RecognizeDarkScreenSubtitles_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">在暗屏过场中自动检测中央字幕带并显示翻译。不是区域对，也不占用对话选项的识别。</sys:String>
     <sys:String x:Key="Config_RecognizeDialogueOptions" xmlns:sys="clr-namespace:System;assembly=mscorlib">识别对话选项</sys:String>

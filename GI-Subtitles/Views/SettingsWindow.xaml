@@ -531,6 +531,12 @@
                                 </StackPanel>
                             </StackPanel>
                         </StackPanel>
+                        <CheckBox x:Name="LogDenoiseCheckBox"
+                                  Checked="LogDenoiseCheckBox_Checked"
+                                  Unchecked="LogDenoiseCheckBox_Checked"
+                                  Content="{DynamicResource Config_LogDenoise}"
+                                  ToolTip="{DynamicResource Config_LogDenoise_Tooltip}"
+                                  Margin="0,0,0,6"/>
                     </StackPanel>
 
                     <!-- Action Buttons -->

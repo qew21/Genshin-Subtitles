@@ -315,6 +315,7 @@ namespace GI_Subtitles.Views
             _activityLogWindow = new ActivityLogWindow(_overlaySession);
             notify.SetActivityLogOpener(ShowActivityLog);
             data.OpenActivityLogRequested += (sender, args) => ShowActivityLog();
+            data.LogDenoiseChanged += (sender, args) => _activityLogWindow.ApplyLogDenoiseSetting();
             data.IsVisibleChanged += (sender, args) =>
             {
                 if (!data.IsVisible)
