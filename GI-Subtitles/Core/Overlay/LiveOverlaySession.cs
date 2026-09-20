@@ -18,8 +18,8 @@ namespace GI_Subtitles.Core.Overlay
         public const int DialogueOptionScanIntervalMs = 400;
         public const int DarkScreenOcrSlot = -2;
         public const int DialogueOptionsOcrSlot = -1;
-        public const int EnginePairCap = 8;
         public const int SettingsPairCap = 4;
+        public const int EnginePairCap = SettingsPairCap;
         private const string DialogueChoiceEchoPrefix = "◆ ";
 
         private readonly IOcrIntervalStore _store;
@@ -31,6 +31,7 @@ namespace GI_Subtitles.Core.Overlay
         private readonly List<int> _recognitionOrders = new List<int>();
         private readonly List<PairRecognitionResult> _lastResults = new List<PairRecognitionResult>();
         private readonly List<DateTime?> _pairLastAppliedAt = new List<DateTime?>();
+        private readonly List<int> _pairGenerations = new List<int>();
         private readonly List<int> _ocrQueue = new List<int>();
         private readonly List<RegionOutline> _previewOutlines = new List<RegionOutline>();
         private readonly List<RegionOutline> _adjustOutlines = new List<RegionOutline>();
@@ -56,6 +57,9 @@ namespace GI_Subtitles.Core.Overlay
         private int? _busyPairIndex;
         private int _recognitionSequence;
         private int _nextPairId = 1;
+        private int _darkScreenGeneration;
+        private int _dialogueOptionsGeneration;
+        private int _busyOcrGeneration;
         private OverlayRect _addCapture = OverlayRect.Invalid;
         private OverlayRect _addDisplay = OverlayRect.Invalid;
         private VoicePlayRequest _pendingVoicePlay;
@@ -401,9 +405,9 @@ namespace GI_Subtitles.Core.Overlay
 
         public void SetCapture(int pairIndex, OverlayRect capture)
         {
-            if (pairIndex < 0)
+            if (pairIndex < 0 || pairIndex >= SettingsPairCap)
             {
-                throw new ArgumentOutOfRangeException(nameof(pairIndex));
+                return;
             }
 
             EnsurePairSlot(pairIndex);
@@ -564,9 +568,15 @@ namespace GI_Subtitles.Core.Overlay
         public void SetDarkScreenScan(bool enabled)
         {
             _darkScreenScanOn = enabled;
-            if (!enabled && ArmedTarget == OverlayAdjustTarget.DarkScreenDisplay)
+            if (!enabled)
             {
-                CancelRegionAdjust();
+                if (ArmedTarget == OverlayAdjustTarget.DarkScreenDisplay)
+                {
+                    CancelRegionAdjust();
+                }
+
+                ClearDarkScreen();
+                RemoveQueuedSlot(DarkScreenOcrSlot);
             }
 
             PersistExtraPathScans();
@@ -575,9 +585,15 @@ namespace GI_Subtitles.Core.Overlay
         public void SetDialogueOptionScan(bool enabled)
         {
             _dialogueOptionScanOn = enabled;
-            if (!enabled && ArmedTarget == OverlayAdjustTarget.DialogueOptionDisplay)
+            if (!enabled)
             {
-                CancelRegionAdjust();
+                if (ArmedTarget == OverlayAdjustTarget.DialogueOptionDisplay)
+                {
+                    CancelRegionAdjust();
+                }
+
+                ClearDialogueOptionsRecognition();
+                RemoveQueuedSlot(DialogueOptionsOcrSlot);
             }
 
             PersistExtraPathScans();
@@ -734,6 +750,12 @@ namespace GI_Subtitles.Core.Overlay
             }
 
             int busy = _busyPairIndex.Value;
+            if (_busyOcrGeneration != GetSlotGeneration(busy))
+            {
+                ReleaseBusySlot();
+                return;
+            }
+
             WritePipelineForSlot(
                 busy,
                 miss,
@@ -780,6 +802,20 @@ namespace GI_Subtitles.Core.Overlay
             if (pairIndex < 0 || pairIndex >= _pairs.Count)
             {
                 return;
+            }
+
+            // Force-refresh bypasses CompleteOcr, so write its pipeline row here
+            // before EmitVoicePlayRequest records the row that will receive Voice.
+            if (force)
+            {
+                WritePipelineForSlot(
+                    pairIndex,
+                    miss,
+                    content,
+                    ocrText,
+                    original,
+                    matchMiss,
+                    isRepeat: false);
             }
 
             PairRecognitionResult result = PairRecognitionResult.From(miss, matchMiss, header, content, ocrText);
@@ -896,11 +932,14 @@ namespace GI_Subtitles.Core.Overlay
 
             IReadOnlyList<RegionPairRecord> stored = _pairStore.ReadPairs();
             bool wroteLegacy = false;
+            bool truncated = false;
             if (stored != null && stored.Count > 0)
             {
-                foreach (RegionPairRecord record in stored)
+                int count = Math.Min(SettingsPairCap, stored.Count);
+                truncated = stored.Count > count;
+                for (int i = 0; i < count; i++)
                 {
-                    _pairs.Add(FromRecord(record));
+                    _pairs.Add(FromRecord(stored[i]));
                 }
             }
             else
@@ -916,7 +955,7 @@ namespace GI_Subtitles.Core.Overlay
             SyncPairRuntime();
             bool identitiesChanged = EnsureIdentities();
             LoadExtraPathDisplays();
-            if (wroteLegacy || identitiesChanged)
+            if (wroteLegacy || identitiesChanged || truncated)
             {
                 PersistPairs();
             }
@@ -1193,6 +1232,7 @@ namespace GI_Subtitles.Core.Overlay
                 _recognitionOrders.RemoveAt(index);
                 _lastResults.RemoveAt(index);
                 _pairLastAppliedAt.RemoveAt(index);
+                _pairGenerations.RemoveAt(index);
             }
 
             if (_busyPairIndex.HasValue)
@@ -1200,6 +1240,7 @@ namespace GI_Subtitles.Core.Overlay
                 if (_busyPairIndex.Value == index)
                 {
                     _busyPairIndex = null;
+                    _busyOcrGeneration = 0;
                 }
                 else if (_busyPairIndex.Value > index)
                 {
@@ -1241,6 +1282,7 @@ namespace GI_Subtitles.Core.Overlay
                 _recognitionOrders.Add(0);
                 _lastResults.Add(null);
                 _pairLastAppliedAt.Add(null);
+                _pairGenerations.Add(0);
             }
 
             if (_headers.Count > _pairs.Count)
@@ -1251,6 +1293,7 @@ namespace GI_Subtitles.Core.Overlay
                 _recognitionOrders.RemoveRange(_pairs.Count, extra);
                 _lastResults.RemoveRange(_pairs.Count, extra);
                 _pairLastAppliedAt.RemoveRange(_pairs.Count, extra);
+                _pairGenerations.RemoveRange(_pairs.Count, extra);
             }
         }
 
@@ -1373,6 +1416,7 @@ namespace GI_Subtitles.Core.Overlay
 
         private void ClearDarkScreen()
         {
+            _darkScreenGeneration++;
             _darkScreenActive = false;
             _darkScreenBand = OverlayRect.Invalid;
             ClearDarkScreenSubtitleBody();
@@ -1403,6 +1447,8 @@ namespace GI_Subtitles.Core.Overlay
             _headers[pairIndex] = string.Empty;
             _contents[pairIndex] = string.Empty;
             _lastResults[pairIndex] = null;
+            _pairGenerations[pairIndex]++;
+            RemoveQueuedSlot(pairIndex);
             if (pairIndex < _pairLastAppliedAt.Count)
             {
                 _pairLastAppliedAt[pairIndex] = null;
@@ -1420,6 +1466,7 @@ namespace GI_Subtitles.Core.Overlay
 
         private void ClearDialogueOptionsRecognition()
         {
+            _dialogueOptionsGeneration++;
             _dialogueOptionsActive = false;
             _lastDialogueOptionsResult = null;
         }
@@ -1455,7 +1502,28 @@ namespace GI_Subtitles.Core.Overlay
         private void ReleaseBusySlot()
         {
             _busyPairIndex = null;
+            _busyOcrGeneration = 0;
             TryStartNextOcr();
+        }
+
+        private int GetSlotGeneration(int slot)
+        {
+            if (slot == DarkScreenOcrSlot)
+            {
+                return _darkScreenGeneration;
+            }
+
+            if (slot == DialogueOptionsOcrSlot)
+            {
+                return _dialogueOptionsGeneration;
+            }
+
+            if (slot >= 0 && slot < _pairGenerations.Count)
+            {
+                return _pairGenerations[slot];
+            }
+
+            return 0;
         }
 
         private void EnqueueOcr(int pairIndex)
@@ -1528,6 +1596,7 @@ namespace GI_Subtitles.Core.Overlay
             }
 
             _busyPairIndex = _ocrQueue[0];
+            _busyOcrGeneration = GetSlotGeneration(_busyPairIndex.Value);
             _ocrQueue.RemoveAt(0);
         }
 

@@ -160,7 +160,7 @@ namespace GI_Test
         }
 
         [TestMethod]
-        public void EngineIgnoresNinthPair_ButRunsPairsFiveThroughEight()
+        public void PairStoreTruncatesPairsBeyondUnifiedCap()
         {
             var records = new System.Collections.Generic.List<RegionPairRecord>();
             for (int i = 0; i < 9; i++)
@@ -175,17 +175,17 @@ namespace GI_Test
             var pairs = new MemoryRegionPairStore { StoredPairs = records };
             var session = new LiveOverlaySession(new MemoryOcrIntervalStore(), pairs);
 
-            Assert.AreEqual(9, session.Pairs.Count);
+            Assert.AreEqual(LiveOverlaySession.SettingsPairCap, session.Pairs.Count);
 
-            var samples = new PairFrameSample[9];
-            for (int i = 0; i < 9; i++)
+            var samples = new PairFrameSample[LiveOverlaySession.SettingsPairCap];
+            for (int i = 0; i < samples.Length; i++)
             {
                 samples[i] = PairFrameSample.ChangedAndStable();
             }
 
             session.Beat(samples);
             Assert.AreEqual(0, session.BusyOcrPairIndex);
-            CollectionAssert.AreEqual(new[] { 1, 2, 3, 4, 5, 6, 7 }, System.Linq.Enumerable.ToArray(session.OcrQueue));
+            CollectionAssert.AreEqual(new[] { 1, 2, 3 }, System.Linq.Enumerable.ToArray(session.OcrQueue));
         }
 
         [TestMethod]

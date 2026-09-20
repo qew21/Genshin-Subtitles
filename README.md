@@ -107,12 +107,10 @@ Genshin-Subtitles enables players to:
 
 ### Building
 
-```bash
-# Restore NuGet packages
-nuget restore GI-Subtitles.sln
-
-# Build Release version
-msbuild GI-Subtitles.sln -t:GI-Subtitles:Rebuild -p:Configuration=Release -p:Platform=x64
+```powershell
+# Restore packages.config, OCR models, and build with Visual Studio MSBuild.
+# Do not use `dotnet build`: this solution is packages.config + .NET Framework.
+pwsh -File scripts/Build.ps1 -Configuration Release
 ```
 
 ### Running Tests

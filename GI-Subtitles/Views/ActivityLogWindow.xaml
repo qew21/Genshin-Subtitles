@@ -12,9 +12,10 @@
         ShowInTaskbar="True"
         Topmost="False"
         ResizeMode="CanResize"
-        PreviewKeyDown="OnWindowPreviewKeyDown">
+        PreviewKeyDown="OnWindowPreviewKeyDown"
+        PreviewMouseRightButtonDown="OnWindowPreviewMouseRightButtonDown">
     <Window.Resources>
-        <ContextMenu x:Key="LogCopyMenu" Opened="CopyMenu_Opened">
+        <ContextMenu x:Key="LogCopyMenu" Opened="CopyMenu_Opened" Closed="CopyMenu_Closed">
             <MenuItem Header="{DynamicResource ActivityLog_Copy}" Click="CopyMenuItem_Click"/>
         </ContextMenu>
         <Style x:Key="LogCellTextBox" TargetType="TextBox">
@@ -144,8 +145,8 @@
                                                          TextWrapping="Wrap"/>
                                             </DockPanel>
                                         </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
+                                 </ItemsControl.ItemTemplate>
+                                 </ItemsControl>
                             </DataTemplate>
                         </GridViewColumn.CellTemplate>
                     </GridViewColumn>

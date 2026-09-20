@@ -166,6 +166,34 @@ namespace GI_Test
         }
 
         [TestMethod]
+        public void ForcedRefresh_WritesPipelineRowBeforeVoiceIsAttached()
+        {
+            LiveOverlaySession session = CreateSessionWithPairs(1);
+
+            session.ApplyPairResult(
+                0,
+                miss: false,
+                content: "refreshed-line",
+                ocrText: "refreshed-line",
+                original: "refreshed-original",
+                force: true);
+
+            Assert.AreEqual(1, session.ActivityLog.Count);
+            CollectionAssert.AreEqual(
+                new[] { OperatorJob.Capture, OperatorJob.Ocr, OperatorJob.Match },
+                session.ActivityLog[0].Jobs.ToArray());
+            Assert.AreEqual(1, session.ActivityLog[0].PairOrdinal);
+            Assert.IsTrue(session.ActivityLog[0].VoicePrimary);
+            Assert.IsNotNull(session.TakeVoicePlayRequest());
+
+            session.NoteVoicePlaybackStarted();
+
+            CollectionAssert.AreEqual(
+                new[] { OperatorJob.Capture, OperatorJob.Ocr, OperatorJob.Match, OperatorJob.Voice },
+                session.ActivityLog[0].Jobs.ToArray());
+        }
+
+        [TestMethod]
         public void ExtraPathRows_AreDarkScreenOrDialogueOptions_NotGlobalOrPair()
         {
             DateTime now = new DateTime(2026, 9, 5, 12, 3, 0, DateTimeKind.Utc);

@@ -777,10 +777,10 @@ namespace GI_Subtitles.Views
                 configChanged = true;
             }
             else if (gameName == "Zenless" &&
-                     (!_currentGameConfig.LanguageMapping.TryGetValue("KR", out string zenlessKorean) || zenlessKorean == "_KR"))
+                     GameConfigStore.MigrateZenlessLanguageMapping(_currentGameConfig))
             {
-                // Zenless uses KO in its TextMap filenames, while the app uses KR.
-                _currentGameConfig.LanguageMapping["KR"] = "_KO";
+                // Zenless uses KO and an underscore-prefixed suffix in its
+                // TextMap filenames, while the app uses KR/CHT internally.
                 configChanged = true;
             }
 
@@ -802,7 +802,7 @@ namespace GI_Subtitles.Views
             try
             {
                 File.WriteAllText(configPath, JsonConvert.SerializeObject(_currentGameConfig, Formatting.Indented));
-                Logger.Log.Info($"Migrated Korean language mapping in {gameName}.json");
+                Logger.Log.Info($"Migrated language mappings in {gameName}.json");
             }
             catch (Exception ex)
             {
@@ -870,21 +870,7 @@ namespace GI_Subtitles.Views
                     config.RepoType = "ZenlessGitMero";
                     config.InputUrlTemplate = "https://git.mero.moe/dimbreath/ZenlessData/raw/branch/master/TextMap/TextMap{Language}TemplateTb.json";
                     config.OutputUrlTemplate = "https://git.mero.moe/dimbreath/ZenlessData/raw/branch/master/TextMap/TextMap{Language}TemplateTb.json";
-                    config.LanguageMapping = new Dictionary<string, string>
-                    {
-                        ["CHS"] = "",
-                        ["JP"] = "_JA",
-                        ["EN"] = "_EN",
-                        ["KR"] = "_KO",
-                        ["PT"] = "_PT",
-                        ["RU"] = "_RU",
-                        ["TH"] = "_TH",
-                        ["VI"] = "_VI",
-                        ["DE"] = "_DE",
-                        ["ES"] = "_ES",
-                        ["FR"] = "_FR",
-                        ["ID"] = "_ID"
-                    };
+                    config.LanguageMapping = GameConfigStore.CreateZenlessLanguageMapping();
                     break;
                 case "Wuthering":
                     config.RepoUrl = GameConfigStore.WutheringRepoUrl;

@@ -96,12 +96,10 @@ https://www.bilibili.com/video/BV1qxtjeME7e/
 
 ### 构建
 
-```bash
-# 还原 NuGet 包
-nuget restore GI-Subtitles.sln
-
-# 构建 Release 版本
-msbuild GI-Subtitles.sln -t:GI-Subtitles:Rebuild -p:Configuration=Release -p:Platform=x64
+```powershell
+# 还原 packages.config、OCR 模型，并用 Visual Studio MSBuild 构建。
+# 不要使用 `dotnet build`：本解决方案是 packages.config + .NET Framework。
+pwsh -File scripts/Build.ps1 -Configuration Release
 ```
 
 ### 测试
