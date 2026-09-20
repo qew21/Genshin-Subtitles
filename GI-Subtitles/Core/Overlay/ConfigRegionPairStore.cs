@@ -73,6 +73,9 @@ namespace GI_Subtitles.Core.Overlay
             layout.RegionPairs = pairs == null
                 ? new List<RegionPairRecord>()
                 : new List<RegionPairRecord>(pairs);
+            RegionAdjustTrace.StoreWrite(
+                "pairs",
+                "count=" + layout.RegionPairs.Count);
             WriteLayout(layout);
         }
 
@@ -109,6 +112,9 @@ namespace GI_Subtitles.Core.Overlay
         {
             OverlayLayoutRecord layout = ReadLayout();
             layout.DarkScreenDisplay = display ?? OverlayRect.Invalid;
+            RegionAdjustTrace.StoreWrite(
+                "darkScreenDisplay",
+                "rect=" + layout.DarkScreenDisplay.ToCsv());
             WriteLayout(layout);
         }
 
@@ -126,6 +132,9 @@ namespace GI_Subtitles.Core.Overlay
         {
             OverlayLayoutRecord layout = ReadLayout();
             layout.DialogueOptionDisplay = display ?? OverlayRect.Invalid;
+            RegionAdjustTrace.StoreWrite(
+                "dialogueOptionDisplay",
+                "rect=" + layout.DialogueOptionDisplay.ToCsv());
             WriteLayout(layout);
         }
 
