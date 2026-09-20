@@ -457,8 +457,23 @@
                                    Visibility="Collapsed"/>
                     </StackPanel>
 
-                    <!-- Boolean Flags -->
+                    <!-- Subtitle idle timeout -->
                     <StackPanel Grid.Row="1" Margin="0,0,0,12">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="{DynamicResource Config_SubtitleIdleTimeout_Label}" VerticalAlignment="Center" Width="200"/>
+                            <TextBox x:Name="SubtitleIdleTimeoutTextBox" Width="60" VerticalContentAlignment="Center"
+                                     LostFocus="SubtitleIdleTimeoutTextBox_LostFocus"/>
+                            <TextBlock Text="{DynamicResource Config_SubtitleIdleTimeout_Unit}" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                        </StackPanel>
+                        <TextBlock Text="{DynamicResource Config_SubtitleIdleTimeout_Help}"
+                                   Margin="200,4,0,0"
+                                   TextWrapping="Wrap"
+                                   Foreground="Gray"
+                                   FontStyle="Italic"/>
+                    </StackPanel>
+
+                    <!-- Boolean Flags -->
+                    <StackPanel Grid.Row="2" Margin="0,0,0,12">
                         <CheckBox x:Name="AutoStartCheckBox" Checked="AutoStartCheckBox_Checked" Unchecked="AutoStartCheckBox_Checked" Content="{DynamicResource Config_AutoStart}" Margin="0,0,0,6"/>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                             <CheckBox x:Name="PlayVoiceCheckBox"
@@ -540,7 +555,7 @@
                     </StackPanel>
 
                     <!-- Action Buttons -->
-                    <WrapPanel Grid.Row="2" HorizontalAlignment="Left" Margin="0,10,0,0">
+                    <WrapPanel Grid.Row="3" HorizontalAlignment="Left" Margin="0,10,0,0">
                         <Button Content="{DynamicResource Btn_OpenFolder}" Margin="0,0,20,0" Click="OpenAppDataFolder_Click"/>
                         <Button Content="{DynamicResource Btn_ActivityLog}" Margin="0,0,20,0" Click="OpenActivityLog_Click"/>
                         <Button Content="{DynamicResource Btn_SubtitleFont}" Margin="0,0,20,0" Click="FontPreview_Click"/>

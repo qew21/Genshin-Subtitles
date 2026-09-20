@@ -106,6 +106,8 @@
     <Compile Include="TestHintScreenSelection.cs" />
     <Compile Include="TestLiveOverlaySessionActivityLog.cs" />
     <Compile Include="TestLiveOverlaySessionResultFold.cs" />
+    <Compile Include="TestLiveOverlaySessionSubtitleIdleTimeout.cs" />
+    <Compile Include="TestLiveOverlaySessionSubtitleIdleTimeoutSettings.cs" />
     <Compile Include="TestLiveOverlaySessionMatchMissKeep.cs" />
     <Compile Include="TestActivityLogRowFilter.cs" />
     <Compile Include="TestActivityLogFollowTail.cs" />

@@ -87,6 +87,8 @@ namespace GI_Subtitles.Views
         private readonly ObservableCollection<RegionPairCard> _pairCards = new ObservableCollection<RegionPairCard>();
         private OcrIntervalSettingsView _ocrIntervalView;
         private bool _ocrIntervalBinding;
+        private SubtitleIdleTimeoutSettingsView _subtitleIdleTimeoutView;
+        private bool _subtitleIdleTimeoutBinding;
         private bool _syncingLayoutUi;
 
         public RegionPairSettings PairSettings
@@ -263,6 +265,7 @@ namespace GI_Subtitles.Views
             PlayVoiceCheckBox.IsChecked = Config.Get("PlayVoice", true);
             LogDenoiseCheckBox.IsChecked = Config.Get("LogDenoise", true);
             BindOcrIntervalSettings();
+            BindSubtitleIdleTimeoutSettings();
             RefreshAppliedLayoutUi();
             IsVisibleChanged += SettingsWindow_IsVisibleChanged;
         }
@@ -272,6 +275,7 @@ namespace GI_Subtitles.Views
             if (IsVisible)
             {
                 BindOcrIntervalSettings();
+                BindSubtitleIdleTimeoutSettings();
                 RefreshAppliedLayoutUi();
             }
         }
@@ -329,9 +333,36 @@ namespace GI_Subtitles.Views
             UpdateOcrIntervalWarning();
         }
 
+        private void BindSubtitleIdleTimeoutSettings()
+        {
+            if (SubtitleIdleTimeoutTextBox == null)
+            {
+                return;
+            }
 
+            _subtitleIdleTimeoutBinding = true;
+            try
+            {
+                _subtitleIdleTimeoutView = _overlaySession.OpenSubtitleIdleTimeoutSettings();
+                SubtitleIdleTimeoutTextBox.Text = _subtitleIdleTimeoutView.BoxText;
+            }
+            finally
+            {
+                _subtitleIdleTimeoutBinding = false;
+            }
+        }
 
+        private void SubtitleIdleTimeoutTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (_subtitleIdleTimeoutBinding || _subtitleIdleTimeoutView == null)
+            {
+                return;
+            }
 
+            _subtitleIdleTimeoutView.BoxText = SubtitleIdleTimeoutTextBox.Text;
+            _subtitleIdleTimeoutView.Commit();
+            SubtitleIdleTimeoutTextBox.Text = _subtitleIdleTimeoutView.BoxText;
+        }
 
         private void FitWindowToWorkingArea()
         {

@@ -84,6 +84,9 @@
     <sys:String x:Key="RegionPair_BoxDisplayMask" xmlns:sys="clr-namespace:System;assembly=mscorlib">框选显示区（对 {0}）</sys:String>
     <sys:String x:Key="Config_OcrInterval_Label" xmlns:sys="clr-namespace:System;assembly=mscorlib">最小识图间隔</sys:String>
     <sys:String x:Key="Config_OcrInterval_OutOfRange" xmlns:sys="clr-namespace:System;assembly=mscorlib">当前 {0}ms，超出 200–1000。引擎仍按此值跑。改动后会夹进范围。</sys:String>
+    <sys:String x:Key="Config_SubtitleIdleTimeout_Label" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕空闲超时</sys:String>
+    <sys:String x:Key="Config_SubtitleIdleTimeout_Unit" xmlns:sys="clr-namespace:System;assembly=mscorlib">秒</sys:String>
+    <sys:String x:Key="Config_SubtitleIdleTimeout_Help" xmlns:sys="clr-namespace:System;assembly=mscorlib">区域对与黑屏字幕在空闲这么多秒后清除。0 为关闭。范围 0–60。</sys:String>
     <sys:String x:Key="Hint_RecognitionRunning" xmlns:sys="clr-namespace:System;assembly=mscorlib">识别中</sys:String>
     <sys:String x:Key="Hint_RecognitionStopped" xmlns:sys="clr-namespace:System;assembly=mscorlib">已停止</sys:String>
     <sys:String x:Key="Hint_CaptureRegionBoxed" xmlns:sys="clr-namespace:System;assembly=mscorlib">已选识别区</sys:String>
