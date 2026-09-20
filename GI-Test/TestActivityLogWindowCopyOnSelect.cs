@@ -125,6 +125,17 @@ namespace GI_Test
                 string expected = lineBox.SelectedText;
                 Assert.IsFalse(string.IsNullOrEmpty(expected));
 
+                MethodInfo rightClick = typeof(ActivityLogWindow).GetMethod(
+                    "OnWindowPreviewMouseRightButtonDown",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.IsNotNull(rightClick);
+                var rightClickArgs = new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Right)
+                {
+                    RoutedEvent = UIElement.PreviewMouseRightButtonDownEvent,
+                    Source = lineBox
+                };
+                rightClick.Invoke(window, new object[] { window, rightClickArgs });
+
                 var menu = (ContextMenu)window.FindResource("LogCopyMenu");
                 menu.PlacementTarget = host;
                 MethodInfo opened = typeof(ActivityLogWindow).GetMethod(
@@ -142,6 +153,62 @@ namespace GI_Test
 
                 ForceClose(window);
                 Assert.AreEqual(expected, got, "context menu did not copy the line selection");
+            });
+        }
+
+        [TestMethod]
+        public void ContextMenuCopy_DoesNotSearchSiblingLines_WhenPlacementTargetIsList()
+        {
+            RunOnSta(delegate
+            {
+                LiveOverlaySession session = new LiveOverlaySession(new MemoryOcrIntervalStore());
+                AppendRow(session, 0);
+                AppendRow(session, 1);
+                var window = new ActivityLogWindow(session)
+                {
+                    ShowActivated = false,
+                    ShowInTaskbar = false,
+                    Left = 60,
+                    Top = 60,
+                    Width = 720,
+                    Height = 400
+                };
+                window.Show();
+                Pump(window.Dispatcher);
+                window.UpdateLayout();
+                Pump(window.Dispatcher);
+
+                var secondItem = window.LogList.ItemContainerGenerator.ContainerFromIndex(1) as ListViewItem;
+                Assert.IsNotNull(secondItem, "second log row container missing");
+                TextBox sibling = FindResultLineTextBoxIn(secondItem);
+                Assert.IsNotNull(sibling, "second result line TextBox missing");
+                int take = Math.Min(16, sibling.Text.Length);
+                sibling.Select(0, take);
+                Assert.IsFalse(string.IsNullOrEmpty(sibling.SelectedText));
+
+                MethodInfo rightClick = typeof(ActivityLogWindow).GetMethod(
+                    "OnWindowPreviewMouseRightButtonDown",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                var rightClickArgs = new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Right)
+                {
+                    RoutedEvent = UIElement.PreviewMouseRightButtonDownEvent,
+                    Source = window.LogList
+                };
+                rightClick.Invoke(window, new object[] { window, rightClickArgs });
+
+                var menu = (ContextMenu)window.FindResource("LogCopyMenu");
+                menu.PlacementTarget = window.LogList;
+                MethodInfo opened = typeof(ActivityLogWindow).GetMethod(
+                    "CopyMenu_Opened",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                opened.Invoke(window, new object[] { menu, new RoutedEventArgs() });
+
+                var copyItem = (MenuItem)menu.Items[0];
+                Assert.IsFalse(
+                    copyItem.IsEnabled,
+                    "a list-level context menu must not copy a selected TextBox from another row");
+
+                ForceClose(window);
             });
         }
 

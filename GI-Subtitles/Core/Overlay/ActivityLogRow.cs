@@ -96,12 +96,34 @@ namespace GI_Subtitles.Core.Overlay
 
         public bool IsRepeat { get; }
 
-        internal void IncludeVoiceJob()
+        internal bool IncludeVoiceJob()
         {
-            if (!_jobs.Contains(OperatorJob.Voice))
+            if (_jobs.Contains(OperatorJob.Voice))
             {
-                _jobs.Add(OperatorJob.Voice);
+                return false;
             }
+
+            _jobs.Add(OperatorJob.Voice);
+            return true;
         }
+    }
+
+    public sealed class ActivityLogChangedEventArgs : EventArgs
+    {
+        public ActivityLogChangedEventArgs(
+            ActivityLogRow addedRow,
+            ActivityLogRow updatedRow,
+            int removedCount)
+        {
+            AddedRow = addedRow;
+            UpdatedRow = updatedRow;
+            RemovedCount = removedCount;
+        }
+
+        public ActivityLogRow AddedRow { get; }
+
+        public ActivityLogRow UpdatedRow { get; }
+
+        public int RemovedCount { get; }
     }
 }

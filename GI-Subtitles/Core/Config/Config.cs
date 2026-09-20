@@ -63,7 +63,27 @@ namespace GI_Subtitles.Core.Config
             {
                 jo[kv.Key] = kv.Value;
             }
-            File.WriteAllText(SettingsFile, jo.ToString(Formatting.Indented));
+
+            string tempFile = SettingsFile + ".tmp";
+            File.WriteAllText(tempFile, jo.ToString(Formatting.Indented));
+            try
+            {
+                if (File.Exists(SettingsFile))
+                {
+                    File.Replace(tempFile, SettingsFile, null);
+                }
+                else
+                {
+                    File.Move(tempFile, SettingsFile);
+                }
+            }
+            finally
+            {
+                if (File.Exists(tempFile))
+                {
+                    File.Delete(tempFile);
+                }
+            }
         }
 
         public static T Get<T>(string key, T defaultValue = default)

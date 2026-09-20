@@ -121,6 +121,7 @@
     <Compile Include="TestLiveOverlaySessionExtraPathRepeat.cs" />
     <Compile Include="TestLiveOverlaySessionRegionPairs.cs" />
     <Compile Include="TestLiveOverlaySessionVoicePrimary.cs" />
+    <Compile Include="TestLiveOverlaySessionRegressions.cs" />
     <Compile Include="TestLiveOverlaySessionPreviewAndAdjust.cs" />
     <Compile Include="TestLiveOverlaySessionExtraPaths.cs" />
     <Compile Include="TestOverlayLayoutPersistence.cs" />

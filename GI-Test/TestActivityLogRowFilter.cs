@@ -76,6 +76,34 @@ namespace GI_Test
         }
 
         [TestMethod]
+        public void Consume_AfterFrontRemoval_ResumesAtNewTail()
+        {
+            var rows = new List<ActivityLogRow>
+            {
+                Row(isRepeat: false),
+                Row(isRepeat: true),
+                Row(isRepeat: false)
+            };
+            var filter = new ActivityLogRowFilter(hideRepeats: true);
+
+            CollectionAssert.AreEqual(
+                new[] { rows[0], rows[2] },
+                (System.Collections.ICollection)filter.Consume(rows));
+
+            ActivityLogRow evicted = rows[0];
+            rows.RemoveAt(0);
+            filter.RemoveFromFront(1);
+            ActivityLogRow appended = Row(isRepeat: false);
+            rows.Add(appended);
+
+            IReadOnlyList<ActivityLogRow> shown = filter.Consume(rows);
+
+            CollectionAssert.AreEqual(new[] { appended }, (System.Collections.ICollection)shown);
+            Assert.AreEqual(3, filter.ConsumedCount);
+            Assert.IsFalse(rows.Contains(evicted));
+        }
+
+        [TestMethod]
         public void Shows_RepeatRow_OnlyWhenNotHiding()
         {
             ActivityLogRow repeat = Row(isRepeat: true);

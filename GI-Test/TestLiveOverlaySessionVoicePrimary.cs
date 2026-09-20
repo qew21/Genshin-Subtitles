@@ -148,7 +148,7 @@ namespace GI_Test
         }
 
         [TestMethod]
-        public void SettingsAddCap_RefusesStartAndCommit_ButLoadedExtrasStillRun()
+        public void UnifiedPairCap_RefusesStartAndCommit_AndTruncatesLoadedExtras()
         {
             var records = new List<RegionPairRecord>();
             for (int i = 0; i < 6; i++)
@@ -169,21 +169,21 @@ namespace GI_Test
             };
             var session = new LiveOverlaySession(new MemoryOcrIntervalStore(), pairs);
 
-            Assert.AreEqual(6, session.Pairs.Count);
+            Assert.AreEqual(LiveOverlaySession.SettingsPairCap, session.Pairs.Count);
             Assert.IsFalse(session.TryStartAdd());
             Assert.IsFalse(session.TryCommitAdd());
-            Assert.AreEqual(6, session.Pairs.Count);
-            Assert.AreEqual(0, pairs.WriteCount);
+            Assert.AreEqual(LiveOverlaySession.SettingsPairCap, session.Pairs.Count);
+            Assert.AreEqual(1, pairs.WriteCount);
 
-            var samples = new PairFrameSample[6];
-            for (int i = 0; i < 6; i++)
+            var samples = new PairFrameSample[LiveOverlaySession.SettingsPairCap];
+            for (int i = 0; i < samples.Length; i++)
             {
                 samples[i] = PairFrameSample.ChangedAndStable();
             }
 
             session.Beat(samples);
             Assert.AreEqual(0, session.BusyOcrPairIndex);
-            CollectionAssert.AreEqual(new[] { 1, 2, 3, 4, 5 }, System.Linq.Enumerable.ToArray(session.OcrQueue));
+            CollectionAssert.AreEqual(new[] { 1, 2, 3 }, System.Linq.Enumerable.ToArray(session.OcrQueue));
         }
 
         [TestMethod]
