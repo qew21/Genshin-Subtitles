@@ -2,9 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Linq;
+using System.Runtime.InteropServices;
+using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Documents;
+using System.Windows.Input;
 using System.Windows.Media;
 using GI_Subtitles.Core.Config;
 using GI_Subtitles.Core.Overlay;
@@ -18,6 +21,8 @@ namespace GI_Subtitles.Views
         private readonly List<ActivityLogRow> _rowSources = new List<ActivityLogRow>();
         private bool _forceClose;
         private bool _opened;
+        private int _anchorIndex = -1;
+        private TextBox _rightClickedCell;
         private ActivityLogRowFilter _filter = new ActivityLogRowFilter(ReadLogDenoise());
 
         public ActivityLogWindow(LiveOverlaySession session)
@@ -30,6 +35,7 @@ namespace GI_Subtitles.Views
             _session = session;
             InitializeComponent();
             LogList.ItemsSource = _rows;
+            Loaded += OnLoaded;
             Closing += OnClosing;
             Application.Current.Exit += OnAppExit;
             _session.ActivityLogChanged += OnActivityLogChanged;
@@ -83,6 +89,13 @@ namespace GI_Subtitles.Views
             }));
         }
 
+        private void OnLoaded(object sender, RoutedEventArgs e)
+        {
+            // Show() alone must project the current session log (tests and the
+            // first paint); ShowOrFocus also Rebuilds when opening from hidden.
+            Rebuild();
+        }
+
         private void OnClosing(object sender, CancelEventArgs e)
         {
             if (_forceClose)
@@ -119,6 +132,7 @@ namespace GI_Subtitles.Views
             _filter = new ActivityLogRowFilter(ReadLogDenoise());
             _rows.Clear();
             _rowSources.Clear();
+            _anchorIndex = -1;
             SyncRows();
         }
 
@@ -260,128 +274,20 @@ namespace GI_Subtitles.Views
             return joined;
         }
 
+        // One Compose call feeds the result cell (ADR 0016): the segments
+        // drive one TextBox per line; PlainText drives the row-copy TSV.
+        // Copied text always equals displayed text.
         private void ApplyResult(ActivityLogRowView view, ActivityLogRow row)
         {
-            view.ResultProjection = ActivityLogResultComposer.Compose(row, ResolveText);
-        }
-
-        private void ResultRichTextBox_DataContextChanged(
-            object sender,
-            DependencyPropertyChangedEventArgs e)
-        {
-            if (e.OldValue is ActivityLogRowView oldView)
+            ActivityLogResultProjection projection = ActivityLogResultComposer.Compose(row, ResolveText);
+            string plainText = projection.PlainText;
+            // ResultLines is a fresh list each Compose; only retarget when the
+            // plain text changed so mutation refreshes do not churn the column.
+            if (view.ResultLines == null
+                || !string.Equals(view.Result, plainText, StringComparison.Ordinal))
             {
-                oldView.PropertyChanged -= ResultView_PropertyChanged;
-            }
-
-            if (e.NewValue is ActivityLogRowView newView)
-            {
-                newView.PropertyChanged += ResultView_PropertyChanged;
-            }
-
-            RenderResult(sender as RichTextBox);
-        }
-
-        private void ResultView_PropertyChanged(object sender, PropertyChangedEventArgs e)
-        {
-            if (e.PropertyName == nameof(ActivityLogRowView.ResultProjection))
-            {
-                Dispatcher.BeginInvoke(new Action(() =>
-                    RenderResultForView(sender as ActivityLogRowView)));
-            }
-        }
-
-        private void RenderResultForView(ActivityLogRowView view)
-        {
-            if (view == null)
-            {
-                return;
-            }
-
-            foreach (RichTextBox box in FindResultBoxes())
-            {
-                if (ReferenceEquals(box.DataContext, view))
-                {
-                    RenderResult(box);
-                }
-            }
-        }
-
-        private IEnumerable<RichTextBox> FindResultBoxes()
-        {
-            return FindVisualChildren<RichTextBox>(this);
-        }
-
-        private static IEnumerable<T> FindVisualChildren<T>(DependencyObject root)
-            where T : DependencyObject
-        {
-            if (root == null)
-            {
-                yield break;
-            }
-
-            int count = VisualTreeHelper.GetChildrenCount(root);
-            for (int i = 0; i < count; i++)
-            {
-                DependencyObject child = VisualTreeHelper.GetChild(root, i);
-                if (child is T typed)
-                {
-                    yield return typed;
-                }
-
-                foreach (T descendant in FindVisualChildren<T>(child))
-                {
-                    yield return descendant;
-                }
-            }
-        }
-
-        private void RenderResult(RichTextBox box)
-        {
-            if (box == null)
-            {
-                return;
-            }
-
-            box.Document.Blocks.Clear();
-            ActivityLogRowView view = box.DataContext as ActivityLogRowView;
-            ActivityLogResultProjection projection = view?.ResultProjection;
-            if (projection == null)
-            {
-                return;
-            }
-
-            foreach (ActivityLogResultLine line in projection.Lines)
-            {
-                var paragraph = new Paragraph
-                {
-                    Margin = new Thickness(0)
-                };
-                if (!string.IsNullOrEmpty(line.TagText))
-                {
-                    paragraph.Inlines.Add(new Run(line.TagText)
-                    {
-                        Foreground = TagBrush(line.Tag)
-                    });
-                }
-
-                paragraph.Inlines.Add(new Run(line.ContentText));
-                box.Document.Blocks.Add(paragraph);
-            }
-        }
-
-        private static Brush TagBrush(ActivityLogResultTag tag)
-        {
-            switch (tag)
-            {
-                case ActivityLogResultTag.Ocr:
-                    return Brushes.SlateGray;
-                case ActivityLogResultTag.Original:
-                    return Brushes.SteelBlue;
-                case ActivityLogResultTag.Translation:
-                    return Brushes.DarkGreen;
-                default:
-                    return Brushes.Transparent;
+                view.Result = plainText;
+                view.ResultLines = projection.Lines;
             }
         }
 
@@ -449,6 +355,252 @@ namespace GI_Subtitles.Views
                 return format;
             }
         }
+
+        // The cell TextBox consumes the bubbling mouse-down, so ListView row
+        // selection has to run in the tunneling preview phase instead — but
+        // only for clicks that land on a cell; anywhere else the native
+        // selection handling stays in charge and must not apply twice.
+        private void RowItem_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (FindAncestor<TextBox>(e.OriginalSource as DependencyObject) == null)
+            {
+                return;
+            }
+
+            var item = (ListViewItem)sender;
+            int index = LogList.Items.IndexOf(item.Content);
+            if (index < 0)
+            {
+                return;
+            }
+
+            bool ctrl = (Keyboard.Modifiers & ModifierKeys.Control) != ModifierKeys.None;
+            bool shift = (Keyboard.Modifiers & ModifierKeys.Shift) != ModifierKeys.None;
+            if (shift && _anchorIndex >= 0 && _anchorIndex < LogList.Items.Count)
+            {
+                if (!ctrl)
+                {
+                    LogList.UnselectAll();
+                }
+
+                int first = Math.Min(_anchorIndex, index);
+                int last = Math.Max(_anchorIndex, index);
+                for (int i = first; i <= last; i++)
+                {
+                    object row = LogList.Items[i];
+                    if (!LogList.SelectedItems.Contains(row))
+                    {
+                        LogList.SelectedItems.Add(row);
+                    }
+                }
+
+                return;
+            }
+
+            if (ctrl)
+            {
+                item.IsSelected = !item.IsSelected;
+            }
+            else
+            {
+                LogList.UnselectAll();
+                item.IsSelected = true;
+            }
+
+            _anchorIndex = index;
+        }
+
+        private void LogList_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            TextBox cell = FindAncestor<TextBox>(e.OriginalSource as DependencyObject);
+            if (cell != null && cell.SelectionLength > 0)
+            {
+                SetClipboardWithRetry(cell.SelectedText);
+            }
+        }
+
+        private void OnWindowPreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            // ContextMenu.PlacementTarget can be a ListView or an outer
+            // ItemsControl. Capture the actual source before WPF moves focus to
+            // the menu, so copy cannot discover a different row by traversing
+            // the whole host later.
+            _rightClickedCell = FindAncestor<TextBox>(e.OriginalSource as DependencyObject);
+        }
+
+        private void OnWindowPreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key != Key.C || (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.None)
+            {
+                return;
+            }
+
+            if (GetCellSelection(null) != null)
+            {
+                return; // the focused cell copies its own selection natively
+            }
+
+            if (CopySelectedRowsToClipboard())
+            {
+                e.Handled = true;
+            }
+        }
+
+        private void CopyMenu_Opened(object sender, RoutedEventArgs e)
+        {
+            var menu = (ContextMenu)sender;
+            MenuItem copyItem = menu.Items.OfType<MenuItem>().FirstOrDefault();
+            if (copyItem != null)
+            {
+                copyItem.IsEnabled = GetCellSelection(menu) != null || LogList.SelectedItems.Count > 0;
+            }
+        }
+
+        private void CopyMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            var menu = ((MenuItem)sender).Parent as ContextMenu;
+            string selection = GetCellSelection(menu);
+            if (selection != null)
+            {
+                SetClipboardWithRetry(selection);
+                return;
+            }
+
+            CopySelectedRowsToClipboard();
+        }
+
+        private void CopyMenu_Closed(object sender, RoutedEventArgs e)
+        {
+            _rightClickedCell = null;
+        }
+
+        // While a context menu is open, keyboard focus sits on the menu, so
+        // the right-clicked cell comes from the source captured during the
+        // preview mouse event. A direct TextBox placement target is retained
+        // for keyboard/programmatic menu opening; parent hosts are never
+        // recursively searched.
+        private string GetCellSelection(ContextMenu menu)
+        {
+            TextBox cell = null;
+            if (menu != null)
+            {
+                cell = _rightClickedCell;
+                if (cell == null)
+                {
+                    cell = menu.PlacementTarget as TextBox;
+                }
+            }
+            else
+            {
+                cell = Keyboard.FocusedElement as TextBox;
+            }
+
+            if (cell != null && cell.SelectionLength > 0)
+            {
+                return cell.SelectedText;
+            }
+
+            return null;
+        }
+
+        private bool CopySelectedRowsToClipboard()
+        {
+            if (LogList.SelectedItems.Count == 0)
+            {
+                return false;
+            }
+
+            var lines = new List<string>();
+            foreach (ActivityLogRowView row in _rows)
+            {
+                if (LogList.SelectedItems.Contains(row))
+                {
+                    lines.Add(row.ToTsv());
+                }
+            }
+
+            SetClipboardWithRetry(string.Join(Environment.NewLine, lines));
+            return true;
+        }
+
+        // Copy-on-select runs on mouse-up. WPF Clipboard.SetText blocks the UI
+        // thread inside OpenClipboard / OleFlushClipboard; when another process
+        // holds the clipboard that freeze lasts seconds even for two log rows.
+        // Enqueue a bounded WinForms write on one shared STA worker instead —
+        // mouse-up returns immediately, retries happen off the UI thread, and
+        // failure still stays silent per ADR 0011.
+        private static readonly object ClipboardGate = new object();
+        private static string _clipboardPending;
+        private static Thread _clipboardWorker;
+        private static readonly AutoResetEvent ClipboardSignal = new AutoResetEvent(false);
+
+        private static void SetClipboardWithRetry(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return;
+            }
+
+            lock (ClipboardGate)
+            {
+                _clipboardPending = text;
+                if (_clipboardWorker == null || !_clipboardWorker.IsAlive)
+                {
+                    _clipboardWorker = new Thread(ClipboardWorker)
+                    {
+                        IsBackground = true,
+                        Name = "ActivityLogClipboard"
+                    };
+                    _clipboardWorker.SetApartmentState(ApartmentState.STA);
+                    _clipboardWorker.Start();
+                }
+            }
+
+            ClipboardSignal.Set();
+        }
+
+        private static void ClipboardWorker()
+        {
+            while (true)
+            {
+                ClipboardSignal.WaitOne();
+                string text;
+                lock (ClipboardGate)
+                {
+                    text = _clipboardPending;
+                    _clipboardPending = null;
+                }
+
+                if (string.IsNullOrEmpty(text))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    System.Windows.Forms.Clipboard.SetDataObject(text, true, 10, 50);
+                }
+                catch (COMException)
+                {
+                }
+                catch (ExternalException)
+                {
+                }
+            }
+        }
+
+        private static T FindAncestor<T>(DependencyObject element) where T : class
+        {
+            while (element != null && !(element is T))
+            {
+                var content = element as FrameworkContentElement;
+                element = content != null
+                    ? content.Parent
+                    : VisualTreeHelper.GetParent(element);
+            }
+
+            return element as T;
+        }
     }
 
     internal sealed class ActivityLogRowView : INotifyPropertyChanged
@@ -456,7 +608,8 @@ namespace GI_Subtitles.Views
         private string _time;
         private string _regionPair;
         private string _job;
-        private ActivityLogResultProjection _resultProjection;
+        private string _result;
+        private IReadOnlyList<ActivityLogResultLine> _resultLines;
         private bool _isRepeat;
 
         public event PropertyChangedEventHandler PropertyChanged;
@@ -479,16 +632,27 @@ namespace GI_Subtitles.Views
             set { SetField(ref _job, value, nameof(Job)); }
         }
 
-        public ActivityLogResultProjection ResultProjection
+        public string Result
         {
-            get { return _resultProjection; }
-            set { SetField(ref _resultProjection, value, nameof(ResultProjection)); }
+            get { return _result; }
+            set { SetField(ref _result, value, nameof(Result)); }
+        }
+
+        public IReadOnlyList<ActivityLogResultLine> ResultLines
+        {
+            get { return _resultLines; }
+            set { SetField(ref _resultLines, value, nameof(ResultLines)); }
         }
 
         public bool IsRepeat
         {
             get { return _isRepeat; }
             set { SetField(ref _isRepeat, value, nameof(IsRepeat)); }
+        }
+
+        public string ToTsv()
+        {
+            return Time + "\t" + RegionPair + "\t" + Job + "\t" + Result;
         }
 
         private void SetField<T>(ref T field, T value, string propertyName)

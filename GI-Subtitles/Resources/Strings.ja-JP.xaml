@@ -120,6 +120,7 @@
 <sys:String x:Key="ActivityLog_Result_LanguagePackDone" xmlns:sys="clr-namespace:System;assembly=mscorlib">完了 {0}</sys:String>
 <sys:String x:Key="ActivityLog_Result_LanguagePackFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">失敗 {0}</sys:String>
 <sys:String x:Key="ActivityLog_Empty" xmlns:sys="clr-namespace:System;assembly=mscorlib">このセッションにはまだ記録がありません。認識開始、枠選、または言語パックを読み込むとここに表示されます。</sys:String>
+<sys:String x:Key="ActivityLog_Copy" xmlns:sys="clr-namespace:System;assembly=mscorlib">コピー</sys:String>
 <sys:String x:Key="ActivityLog_RepeatBadge" xmlns:sys="clr-namespace:System;assembly=mscorlib">重複</sys:String>
 <sys:String x:Key="Btn_ActivityLog" xmlns:sys="clr-namespace:System;assembly=mscorlib">活動ログを開く</sys:String>
 <sys:String x:Key="Tray_ActivityLog" xmlns:sys="clr-namespace:System;assembly=mscorlib">活動ログ</sys:String>

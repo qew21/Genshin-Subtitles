@@ -120,6 +120,7 @@
 <sys:String x:Key="ActivityLog_Result_LanguagePackDone" xmlns:sys="clr-namespace:System;assembly=mscorlib">Finished {0}</sys:String>
 <sys:String x:Key="ActivityLog_Result_LanguagePackFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Failed {0}</sys:String>
 <sys:String x:Key="ActivityLog_Empty" xmlns:sys="clr-namespace:System;assembly=mscorlib">This session has no records yet. Start recognition, box a capture, or load a language pack and they will show here.</sys:String>
+<sys:String x:Key="ActivityLog_Copy" xmlns:sys="clr-namespace:System;assembly=mscorlib">Copy</sys:String>
 <sys:String x:Key="ActivityLog_RepeatBadge" xmlns:sys="clr-namespace:System;assembly=mscorlib">repeat</sys:String>
 <sys:String x:Key="Btn_ActivityLog" xmlns:sys="clr-namespace:System;assembly=mscorlib">Open activity log</sys:String>
 <sys:String x:Key="Tray_ActivityLog" xmlns:sys="clr-namespace:System;assembly=mscorlib">Activity log</sys:String>
