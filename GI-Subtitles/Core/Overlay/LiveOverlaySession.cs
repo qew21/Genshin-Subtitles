@@ -1535,6 +1535,18 @@ namespace GI_Subtitles.Core.Overlay
 
         private void ClearPairSubtitle(int pairIndex)
         {
+            ClearPairSubtitleBody(pairIndex);
+            if (pairIndex < 0 || pairIndex >= _pairGenerations.Count)
+            {
+                return;
+            }
+
+            _pairGenerations[pairIndex]++;
+            RemoveQueuedSlot(pairIndex);
+        }
+
+        private void ClearPairSubtitleBody(int pairIndex)
+        {
             if (pairIndex < 0 || pairIndex >= _contents.Count)
             {
                 return;
@@ -1543,8 +1555,6 @@ namespace GI_Subtitles.Core.Overlay
             _headers[pairIndex] = string.Empty;
             _contents[pairIndex] = string.Empty;
             _lastResults[pairIndex] = null;
-            _pairGenerations[pairIndex]++;
-            RemoveQueuedSlot(pairIndex);
             if (pairIndex < _pairLastAppliedAt.Count)
             {
                 _pairLastAppliedAt[pairIndex] = null;
@@ -1579,7 +1589,7 @@ namespace GI_Subtitles.Core.Overlay
 
                 if (now - appliedAt.Value >= timeout)
                 {
-                    ClearPairSubtitle(i);
+                    ClearPairSubtitleBody(i);
                 }
             }
 

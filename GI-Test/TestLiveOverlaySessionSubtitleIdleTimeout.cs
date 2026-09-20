@@ -62,6 +62,34 @@ namespace GI_Test
         }
 
         [TestMethod]
+        public void TimeoutExpiry_DoesNotDropNewPairOcrAlreadyInFlight()
+        {
+            DateTime now = new DateTime(2026, 9, 10, 12, 5, 0, DateTimeKind.Utc);
+            LiveOverlaySession session = CreateSession(1, () => now);
+            session.SetSubtitleIdleTimeoutSeconds(1);
+
+            session.Beat(PairFrameSample.ChangedAndStable());
+            session.CompleteOcr(miss: false, content: "old", ocrText: "old", original: "old");
+            Assert.IsNotNull(session.TakeVoicePlayRequest());
+            session.NoteVoicePlaybackEnded();
+
+            now = now.AddMilliseconds(session.EngineOcrIntervalMs);
+            session.Beat(PairFrameSample.ChangedAndStable());
+            Assert.AreEqual(0, session.BusyOcrPairIndex);
+
+            now = now.AddSeconds(1);
+            session.Tick();
+            Assert.AreEqual(string.Empty, session.PairBodies[0].Content);
+
+            session.CompleteOcr(miss: false, content: "new", ocrText: "new", original: "new");
+
+            Assert.AreEqual(
+                "new",
+                session.PairBodies[0].Content,
+                "Idle expiry must clear the old fold without cancelling a newer OCR already in flight.");
+        }
+
+        [TestMethod]
         public void EachSurface_TimesOutOnItsOwnClock()
         {
             DateTime now = new DateTime(2026, 9, 10, 12, 10, 0, DateTimeKind.Utc);
