@@ -4,6 +4,8 @@ using System.Reflection;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using GI_Subtitles.Core.Overlay;
@@ -196,6 +198,93 @@ namespace GI_Test
             });
         }
 
+        [TestMethod]
+        public void ActualMouseWheelScroll_DisarmsFollowingThroughScrollChanged()
+        {
+            RunOnSta(delegate
+            {
+                EnsureApplication();
+                LiveOverlaySession session = CreateSession();
+                for (int i = 0; i < 40; i++)
+                {
+                    AppendPipelineRow(session, i, isRepeat: false);
+                }
+
+                ActivityLogWindow window = OpenWindow(session);
+                try
+                {
+                    ScrollViewer viewer = RequireScrollViewer(window);
+                    Assert.IsTrue(viewer.ScrollableHeight > 0, "precondition: content overflows viewport");
+                    Assert.IsTrue(FollowTailOf(window).IsFollowing);
+
+                    var wheel = new MouseWheelEventArgs(Mouse.PrimaryDevice, 0, -120)
+                    {
+                        RoutedEvent = Mouse.PreviewMouseWheelEvent,
+                        Source = window.LogList
+                    };
+                    window.LogList.RaiseEvent(wheel);
+                    viewer.ScrollToVerticalOffset(0);
+                    Pump(window.Dispatcher);
+
+                    Assert.IsFalse(
+                        FollowTailOf(window).IsFollowing,
+                        "a real preview mouse-wheel plus ScrollChanged path must disarm follow-tail");
+                    Assert.AreEqual(Visibility.Collapsed, NewRecordsButtonOf(window).Visibility);
+                }
+                finally
+                {
+                    ForceClose(window);
+                }
+            });
+        }
+
+        [TestMethod]
+        public void ActualScrollBarDrag_DisarmsFollowingThroughScrollChanged()
+        {
+            RunOnSta(delegate
+            {
+                EnsureApplication();
+                LiveOverlaySession session = CreateSession();
+                for (int i = 0; i < 40; i++)
+                {
+                    AppendPipelineRow(session, i, isRepeat: false);
+                }
+
+                ActivityLogWindow window = OpenWindow(session);
+                try
+                {
+                    ScrollViewer viewer = RequireScrollViewer(window);
+                    ScrollBar bar = RequireVerticalScrollBar(viewer);
+                    Assert.IsTrue(viewer.ScrollableHeight > 0, "precondition: content overflows viewport");
+                    Assert.IsTrue(FollowTailOf(window).IsFollowing);
+
+                    var mouseDown = new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left)
+                    {
+                        RoutedEvent = Mouse.PreviewMouseDownEvent,
+                        Source = bar
+                    };
+                    bar.RaiseEvent(mouseDown);
+                    viewer.ScrollToVerticalOffset(0);
+                    Pump(window.Dispatcher);
+
+                    Assert.IsFalse(
+                        FollowTailOf(window).IsFollowing,
+                        "a scrollbar drag followed by ScrollChanged must disarm follow-tail");
+
+                    var mouseUp = new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left)
+                    {
+                        RoutedEvent = Mouse.PreviewMouseUpEvent,
+                        Source = bar
+                    };
+                    bar.RaiseEvent(mouseUp);
+                }
+                finally
+                {
+                    ForceClose(window);
+                }
+            });
+        }
+
         private static void InvokePrivate(ActivityLogWindow window, string methodName, params object[] args)
         {
             MethodInfo method = typeof(ActivityLogWindow).GetMethod(
@@ -210,6 +299,32 @@ namespace GI_Test
             ScrollViewer viewer = FindScrollViewer(window.LogList);
             Assert.IsNotNull(viewer, "ListView ScrollViewer not found");
             return viewer;
+        }
+
+        private static ScrollBar RequireVerticalScrollBar(ScrollViewer viewer)
+        {
+            ScrollBar bar = FindVerticalScrollBar(viewer);
+            Assert.IsNotNull(bar, "vertical ScrollBar not found");
+            return bar;
+        }
+
+        private static ScrollBar FindVerticalScrollBar(DependencyObject root)
+        {
+            if (root is ScrollBar bar && bar.Orientation == Orientation.Vertical)
+            {
+                return bar;
+            }
+
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+            {
+                ScrollBar child = FindVerticalScrollBar(VisualTreeHelper.GetChild(root, i));
+                if (child != null)
+                {
+                    return child;
+                }
+            }
+
+            return null;
         }
 
         private static ScrollViewer FindScrollViewer(DependencyObject root)

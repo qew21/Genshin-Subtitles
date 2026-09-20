@@ -85,6 +85,7 @@ namespace GI_Subtitles.Views
             idleTimeoutStore: new ConfigSubtitleIdleTimeoutStore());
         private readonly List<Mat> _pairLastBinary = new List<Mat>();
         private readonly List<Mat> _pairLastOcrBinary = new List<Mat>();
+        private readonly List<Mat> _pairPendingOcrBinary = new List<Mat>();
         private readonly List<Bitmap> _pairCapturedBitmaps = new List<Bitmap>();
         private readonly List<Mat> _pairCapturedMats = new List<Mat>();
         private readonly List<System.Windows.Controls.TextBlock> _extraPairBodies = new List<System.Windows.Controls.TextBlock>();
@@ -676,9 +677,10 @@ namespace GI_Subtitles.Views
                 return;
             }
 
-            System.Windows.Point canvasPoint = DisplayToCanvas(display);
-            double width = display.Width / Scale;
-            double height = display.Height / Scale;
+            double displayScale = GetDisplayScale(display);
+            System.Windows.Point canvasPoint = DisplayToCanvas(display, displayScale);
+            double width = display.Width / displayScale;
+            double height = display.Height / displayScale;
             Canvas.SetLeft(SubtitleText, canvasPoint.X);
             Canvas.SetTop(SubtitleText, canvasPoint.Y);
             SubtitleText.Width = width;
@@ -714,12 +716,13 @@ namespace GI_Subtitles.Views
                 return;
             }
 
-            System.Windows.Point canvasPoint = DisplayToCanvas(body.Display);
+            double displayScale = GetDisplayScale(body.Display);
+            System.Windows.Point canvasPoint = DisplayToCanvas(body.Display, displayScale);
             Canvas.SetLeft(DarkScreenText, canvasPoint.X);
             Canvas.SetTop(DarkScreenText, canvasPoint.Y);
-            DarkScreenText.Width = body.Display.Width / Scale;
-            DarkScreenText.Height = body.Display.Height / Scale;
-            DarkScreenText.MaxHeight = body.Display.Height / Scale;
+            DarkScreenText.Width = body.Display.Width / displayScale;
+            DarkScreenText.Height = body.Display.Height / displayScale;
+            DarkScreenText.MaxHeight = body.Display.Height / displayScale;
             DarkScreenText.FontSize = Config.Get<int>("Size");
             DarkScreenText.Text = string.IsNullOrEmpty(body.Header)
                 ? body.Content
@@ -737,10 +740,11 @@ namespace GI_Subtitles.Views
                 return;
             }
 
-            System.Windows.Point canvasPoint = DisplayToCanvas(echo.Display);
+            double displayScale = GetDisplayScale(echo.Display);
+            System.Windows.Point canvasPoint = DisplayToCanvas(echo.Display, displayScale);
             Canvas.SetLeft(DialogueChoiceText, canvasPoint.X);
             Canvas.SetTop(DialogueChoiceText, canvasPoint.Y);
-            DialogueChoiceText.Width = echo.Display.Width / Scale;
+            DialogueChoiceText.Width = echo.Display.Width / displayScale;
             DialogueChoiceText.Text = echo.Content;
             DialogueChoiceText.Visibility = Visibility.Visible;
             System.Windows.Controls.Panel.SetZIndex(DialogueChoiceText, echo.RecognitionOrder);
@@ -749,8 +753,8 @@ namespace GI_Subtitles.Views
             if (!echo.FollowsVoicePrimary)
             {
                 transform.Y = 0;
-                DialogueChoiceText.Height = echo.Display.Height / Scale;
-                DialogueChoiceText.MaxHeight = echo.Display.Height / Scale;
+                DialogueChoiceText.Height = echo.Display.Height / displayScale;
+                DialogueChoiceText.MaxHeight = echo.Display.Height / displayScale;
                 DialogueChoiceText.FontSize = Config.Get<int>("Size");
                 return;
             }
@@ -801,11 +805,12 @@ namespace GI_Subtitles.Views
                 return;
             }
 
-            System.Windows.Point canvasPoint = DisplayToCanvas(body.Display);
+            double displayScale = GetDisplayScale(body.Display);
+            System.Windows.Point canvasPoint = DisplayToCanvas(body.Display, displayScale);
             Canvas.SetLeft(block, canvasPoint.X);
             Canvas.SetTop(block, canvasPoint.Y);
-            block.Width = body.Display.Width / Scale;
-            block.Height = body.Display.Height / Scale;
+            block.Width = body.Display.Width / displayScale;
+            block.Height = body.Display.Height / displayScale;
             block.FontSize = Config.Get<int>("Size");
             block.Text = string.IsNullOrEmpty(body.Header)
                 ? body.Content
@@ -816,9 +821,35 @@ namespace GI_Subtitles.Views
 
         private System.Windows.Point DisplayToCanvas(OverlayRect display)
         {
+            return DisplayToCanvas(display, GetDisplayScale(display));
+        }
+
+        private System.Windows.Point DisplayToCanvas(OverlayRect display, double displayScale)
+        {
             return new System.Windows.Point(
-                display.X / Scale - SystemParameters.VirtualScreenLeft,
-                display.Y / Scale - SystemParameters.VirtualScreenTop);
+                display.X / displayScale - SystemParameters.VirtualScreenLeft,
+                display.Y / displayScale - SystemParameters.VirtualScreenTop);
+        }
+
+        private double GetDisplayScale(OverlayRect display)
+        {
+            if (display == null || !display.IsValid)
+            {
+                return Scale;
+            }
+
+            var anchor = new System.Drawing.Point(
+                display.X + display.Width / 2,
+                display.Y + display.Height / 2);
+            foreach (Screen screen in Screen.AllScreens)
+            {
+                if (screen.Bounds.Contains(anchor))
+                {
+                    return GetScaleForScreen(screen);
+                }
+            }
+
+            return Scale;
         }
 
         private void EnsurePairBuffers(int count)
@@ -827,9 +858,33 @@ namespace GI_Subtitles.Views
             {
                 _pairLastBinary.Add(null);
                 _pairLastOcrBinary.Add(null);
+                _pairPendingOcrBinary.Add(null);
                 _pairCapturedBitmaps.Add(null);
                 _pairCapturedMats.Add(null);
             }
+        }
+
+        private void CommitPairOcrBaseline(int pairIndex)
+        {
+            if (pairIndex < 0 || pairIndex >= _pairPendingOcrBinary.Count)
+            {
+                return;
+            }
+
+            _pairLastOcrBinary[pairIndex]?.Dispose();
+            _pairLastOcrBinary[pairIndex] = _pairPendingOcrBinary[pairIndex];
+            _pairPendingOcrBinary[pairIndex] = null;
+        }
+
+        private void DiscardPairOcrBaseline(int pairIndex)
+        {
+            if (pairIndex < 0 || pairIndex >= _pairPendingOcrBinary.Count)
+            {
+                return;
+            }
+
+            _pairPendingOcrBinary[pairIndex]?.Dispose();
+            _pairPendingOcrBinary[pairIndex] = null;
         }
 
         private void EnsureExtraPairBodies(int pairCount)
@@ -966,12 +1021,9 @@ namespace GI_Subtitles.Views
             }
 
             Mat lastBinary = idx < _pairLastBinary.Count ? _pairLastBinary[idx] : null;
-            if (lastBinary != null)
-            {
-                EnsurePairBuffers(idx + 1);
-                _pairLastOcrBinary[idx]?.Dispose();
-                _pairLastOcrBinary[idx] = lastBinary.Clone();
-            }
+            EnsurePairBuffers(idx + 1);
+            _pairPendingOcrBinary[idx]?.Dispose();
+            _pairPendingOcrBinary[idx] = lastBinary?.Clone();
 
             Mat frame = _pairCapturedMats[idx];
             Bitmap bitmap = _pairCapturedBitmaps[idx];
@@ -1243,6 +1295,11 @@ namespace GI_Subtitles.Views
             }
             finally
             {
+                if (pairIndex.HasValue)
+                {
+                    DiscardPairOcrBaseline(pairIndex.Value);
+                }
+
                 int processedWidth = frameToProcess?.IsDisposed == false ? frameToProcess.Width : 0;
                 int processedHeight = frameToProcess?.IsDisposed == false ? frameToProcess.Height : 0;
                 if (!string.IsNullOrEmpty(darkScreenHash) &&
@@ -1297,6 +1354,14 @@ namespace GI_Subtitles.Views
             {
                 if (usable)
                 {
+                    if (matchMiss)
+                    {
+                        DiscardPairOcrBaseline(appliedPair);
+                    }
+                    else
+                    {
+                        CommitPairOcrBaseline(appliedPair);
+                    }
                     _forceVoiceReplayRequested = true;
                     _overlaySession.ApplyPairResult(
                         appliedPair,
@@ -1313,6 +1378,7 @@ namespace GI_Subtitles.Views
                 }
                 else
                 {
+                    DiscardPairOcrBaseline(appliedPair);
                     Logger.Log.Warn("Forced OCR refresh produced no usable text; keeping the current subtitle without replay.");
                     _overlaySession.ApplyPairResult(appliedPair, miss: true, force: true);
                     _overlaySession.Refresh(hasCaptureRegion: true, foundText: false);
@@ -1348,6 +1414,7 @@ namespace GI_Subtitles.Views
 
             if (!usable)
             {
+                DiscardPairOcrBaseline(pairIndex.Value);
                 _overlaySession.NoteOcrMiss();
                 _overlaySession.CompleteOcr(miss: true);
                 return;
@@ -1360,6 +1427,14 @@ namespace GI_Subtitles.Views
                 recognizedText,
                 original,
                 matchMiss);
+            if (matchMiss)
+            {
+                DiscardPairOcrBaseline(pairIndex.Value);
+            }
+            else
+            {
+                CommitPairOcrBaseline(pairIndex.Value);
+            }
             MaybePlayPairVoice(key, content, header);
             ApplyPairOverlay();
         }
@@ -1465,11 +1540,13 @@ namespace GI_Subtitles.Views
 
             if (!Config.Get<bool>("PlayVoice", false) || !contentChanged || string.IsNullOrEmpty(key))
             {
+                _overlaySession.NoteVoicePlaybackEnded();
                 return;
             }
 
             if (!forceVoiceReplay && AudioList.Contains(key))
             {
+                _overlaySession.NoteVoicePlaybackEnded();
                 return;
             }
 
@@ -2287,6 +2364,11 @@ namespace GI_Subtitles.Views
                 _pairLastOcrBinary[i]?.Dispose();
                 _pairLastOcrBinary[i] = null;
             }
+            for (int i = 0; i < _pairPendingOcrBinary.Count; i++)
+            {
+                _pairPendingOcrBinary[i]?.Dispose();
+                _pairPendingOcrBinary[i] = null;
+            }
             for (int i = 0; i < _pairCapturedBitmaps.Count; i++)
             {
                 _pairCapturedBitmaps[i]?.Dispose();
@@ -2416,9 +2498,10 @@ namespace GI_Subtitles.Views
             }
 
             OverlayRect rect = outline.Rect;
-            System.Windows.Point canvasPoint = DisplayToCanvas(rect);
-            double width = rect.Width / Scale;
-            double height = rect.Height / Scale;
+            double displayScale = GetDisplayScale(rect);
+            System.Windows.Point canvasPoint = DisplayToCanvas(rect, displayScale);
+            double width = rect.Width / displayScale;
+            double height = rect.Height / displayScale;
             SolidColorBrush stroke = BrushForOutline(outline);
 
             var box = new System.Windows.Shapes.Rectangle
@@ -2576,9 +2659,10 @@ namespace GI_Subtitles.Views
             System.Windows.Point now = e.GetPosition(OverlayCanvas);
             double deltaX = now.X - _dragStartMouse.X;
             double deltaY = now.Y - _dragStartMouse.Y;
+            double dragScale = GetDisplayScale(_dragStartRect);
             var moved = new OverlayRect(
-                (int)Math.Round(_dragStartRect.X + deltaX * Scale),
-                (int)Math.Round(_dragStartRect.Y + deltaY * Scale),
+                (int)Math.Round(_dragStartRect.X + deltaX * dragScale),
+                (int)Math.Round(_dragStartRect.Y + deltaY * dragScale),
                 _dragStartRect.Width,
                 _dragStartRect.Height);
             ApplyDraggedRegion(moved);
@@ -2719,11 +2803,12 @@ namespace GI_Subtitles.Views
             }
 
             // Same mixed-DPI treatment as subtitle placement: physical px over system scale.
+            double targetScale = GetDisplayScale(target);
             return new System.Windows.Rect(
-                target.X / Scale,
-                target.Y / Scale,
-                target.Width / Scale,
-                target.Height / Scale);
+                target.X / targetScale,
+                target.Y / targetScale,
+                target.Width / targetScale,
+                target.Height / targetScale);
         }
 
         private string ResolveHintText()

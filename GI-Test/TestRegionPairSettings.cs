@@ -142,25 +142,16 @@ namespace GI_Test
         }
 
         [TestMethod]
-        public void HandEditedPairsPastFour_AreCards_Badged_Deletable_AndAddStops()
+        public void LoadedPairsPastFour_AreTruncated_AndAddStops()
         {
             LiveOverlaySession session = CreateSessionWithPairs(6);
             var page = new RegionPairSettings(session);
 
-            Assert.AreEqual(6, page.Cards.Count);
+            Assert.AreEqual(LiveOverlaySession.SettingsPairCap, page.Cards.Count);
             Assert.IsFalse(page.CanAdd);
             Assert.IsFalse(page.TryStartAdd());
             Assert.IsFalse(page.Cards[3].IsOverAddCap);
-            Assert.IsTrue(page.Cards[4].IsOverAddCap);
-            Assert.IsTrue(page.Cards[5].IsOverAddCap);
-            Assert.AreEqual(5, page.Cards[4].Ordinal);
-            Assert.AreEqual(6, page.Cards[5].Ordinal);
-
-            page.Delete(6);
-            Assert.AreEqual(5, session.Pairs.Count);
-            Assert.AreEqual(5, page.Cards.Count);
-            Assert.IsTrue(page.Cards[4].IsOverAddCap);
-            Assert.IsFalse(page.CanAdd);
+            Assert.IsFalse(page.Cards[3].IsOverAddCap);
         }
 
         [TestMethod]
