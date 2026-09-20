@@ -160,5 +160,13 @@
                    Foreground="#555555"
                    VerticalAlignment="Top"
                    IsHitTestVisible="False"/>
+        <Button x:Name="NewRecordsButton"
+                Content="{DynamicResource ActivityLog_NewRecords}"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                Margin="0,0,0,16"
+                Padding="14,4"
+                Visibility="Collapsed"
+                Click="NewRecordsButton_Click"/>
     </Grid>
 </Window>

@@ -142,6 +142,7 @@
     <Compile Include="Core\Overlay\OverlayLayoutPersistence.cs" />
     <Compile Include="Core\Overlay\ActivityLogRow.cs" />
     <Compile Include="Core\Overlay\ActivityLogRowFilter.cs" />
+    <Compile Include="Core\Overlay\ActivityLogFollowTail.cs" />
     <Compile Include="Core\Overlay\ActivityLogResultProjection.cs" />
     <Compile Include="Core\Overlay\HintScreenSelection.cs" />
     <Compile Include="Core\Overlay\OperatorJob.cs" />
