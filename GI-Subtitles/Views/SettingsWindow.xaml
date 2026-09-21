@@ -22,9 +22,9 @@
         <SolidColorBrush x:Key="BorderStrongBrush" Color="#C5D0DE"/>
         <SolidColorBrush x:Key="TextPrimaryBrush" Color="#172033"/>
         <SolidColorBrush x:Key="TextSecondaryBrush" Color="#667085"/>
-        <SolidColorBrush x:Key="AccentBrush" Color="#4F46E5"/>
-        <SolidColorBrush x:Key="AccentHoverBrush" Color="#4338CA"/>
-        <SolidColorBrush x:Key="AccentSoftBrush" Color="#EEF2FF"/>
+        <SolidColorBrush x:Key="AccentBrush" Color="#1677FF"/>
+        <SolidColorBrush x:Key="AccentHoverBrush" Color="#0958D9"/>
+        <SolidColorBrush x:Key="AccentSoftBrush" Color="#E6F4FF"/>
         <SolidColorBrush x:Key="WarningSoftBrush" Color="#FFF7DB"/>
         <SolidColorBrush x:Key="WarningBorderBrush" Color="#F0C36A"/>
 
@@ -224,7 +224,7 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="GroupBox">
                         <Grid>
-                            <Border Margin="0,8,0,0"
+                            <Border Margin="0,10,0,0"
                                     Padding="14,18,14,14"
                                     Background="{StaticResource SurfaceBrush}"
                                     BorderBrush="{StaticResource BorderBrush}"
@@ -233,6 +233,7 @@
                                 <ContentPresenter/>
                             </Border>
                             <Border HorizontalAlignment="Left"
+                                    VerticalAlignment="Top"
                                     Margin="12,0,0,0"
                                     Padding="6,0"
                                     Background="{StaticResource WindowBackgroundBrush}">
@@ -263,6 +264,7 @@
                                       Margin="4,0,4,8"
                                       Background="Transparent"/>
                             <Border Grid.Row="1"
+                                    Margin="1,0,1,1"
                                     Background="{StaticResource SurfaceSubtleBrush}"
                                     BorderBrush="{StaticResource BorderBrush}"
                                     BorderThickness="1"
