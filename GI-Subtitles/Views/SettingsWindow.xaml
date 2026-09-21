@@ -33,6 +33,7 @@
             <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
         </Style>
 
         <Style x:Key="SectionTitle" TargetType="TextBlock">
@@ -221,6 +222,7 @@
                                     BorderBrush="{TemplateBinding BorderBrush}"
                                     BorderThickness="{TemplateBinding BorderThickness}"
                                     CornerRadius="8"
+                                    SnapsToDevicePixels="True"
                                     Padding="{TemplateBinding Padding}">
                                 <Grid>
                                     <ContentPresenter Margin="0,0,28,0"
@@ -298,6 +300,7 @@
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
                                 CornerRadius="8"
+                                SnapsToDevicePixels="True"
                                 Padding="{TemplateBinding Padding}">
                             <ScrollViewer Focusable="False"
                                           HorizontalScrollBarVisibility="Disabled"
@@ -410,11 +413,12 @@
                                       Margin="4,0,4,8"
                                       Background="Transparent"/>
                             <Border Grid.Row="1"
-                                    Margin="1,0,1,1"
+                                    Margin="2"
                                     Background="{StaticResource SurfaceSubtleBrush}"
                                     BorderBrush="{StaticResource BorderBrush}"
                                     BorderThickness="1"
-                                    CornerRadius="12">
+                                    CornerRadius="12"
+                                    SnapsToDevicePixels="True">
                                 <ContentPresenter ContentSource="SelectedContent"
                                                   Margin="1"
                                                   SnapsToDevicePixels="True"/>
@@ -493,7 +497,9 @@
         <TabControl x:Name="SettingsTabs" Grid.Row="1">
             <!-- Tab 1: Language & Data Management -->
             <TabItem Header="{DynamicResource Tab_Language}">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="2">
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                              VerticalScrollBarVisibility="Auto"
+                              Padding="3">
                     <Grid Margin="12">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
@@ -521,7 +527,15 @@
 
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,8">
                                 <TextBlock Text="{DynamicResource Select_Game}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                <ComboBox Name="GameSelector" Width="120" VerticalAlignment="Center"/>
+                                <ComboBox Name="GameSelector" Width="150" VerticalAlignment="Center">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Display}"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
                             </StackPanel>
 
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,8">

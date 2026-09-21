@@ -765,7 +765,6 @@ namespace GI_Subtitles.Views
             }).ToList();
 
             GameSelector.ItemsSource = displayList;
-            GameSelector.DisplayMemberPath = "Display";
             GameSelector.SelectedValuePath = "Name";
         }
 
