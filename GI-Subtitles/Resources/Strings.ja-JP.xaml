@@ -60,20 +60,24 @@
     <sys:String x:Key="Btn_PreviewAll" xmlns:sys="clr-namespace:System;assembly=mscorlib">すべてプレビュー</sys:String>
     <sys:String x:Key="RegionPair_Empty" xmlns:sys="clr-namespace:System;assembly=mscorlib">領域ペアはまだありません。</sys:String>
     <sys:String x:Key="RegionPair_OverCap" xmlns:sys="clr-namespace:System;assembly=mscorlib">追加上限を超えています</sys:String>
-    <sys:String x:Key="RegionPair_PairLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">対</sys:String>
+    <sys:String x:Key="RegionPair_PairLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">領域ペア</sys:String>
     <sys:String x:Key="RegionPair_Capture" xmlns:sys="clr-namespace:System;assembly=mscorlib">認識区</sys:String>
     <sys:String x:Key="RegionPair_Display" xmlns:sys="clr-namespace:System;assembly=mscorlib">表示区</sys:String>
     <sys:String x:Key="RegionPair_Unset" xmlns:sys="clr-namespace:System;assembly=mscorlib">未設定</sys:String>
     <sys:String x:Key="Btn_BoxRegion" xmlns:sys="clr-namespace:System;assembly=mscorlib">枠選</sys:String>
-    <sys:String x:Key="Btn_DeletePair" xmlns:sys="clr-namespace:System;assembly=mscorlib">削除</sys:String>
+    <sys:String x:Key="Btn_DeletePair" xmlns:sys="clr-namespace:System;assembly=mscorlib">領域ペアを削除</sys:String>
+    <sys:String x:Key="Btn_DeletePair_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">この領域ペアを削除</sys:String>
     <sys:String x:Key="Btn_AdjustRegion" xmlns:sys="clr-namespace:System;assembly=mscorlib">領域を調整</sys:String>
-    <sys:String x:Key="Overlay_PairOutlineLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">対 {0}</sys:String>
-    <sys:String x:Key="Btn_SetVoicePrimary" xmlns:sys="clr-namespace:System;assembly=mscorlib">配音主区に設定</sys:String>
-    <sys:String x:Key="Btn_VoicePrimaryOn" xmlns:sys="clr-namespace:System;assembly=mscorlib">配音主区</sys:String>
-    <sys:String x:Key="RegionPair_VoicePrimaryCurrent" xmlns:sys="clr-namespace:System;assembly=mscorlib">配音主区は「領域ペア」ページで指定します。現在は対 {0}。</sys:String>
-    <sys:String x:Key="RegionPair_VoicePrimaryNone" xmlns:sys="clr-namespace:System;assembly=mscorlib">配音主区は「領域ペア」ページで指定します。現在はありません。</sys:String>
-    <sys:String x:Key="RegionPair_BoxCaptureMask" xmlns:sys="clr-namespace:System;assembly=mscorlib">認識区を枠選（対 {0}）</sys:String>
-    <sys:String x:Key="RegionPair_BoxDisplayMask" xmlns:sys="clr-namespace:System;assembly=mscorlib">表示区を枠選（対 {0}）</sys:String>
+    <sys:String x:Key="Overlay_PairOutlineLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">領域ペア {0}</sys:String>
+    <sys:String x:Key="Btn_SetVoicePrimary" xmlns:sys="clr-namespace:System;assembly=mscorlib">音声ソースに設定</sys:String>
+    <sys:String x:Key="Btn_VoicePrimaryOn" xmlns:sys="clr-namespace:System;assembly=mscorlib">音声ソース</sys:String>
+    <sys:String x:Key="RegionPair_VoicePrimaryCurrent" xmlns:sys="clr-namespace:System;assembly=mscorlib">音声ソースは「領域ペア」ページで指定します。現在は領域ペア {0}。</sys:String>
+    <sys:String x:Key="RegionPair_VoicePrimaryNone" xmlns:sys="clr-namespace:System;assembly=mscorlib">音声ソースは「領域ペア」ページで指定します。現在は未設定です。</sys:String>
+    <sys:String x:Key="RegionPair_BoxCaptureMask" xmlns:sys="clr-namespace:System;assembly=mscorlib">認識区を枠選（領域ペア {0}）</sys:String>
+    <sys:String x:Key="RegionPair_BoxDisplayMask" xmlns:sys="clr-namespace:System;assembly=mscorlib">表示区を枠選（領域ペア {0}）</sys:String>
+    <sys:String x:Key="RegionPair_BoxCaptureTooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">この領域ペアの認識区を枠選</sys:String>
+    <sys:String x:Key="RegionPair_BoxDisplayTooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">この領域ペアの表示区を枠選</sys:String>
+    <sys:String x:Key="RegionPair_MigrationReviewMessage" xmlns:sys="clr-namespace:System;assembly=mscorlib">旧バージョンの第2認識領域を領域ペア 2 として移行しました。「すべてプレビュー」で全フレームを確認し、不要なら領域ペア 2 を削除してください。</sys:String>
     <sys:String x:Key="Config_OcrInterval_Label" xmlns:sys="clr-namespace:System;assembly=mscorlib">最小認識間隔</sys:String>
     <sys:String x:Key="Config_OcrInterval_OutOfRange" xmlns:sys="clr-namespace:System;assembly=mscorlib">現在 {0}ms、200–1000 の範囲外です。エンジンはこの値のまま動作します。変更すると範囲内に収めます。</sys:String>
     <sys:String x:Key="Config_SubtitleIdleTimeout_Label" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕アイドルタイムアウト</sys:String>
@@ -95,7 +99,7 @@
 <sys:String x:Key="ActivityLog_Column_Result" xmlns:sys="clr-namespace:System;assembly=mscorlib">結果</sys:String>
 <sys:String x:Key="ActivityLog_Scope_Global" xmlns:sys="clr-namespace:System;assembly=mscorlib">全体</sys:String>
 <sys:String x:Key="ActivityLog_Scope_Pair" xmlns:sys="clr-namespace:System;assembly=mscorlib">領域ペア {0}</sys:String>
-<sys:String x:Key="ActivityLog_Scope_VoicePrimary" xmlns:sys="clr-namespace:System;assembly=mscorlib">領域ペア {0}（配音主区）</sys:String>
+<sys:String x:Key="ActivityLog_Scope_VoicePrimary" xmlns:sys="clr-namespace:System;assembly=mscorlib">領域ペア {0}（音声ソース）</sys:String>
 <sys:String x:Key="ActivityLog_Scope_DarkScreen" xmlns:sys="clr-namespace:System;assembly=mscorlib">暗転</sys:String>
 <sys:String x:Key="ActivityLog_Scope_DialogueOptions" xmlns:sys="clr-namespace:System;assembly=mscorlib">会話選択肢</sys:String>
 <sys:String x:Key="ActivityLog_JobSeparator" xmlns:sys="clr-namespace:System;assembly=mscorlib"> · </sys:String>
@@ -147,7 +151,7 @@
     <sys:String x:Key="ExtraPath_BoxDisplay" xmlns:sys="clr-namespace:System;assembly=mscorlib">表示区を枠選</sys:String>
     <sys:String x:Key="ExtraPath_ClearDefault" xmlns:sys="clr-namespace:System;assembly=mscorlib">既定に戻す</sys:String>
     <sys:String x:Key="ExtraPath_DarkScreenFollowBand" xmlns:sys="clr-namespace:System;assembly=mscorlib">候補帯に追従</sys:String>
-    <sys:String x:Key="ExtraPath_DialogueFollowVoicePrimary" xmlns:sys="clr-namespace:System;assembly=mscorlib">配音主区に追従</sys:String>
+    <sys:String x:Key="ExtraPath_DialogueFollowVoicePrimary" xmlns:sys="clr-namespace:System;assembly=mscorlib">音声ソースに追従</sys:String>
     <sys:String x:Key="ExtraPath_DisplaySet" xmlns:sys="clr-namespace:System;assembly=mscorlib">表示区を指定済み</sys:String>
     <sys:String x:Key="ExtraPath_BoxDarkScreenMask" xmlns:sys="clr-namespace:System;assembly=mscorlib">暗転表示区を枠選</sys:String>
     <sys:String x:Key="ExtraPath_BoxDialogueOptionMask" xmlns:sys="clr-namespace:System;assembly=mscorlib">会話選択肢表示区を枠選</sys:String>

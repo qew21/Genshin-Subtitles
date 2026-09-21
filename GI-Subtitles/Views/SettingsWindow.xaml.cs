@@ -85,6 +85,7 @@ namespace GI_Subtitles.Views
         private readonly LiveOverlaySession _overlaySession;
         private readonly RegionPairSettings _pairSettings;
         private readonly ObservableCollection<RegionPairCard> _pairCards = new ObservableCollection<RegionPairCard>();
+        private bool _legacyRegion2ReviewAutoSelected;
         private OcrIntervalSettingsView _ocrIntervalView;
         private bool _ocrIntervalBinding;
         private SubtitleIdleTimeoutSettingsView _subtitleIdleTimeoutView;
@@ -277,6 +278,7 @@ namespace GI_Subtitles.Views
                 BindOcrIntervalSettings();
                 BindSubtitleIdleTimeoutSettings();
                 RefreshAppliedLayoutUi();
+                SelectRegionPairTabForLegacyReview();
             }
         }
 
@@ -412,7 +414,28 @@ namespace GI_Subtitles.Views
                 AddRegionPairButton.IsEnabled = _pairSettings.CanAdd;
             }
 
+            if (RegionPairMigrationNotice != null)
+            {
+                RegionPairMigrationNotice.Visibility = _overlaySession.LegacyRegion2ReviewPending
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+            }
+
             UpdateVoicePrimaryHint();
+        }
+
+        private void SelectRegionPairTabForLegacyReview()
+        {
+            if (_legacyRegion2ReviewAutoSelected || !_overlaySession.LegacyRegion2ReviewPending)
+            {
+                return;
+            }
+
+            _legacyRegion2ReviewAutoSelected = true;
+            if (SettingsTabs != null)
+            {
+                SettingsTabs.SelectedIndex = 2;
+            }
         }
 
         private void UpdateVoicePrimaryHint()
@@ -446,6 +469,11 @@ namespace GI_Subtitles.Views
             _overlaySession.PreviewCaptureRegion(
                 _overlaySession.HasValidCapture,
                 RecognizeDarkScreenSubtitlesCheckBox.IsChecked == true);
+            if (_overlaySession.LegacyRegion2ReviewPending)
+            {
+                _overlaySession.AcknowledgeLegacyRegion2Review();
+                RefreshPairPage();
+            }
         }
 
         private void AdjustRegion_Click(object sender, RoutedEventArgs e)
@@ -493,7 +521,12 @@ namespace GI_Subtitles.Views
                 return;
             }
 
+            int deletedOrdinal = _pairSettings.OrdinalOf(pairId);
             _pairSettings.Delete(pairId);
+            if (deletedOrdinal == 2 || _overlaySession.Pairs.Count < 2)
+            {
+                _overlaySession.AcknowledgeLegacyRegion2Review();
+            }
             RefreshPairPage();
         }
 

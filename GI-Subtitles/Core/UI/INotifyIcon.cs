@@ -300,13 +300,13 @@ namespace GI_Subtitles.Core.UI
                 return false;
             }
 
-            OverlayRect capture = PromptRect("RegionPair_BoxCaptureMask", "框选识别区（对 {0}）", ordinal);
+            OverlayRect capture = PromptRect("RegionPair_BoxCaptureMask", "框选识别区（区域对 {0}）", ordinal);
             if (!capture.IsValid)
             {
                 return false;
             }
 
-            OverlayRect display = PromptRect("RegionPair_BoxDisplayMask", "框选显示区（对 {0}）", ordinal);
+            OverlayRect display = PromptRect("RegionPair_BoxDisplayMask", "框选显示区（区域对 {0}）", ordinal);
             if (!display.IsValid)
             {
                 return false;
@@ -326,7 +326,7 @@ namespace GI_Subtitles.Core.UI
             }
 
             int ordinal = settings.NextAddOrdinal;
-            OverlayRect capture = PromptRect("RegionPair_BoxCaptureMask", "框选识别区（对 {0}）", ordinal);
+            OverlayRect capture = PromptRect("RegionPair_BoxCaptureMask", "框选识别区（区域对 {0}）", ordinal);
             if (!capture.IsValid)
             {
                 settings.AbortAdd();
@@ -334,7 +334,7 @@ namespace GI_Subtitles.Core.UI
             }
 
             settings.SetAddCapture(capture);
-            OverlayRect display = PromptRect("RegionPair_BoxDisplayMask", "框选显示区（对 {0}）", ordinal);
+            OverlayRect display = PromptRect("RegionPair_BoxDisplayMask", "框选显示区（区域对 {0}）", ordinal);
             if (!display.IsValid)
             {
                 settings.AbortAdd();
@@ -359,7 +359,7 @@ namespace GI_Subtitles.Core.UI
                 return false;
             }
 
-            OverlayRect capture = PromptRect("RegionPair_BoxCaptureMask", "框选识别区（对 {0}）", ordinal);
+            OverlayRect capture = PromptRect("RegionPair_BoxCaptureMask", "框选识别区（区域对 {0}）", ordinal);
             return capture.IsValid && settings.TrySetCapture(pairId, capture);
         }
 
@@ -377,7 +377,7 @@ namespace GI_Subtitles.Core.UI
                 return false;
             }
 
-            OverlayRect display = PromptRect("RegionPair_BoxDisplayMask", "框选显示区（对 {0}）", ordinal);
+            OverlayRect display = PromptRect("RegionPair_BoxDisplayMask", "框选显示区（区域对 {0}）", ordinal);
             return display.IsValid && settings.TrySetDisplay(pairId, display);
         }
 

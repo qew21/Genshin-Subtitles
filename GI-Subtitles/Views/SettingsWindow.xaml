@@ -45,6 +45,17 @@
             </Setter>
         </Style>
 
+        <Style TargetType="Button" x:Key="IconActionButton">
+            <Setter Property="Width" Value="28"/>
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="MinWidth" Value="28"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontFamily" Value="Segoe UI Symbol"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        </Style>
+
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
 
         <!-- Link-style TextBox -->
@@ -87,7 +98,7 @@
             </StackPanel>
         </Border>
 
-        <TabControl Grid.Row="1">
+        <TabControl x:Name="SettingsTabs" Grid.Row="1">
             <!-- Tab 1: Language & Data Management -->
             <TabItem Header="{DynamicResource Tab_Language}">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -279,9 +290,22 @@
                                 Style="{StaticResource PrimaryButton}"
                                 Click="AddRegionPair_Click"/>
                         <Button Content="{DynamicResource Btn_PreviewAll}"
-                                Style="{StaticResource PrimaryButton}"
-                                Click="PreviewAll_Click"/>
+                                 Style="{StaticResource PrimaryButton}"
+                                 Click="PreviewAll_Click"/>
                     </StackPanel>
+                    <Border x:Name="RegionPairMigrationNotice"
+                            DockPanel.Dock="Top"
+                            Background="#FFF4CE"
+                            BorderBrush="#FFBA00"
+                            BorderThickness="1"
+                            Padding="10,8"
+                            Margin="0,0,0,10"
+                            CornerRadius="4"
+                            Visibility="Collapsed">
+                        <TextBlock Text="{DynamicResource RegionPair_MigrationReviewMessage}"
+                                   TextWrapping="Wrap"
+                                   Foreground="#5A4300"/>
+                    </Border>
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <StackPanel>
                             <Grid x:Name="RegionPairEmptyState" Margin="0,0,0,10" MinHeight="72">
@@ -316,8 +340,10 @@
                                             <StackPanel>
                                                 <DockPanel LastChildFill="True" Margin="0,0,0,6">
                                                     <Button DockPanel.Dock="Right"
-                                                            Content="{DynamicResource Btn_DeletePair}"
-                                                            Padding="10,2"
+                                                            Content="🗑"
+                                                            Style="{StaticResource IconActionButton}"
+                                                            ToolTip="{DynamicResource Btn_DeletePair_Tooltip}"
+                                                            AutomationProperties.Name="{DynamicResource Btn_DeletePair}"
                                                             Tag="{Binding Id}"
                                                             Click="DeleteRegionPair_Click"/>
                                                     <StackPanel Orientation="Horizontal">
@@ -335,12 +361,19 @@
                                                 </DockPanel>
                                                 <Grid Margin="0,0,0,4">
                                                     <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto"/>
                                                         <ColumnDefinition Width="64"/>
                                                         <ColumnDefinition Width="*"/>
-                                                        <ColumnDefinition Width="Auto"/>
                                                     </Grid.ColumnDefinitions>
-                                                    <TextBlock Grid.Column="0" Text="{DynamicResource RegionPair_Capture}" VerticalAlignment="Center"/>
-                                                    <TextBlock Grid.Column="1" VerticalAlignment="Center" Margin="0,0,8,0">
+                                                    <Button Grid.Column="0"
+                                                            Content="{DynamicResource Btn_BoxRegion}"
+                                                            ToolTip="{DynamicResource RegionPair_BoxCaptureTooltip}"
+                                                            Padding="8,2"
+                                                            Margin="0,0,8,0"
+                                                            Tag="{Binding Id}"
+                                                            Click="BoxCapture_Click"/>
+                                                    <TextBlock Grid.Column="1" Text="{DynamicResource RegionPair_Capture}" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="2" VerticalAlignment="Center" Margin="0,0,8,0">
                                                         <TextBlock.Style>
                                                             <Style TargetType="TextBlock">
                                                                 <Setter Property="Text" Value="{Binding CaptureText}"/>
@@ -353,20 +386,22 @@
                                                             </Style>
                                                         </TextBlock.Style>
                                                     </TextBlock>
-                                                    <Button Grid.Column="2"
-                                                            Content="{DynamicResource Btn_BoxRegion}"
-                                                            Padding="10,2"
-                                                            Tag="{Binding Id}"
-                                                            Click="BoxCapture_Click"/>
                                                 </Grid>
                                                 <Grid Margin="0,0,0,6">
                                                     <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto"/>
                                                         <ColumnDefinition Width="64"/>
                                                         <ColumnDefinition Width="*"/>
-                                                        <ColumnDefinition Width="Auto"/>
                                                     </Grid.ColumnDefinitions>
-                                                    <TextBlock Grid.Column="0" Text="{DynamicResource RegionPair_Display}" VerticalAlignment="Center"/>
-                                                    <TextBlock Grid.Column="1" VerticalAlignment="Center" Margin="0,0,8,0">
+                                                    <Button Grid.Column="0"
+                                                            Content="{DynamicResource Btn_BoxRegion}"
+                                                            ToolTip="{DynamicResource RegionPair_BoxDisplayTooltip}"
+                                                            Padding="8,2"
+                                                            Margin="0,0,8,0"
+                                                            Tag="{Binding Id}"
+                                                            Click="BoxDisplay_Click"/>
+                                                    <TextBlock Grid.Column="1" Text="{DynamicResource RegionPair_Display}" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="2" VerticalAlignment="Center" Margin="0,0,8,0">
                                                         <TextBlock.Style>
                                                             <Style TargetType="TextBlock">
                                                                 <Setter Property="Text" Value="{Binding DisplayText}"/>
@@ -379,11 +414,6 @@
                                                             </Style>
                                                         </TextBlock.Style>
                                                     </TextBlock>
-                                                    <Button Grid.Column="2"
-                                                            Content="{DynamicResource Btn_BoxRegion}"
-                                                            Padding="10,2"
-                                                            Tag="{Binding Id}"
-                                                            Click="BoxDisplay_Click"/>
                                                 </Grid>
                                                 <StackPanel Orientation="Horizontal">
                                                     <Button Padding="10,2"

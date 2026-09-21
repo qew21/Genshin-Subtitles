@@ -116,6 +116,8 @@ namespace GI_Subtitles.Views
         private readonly bool _performanceDiagnostics = Config.Get("PerformanceDiagnostics", false);
         private const int DarkScreenAnalysisMaxSide = 960;
         private const int DialogueOptionAnalysisMaxSide = 1920;
+        private const int PreviewOutlineBoxZIndex = int.MaxValue - 2;
+        private const int PreviewOutlineLabelZIndex = int.MaxValue - 1;
         string ocrText = "";
         private NotifyIcon notifyIcon;
         string lastHeader = null;
@@ -2518,7 +2520,7 @@ namespace GI_Subtitles.Views
             };
             Canvas.SetLeft(box, canvasPoint.X);
             Canvas.SetTop(box, canvasPoint.Y);
-            System.Windows.Controls.Panel.SetZIndex(box, 40);
+            System.Windows.Controls.Panel.SetZIndex(box, PreviewOutlineBoxZIndex);
             OverlayCanvas.Children.Add(box);
             _outlineElements.Add(box);
 
@@ -2539,7 +2541,7 @@ namespace GI_Subtitles.Views
             };
             Canvas.SetLeft(label, canvasPoint.X);
             Canvas.SetTop(label, canvasPoint.Y - 20);
-            System.Windows.Controls.Panel.SetZIndex(label, 41);
+            System.Windows.Controls.Panel.SetZIndex(label, PreviewOutlineLabelZIndex);
             OverlayCanvas.Children.Add(label);
             _outlineElements.Add(label);
         }
@@ -2578,7 +2580,7 @@ namespace GI_Subtitles.Views
             string format = TryFindResource("Overlay_PairOutlineLabel") as string;
             if (string.IsNullOrEmpty(format))
             {
-                return "对 " + ordinal;
+                return "区域对 " + ordinal;
             }
 
             try

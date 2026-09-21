@@ -18,6 +18,8 @@ namespace GI_Subtitles.Core.Overlay
 
         public bool RecognizeDialogueOptions { get; set; }
 
+        public bool LegacyRegion2ReviewPending { get; set; }
+
         public LegacyRegionSlots Legacy { get; set; }
     }
 }

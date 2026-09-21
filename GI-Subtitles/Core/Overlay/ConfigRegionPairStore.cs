@@ -5,7 +5,7 @@ using AppConfig = GI_Subtitles.Core.Config.Config;
 
 namespace GI_Subtitles.Core.Overlay
 {
-    public sealed class ConfigRegionPairStore : IRegionPairStore
+    public sealed class ConfigRegionPairStore : IRegionPairStore, ILegacyRegion2ReviewStore
     {
         public const string PairsConfigKey = "RegionPairs";
         public const string VoicePrimaryIdConfigKey = "VoicePrimaryId";
@@ -170,6 +170,18 @@ namespace GI_Subtitles.Core.Overlay
         public void SwitchGame(string gameName)
         {
             _gameName = OverlayLayoutPersistence.NormalizeGame(gameName);
+        }
+
+        public bool ReadLegacyRegion2ReviewPending()
+        {
+            return ReadLayout().LegacyRegion2ReviewPending;
+        }
+
+        public void WriteLegacyRegion2ReviewPending(bool pending)
+        {
+            OverlayLayoutRecord layout = ReadLayout();
+            layout.LegacyRegion2ReviewPending = pending;
+            WriteLayout(layout);
         }
 
         private bool AllowsDialogueOptions
