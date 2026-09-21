@@ -7,7 +7,7 @@
         Icon="../Resources/mask.ico" 
         Topmost="True"
         WindowStartupLocation="CenterOwner"
-        Background="{StaticResource WindowBackgroundBrush}"
+        Background="{DynamicResource WindowBackgroundBrush}"
         FontFamily="Segoe UI"
         FontSize="13"
         UseLayoutRounding="True"
