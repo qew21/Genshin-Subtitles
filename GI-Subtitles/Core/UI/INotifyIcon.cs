@@ -294,10 +294,24 @@ namespace GI_Subtitles.Core.UI
         {
             pairId = 0;
             Views.RegionPairSettings settings = data != null ? data.PairSettings : null;
-            if (settings == null || !settings.TryGetHotkeyTarget(out _, out pairId, out int ordinal))
+            if (settings == null)
             {
-                pairId = 0;
                 return false;
+            }
+
+            // A missing layout should be recoverable from the same shortcut.
+            // Start the first region-pair setup instead of immediately reporting
+            // "no capture region" and leaving the user with no path forward.
+            if (!settings.TryGetHotkeyTarget(out _, out pairId, out int ordinal))
+            {
+                if (!AddRegionPair() ||
+                    !settings.TryGetHotkeyTarget(out _, out pairId, out ordinal))
+                {
+                    pairId = 0;
+                    return false;
+                }
+
+                return true;
             }
 
             OverlayRect capture = PromptRect("RegionPair_BoxCaptureMask", "框选识别区（区域对 {0}）", ordinal);

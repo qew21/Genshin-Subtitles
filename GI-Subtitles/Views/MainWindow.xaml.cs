@@ -328,6 +328,7 @@ namespace GI_Subtitles.Views
             };
             CleanupOldUpdatePackages();
             _ = CheckForUpdateAsync();
+            bool settingsOpenedAtStartup = false;
             if (!data.FileExists())
             {
                 if (Game == "Genshin")
@@ -341,6 +342,7 @@ namespace GI_Subtitles.Views
                 if (!data.IsVisible)
                 {
                     data.ShowDialog();
+                    settingsOpenedAtStartup = true;
                 }
             }
             else
@@ -378,9 +380,16 @@ namespace GI_Subtitles.Views
                 }
                 );
             }
-            if (!_overlaySession.HasValidCapture)
+            // An empty region layout is valid for a background/tray startup.
+            // Do not reopen settings merely because the user has not configured
+            // a region yet. The settings window is opened here only for a
+            // one-time legacy Region2 review; update notifications and first-run
+            // language-pack setup are handled above/asynchronously.
+            if (_overlaySession.LegacyRegion2ReviewPending &&
+                !settingsOpenedAtStartup &&
+                !data.IsVisible)
             {
-                data.Show();
+                data.ShowDialog();
             }
 
 
