@@ -397,73 +397,12 @@
         </Style>
 
         <Style TargetType="TabControl">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="TabControl">
-                        <Grid KeyboardNavigation.TabNavigation="Local">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
-                            </Grid.RowDefinitions>
-                            <TabPanel x:Name="HeaderPanel"
-                                      Grid.Row="0"
-                                      IsItemsHost="True"
-                                      Margin="4,0,4,8"
-                                      Background="Transparent"/>
-                            <Border Grid.Row="1"
-                                    Margin="2"
-                                    Background="{StaticResource SurfaceSubtleBrush}"
-                                    BorderBrush="{StaticResource BorderBrush}"
-                                    BorderThickness="1"
-                                    CornerRadius="12"
-                                    SnapsToDevicePixels="True">
-                                <ContentPresenter ContentSource="SelectedContent"
-                                                  Margin="1"
-                                                  SnapsToDevicePixels="True"/>
-                            </Border>
-                        </Grid>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
+            <Setter Property="Background" Value="{StaticResource SurfaceSubtleBrush}"/>
         </Style>
 
+        <!-- Keep the system tab templates and their native header layout. -->
         <Style TargetType="TabItem">
-            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
             <Setter Property="Padding" Value="16,10"/>
-            <Setter Property="Margin" Value="0,0,4,0"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="TabItem">
-                        <Border x:Name="TabBorder"
-                                Padding="{TemplateBinding Padding}"
-                                Background="Transparent"
-                                BorderBrush="Transparent"
-                                BorderThickness="1"
-                                CornerRadius="8">
-                            <ContentPresenter HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"
-                                              ContentSource="Header"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="TabBorder" Property="Background" Value="{StaticResource AccentSoftBrush}"/>
-                                <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
-                            </Trigger>
-                            <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="TabBorder" Property="Background" Value="{StaticResource SurfaceBrush}"/>
-                                <Setter TargetName="TabBorder" Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
-                                <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
-                                <Setter Property="FontWeight" Value="SemiBold"/>
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Opacity" Value="0.5"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
         </Style>
     </Window.Resources>
 
