@@ -271,6 +271,7 @@ namespace GI_Subtitles.Views
             saveButton.Click += SaveButton_Click;
             resetButton.Click += ResetButton_Click;
             RegionPairCards.ItemsSource = _pairCards;
+            RefreshPairPage();
 
             // Boolean flags
             AutoStartCheckBox.IsChecked = Config.Get("AutoStart", false);
@@ -289,6 +290,7 @@ namespace GI_Subtitles.Views
                 BindOcrIntervalSettings();
                 BindSubtitleIdleTimeoutSettings();
                 RefreshAppliedLayoutUi();
+                RefreshPairPage();
                 SelectRegionPairTabForLegacyReview();
             }
         }
@@ -532,12 +534,7 @@ namespace GI_Subtitles.Views
                 return;
             }
 
-            int deletedOrdinal = _pairSettings.OrdinalOf(pairId);
             _pairSettings.Delete(pairId);
-            if (deletedOrdinal == 2 || _overlaySession.Pairs.Count < 2)
-            {
-                _overlaySession.AcknowledgeLegacyRegion2Review();
-            }
             RefreshPairPage();
         }
 

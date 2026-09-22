@@ -441,19 +441,6 @@ namespace GI_Subtitles.Views
                 }
                 );
             }
-            // An empty region layout is valid for a background/tray startup.
-            // Do not reopen settings merely because the user has not configured
-            // a region yet. The settings window is opened here only for a
-            // one-time legacy Region2 review; update notifications and first-run
-            // language-pack setup are handled above/asynchronously.
-            if (_overlaySession.LegacyRegion2ReviewPending &&
-                !settingsOpenedAtStartup &&
-                !data.IsVisible)
-            {
-                data.ShowDialog();
-            }
-
-
             data.LoadEngine();
 
             UpdateOcrSamplingInterval();
@@ -472,6 +459,18 @@ namespace GI_Subtitles.Views
 
             // Show the main window only after initialization is complete, so users don't see a half‑rendered UI.
             this.Opacity = 1;
+
+            // An empty region layout is valid for a background/tray startup.
+            // Open settings only for the one-time legacy Region2 review, after
+            // the overlay has its real virtual-screen size so Preview all can
+            // render its outlines immediately.
+            if (_overlaySession.LegacyRegion2ReviewPending &&
+                !settingsOpenedAtStartup &&
+                !data.IsVisible)
+            {
+                data.RefreshPairPage();
+                data.Show();
+            }
         }
 
         public void GetOCR(object sender, EventArgs e)

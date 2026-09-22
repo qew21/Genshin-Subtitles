@@ -343,6 +343,8 @@ namespace GI_Subtitles.Core.Overlay
 
         public bool LegacyRegion2ReviewPending { get; private set; }
 
+        public int LegacyRegion2ReviewPairId { get; private set; }
+
         public bool VoicePlaybackActive { get; private set; }
 
         public int VoicePlaybackToken { get; private set; }
@@ -499,17 +501,14 @@ namespace GI_Subtitles.Core.Overlay
 
         public void AcknowledgeLegacyRegion2Review()
         {
-            if (!LegacyRegion2ReviewPending)
+            if (!LegacyRegion2ReviewPending && LegacyRegion2ReviewPairId == 0)
             {
                 return;
             }
 
             LegacyRegion2ReviewPending = false;
-            ILegacyRegion2ReviewStore reviewStore = _pairStore as ILegacyRegion2ReviewStore;
-            if (reviewStore != null)
-            {
-                reviewStore.WriteLegacyRegion2ReviewPending(false);
-            }
+            LegacyRegion2ReviewPairId = 0;
+            PersistLegacyRegion2ReviewState();
         }
 
         public void SetDisplay(int pairIndex, OverlayRect display)
@@ -603,6 +602,8 @@ namespace GI_Subtitles.Core.Overlay
                 return;
             }
 
+            bool wasPendingReviewPair = LegacyRegion2ReviewPending
+                && LegacyRegion2ReviewPairId == id;
             bool wasPrimary = VoicePrimaryId == id;
             bool wasArmed = ArmedPairId == id;
             RemovePairAt(index);
@@ -612,6 +613,14 @@ namespace GI_Subtitles.Core.Overlay
             }
 
             PersistPairs();
+            if (LegacyRegion2ReviewPending
+                && (wasPendingReviewPair
+                    || _pairs.Count == 0
+                    || IndexOfPair(LegacyRegion2ReviewPairId) < 0))
+            {
+                AcknowledgeLegacyRegion2Review();
+            }
+
             if (wasArmed)
             {
                 ClearArm();
@@ -1131,6 +1140,7 @@ namespace GI_Subtitles.Core.Overlay
         {
             _pairs.Clear();
             LegacyRegion2ReviewPending = false;
+            LegacyRegion2ReviewPairId = 0;
             if (_pairStore == null)
             {
                 _nextPairId = 1;
@@ -1147,9 +1157,16 @@ namespace GI_Subtitles.Core.Overlay
                 LegacyRegion2ReviewPending = reviewStore.ReadLegacyRegion2ReviewPending();
             }
 
+            ILegacyRegion2ReviewPairStore reviewPairStore = _pairStore as ILegacyRegion2ReviewPairStore;
+            if (reviewPairStore != null)
+            {
+                LegacyRegion2ReviewPairId = reviewPairStore.ReadLegacyRegion2ReviewPairId();
+            }
+
             IReadOnlyList<RegionPairRecord> stored = _pairStore.ReadPairs();
             bool wroteLegacy = false;
             bool truncated = false;
+            bool migratedSecondRegion = false;
             if (stored != null && stored.Count > 0)
             {
                 int count = Math.Min(SettingsPairCap, stored.Count);
@@ -1166,21 +1183,67 @@ namespace GI_Subtitles.Core.Overlay
                 {
                     _pairs.AddRange(migration.Pairs);
                     LegacyRegion2ReviewPending = migration.ReviewSecondRegion;
+                    migratedSecondRegion = migration.ReviewSecondRegion;
                     wroteLegacy = true;
                 }
             }
 
             SyncPairRuntime();
             bool identitiesChanged = EnsureIdentities();
+            bool reviewStateChanged = false;
+            if (LegacyRegion2ReviewPending)
+            {
+                if (LegacyRegion2ReviewPairId <= 0
+                    && migratedSecondRegion
+                    && _pairs.Count > 1)
+                {
+                    LegacyRegion2ReviewPairId = _pairs[1].Id;
+                    reviewStateChanged = true;
+                }
+                else if (LegacyRegion2ReviewPairId <= 0
+                    && _pairs.Count > 1)
+                {
+                    // Layouts written by the first migration implementation
+                    // stored only the pending flag. The second pair was the
+                    // migrated Region2, so repair its stable ID once.
+                    LegacyRegion2ReviewPairId = _pairs[1].Id;
+                    reviewStateChanged = true;
+                }
+
+                if (LegacyRegion2ReviewPairId <= 0
+                    || IndexOfPair(LegacyRegion2ReviewPairId) < 0)
+                {
+                    LegacyRegion2ReviewPending = false;
+                    LegacyRegion2ReviewPairId = 0;
+                    reviewStateChanged = true;
+                }
+            }
+
             LoadExtraPathDisplays();
             if (wroteLegacy || identitiesChanged || truncated)
             {
                 PersistPairs();
             }
 
-            if (wroteLegacy && reviewStore != null)
+            if (wroteLegacy || reviewStateChanged)
+            {
+                PersistLegacyRegion2ReviewState();
+            }
+        }
+
+        private void PersistLegacyRegion2ReviewState()
+        {
+            ILegacyRegion2ReviewStore reviewStore = _pairStore as ILegacyRegion2ReviewStore;
+            if (reviewStore != null)
             {
                 reviewStore.WriteLegacyRegion2ReviewPending(LegacyRegion2ReviewPending);
+            }
+
+            ILegacyRegion2ReviewPairStore reviewPairStore = _pairStore as ILegacyRegion2ReviewPairStore;
+            if (reviewPairStore != null)
+            {
+                reviewPairStore.WriteLegacyRegion2ReviewPairId(
+                    LegacyRegion2ReviewPending ? LegacyRegion2ReviewPairId : 0);
             }
         }
 

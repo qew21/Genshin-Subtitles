@@ -77,7 +77,7 @@
     <sys:String x:Key="RegionPair_BoxDisplayMask" xmlns:sys="clr-namespace:System;assembly=mscorlib">表示区を枠選（領域ペア {0}）</sys:String>
     <sys:String x:Key="RegionPair_BoxCaptureTooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">この領域ペアの認識区を枠選</sys:String>
     <sys:String x:Key="RegionPair_BoxDisplayTooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">この領域ペアの表示区を枠選</sys:String>
-    <sys:String x:Key="RegionPair_MigrationReviewMessage" xmlns:sys="clr-namespace:System;assembly=mscorlib">旧バージョンの第2認識領域を領域ペア 2 として移行しました。「すべてプレビュー」で全フレームを確認し、不要なら領域ペア 2 を削除してください。</sys:String>
+    <sys:String x:Key="RegionPair_MigrationReviewMessage" xmlns:sys="clr-namespace:System;assembly=mscorlib">旧バージョンの第2認識領域を領域ペアとして移行しました。「すべてプレビュー」で全フレームを確認し、不要ならその領域ペアを削除してください。</sys:String>
     <sys:String x:Key="Config_OcrInterval_Label" xmlns:sys="clr-namespace:System;assembly=mscorlib">最小認識間隔</sys:String>
     <sys:String x:Key="Config_OcrInterval_OutOfRange" xmlns:sys="clr-namespace:System;assembly=mscorlib">現在 {0}ms、200–1000 の範囲外です。エンジンはこの値のまま動作します。変更すると範囲内に収めます。</sys:String>
     <sys:String x:Key="Config_SubtitleIdleTimeout_Label" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕アイドルタイムアウト</sys:String>

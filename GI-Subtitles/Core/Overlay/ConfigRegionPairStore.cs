@@ -6,7 +6,7 @@ using AppConfig = GI_Subtitles.Core.Config.Config;
 
 namespace GI_Subtitles.Core.Overlay
 {
-    public sealed class ConfigRegionPairStore : IRegionPairStore, ILegacyRegion2ReviewStore
+    public sealed class ConfigRegionPairStore : IRegionPairStore, ILegacyRegion2ReviewStore, ILegacyRegion2ReviewPairStore
     {
         public const string PairsConfigKey = "RegionPairs";
         public const string VoicePrimaryIdConfigKey = "VoicePrimaryId";
@@ -188,6 +188,18 @@ namespace GI_Subtitles.Core.Overlay
         {
             OverlayLayoutRecord layout = ReadLayout();
             layout.LegacyRegion2ReviewPending = pending;
+            WriteLayout(layout);
+        }
+
+        public int ReadLegacyRegion2ReviewPairId()
+        {
+            return ReadLayout().LegacyRegion2ReviewPairId;
+        }
+
+        public void WriteLegacyRegion2ReviewPairId(int pairId)
+        {
+            OverlayLayoutRecord layout = ReadLayout();
+            layout.LegacyRegion2ReviewPairId = Math.Max(0, pairId);
             WriteLayout(layout);
         }
 

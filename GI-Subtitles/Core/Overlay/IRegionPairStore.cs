@@ -48,6 +48,18 @@ namespace GI_Subtitles.Core.Overlay
         void WriteLegacyRegion2ReviewPending(bool pending);
     }
 
+    /// <summary>
+    /// Optional persistence hook for identifying the migrated Region2 pair.
+    /// This is separate from ILegacyRegion2ReviewStore so lightweight stores
+    /// that only need the one-time notice do not have to change.
+    /// </summary>
+    public interface ILegacyRegion2ReviewPairStore
+    {
+        int ReadLegacyRegion2ReviewPairId();
+
+        void WriteLegacyRegion2ReviewPairId(int pairId);
+    }
+
     public sealed class RegionPairRecord
     {
         public int Id { get; set; }

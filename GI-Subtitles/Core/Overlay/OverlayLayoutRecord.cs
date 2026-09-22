@@ -20,6 +20,8 @@ namespace GI_Subtitles.Core.Overlay
 
         public bool LegacyRegion2ReviewPending { get; set; }
 
+        public int LegacyRegion2ReviewPairId { get; set; }
+
         public LegacyRegionSlots Legacy { get; set; }
     }
 }

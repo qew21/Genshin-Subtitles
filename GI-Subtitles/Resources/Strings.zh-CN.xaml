@@ -85,7 +85,7 @@
     <sys:String x:Key="RegionPair_BoxDisplayMask" xmlns:sys="clr-namespace:System;assembly=mscorlib">框选显示区（区域对 {0}）</sys:String>
     <sys:String x:Key="RegionPair_BoxCaptureTooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">框选此区域对的识别区</sys:String>
     <sys:String x:Key="RegionPair_BoxDisplayTooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">框选此区域对的显示区</sys:String>
-    <sys:String x:Key="RegionPair_MigrationReviewMessage" xmlns:sys="clr-namespace:System;assembly=mscorlib">检测到旧版本的第二识别区域。它已迁移为区域对 2，请点击“预览全部”查看所有框；如果区域对 2 不需要，可以删除它。</sys:String>
+    <sys:String x:Key="RegionPair_MigrationReviewMessage" xmlns:sys="clr-namespace:System;assembly=mscorlib">检测到旧版本的第二识别区域，已迁移为一个区域对。请点击“预览全部”查看所有框；如果不需要这个区域，可以删除对应的区域对。</sys:String>
     <sys:String x:Key="Config_OcrInterval_Label" xmlns:sys="clr-namespace:System;assembly=mscorlib">最小识图间隔</sys:String>
     <sys:String x:Key="Config_OcrInterval_OutOfRange" xmlns:sys="clr-namespace:System;assembly=mscorlib">当前 {0}ms，超出 200–1000。引擎仍按此值跑。改动后会夹进范围。</sys:String>
     <sys:String x:Key="Config_SubtitleIdleTimeout_Label" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕空闲超时</sys:String>

@@ -90,6 +90,77 @@ namespace GI_Test
         }
 
         [TestMethod]
+        public void DeletingPrimaryPair_LeavesMigratedRegion2ReviewPending()
+        {
+            var pairs = new MemoryRegionPairStore
+            {
+                Legacy = new LegacyRegionSlots
+                {
+                    Region = "100,200,800,80",
+                    Region2 = "50,60,400,50"
+                }
+            };
+
+            var session = new LiveOverlaySession(new MemoryOcrIntervalStore(), pairs);
+            int migratedPairId = session.LegacyRegion2ReviewPairId;
+
+            session.DeletePair(session.Pairs[0].Id);
+
+            Assert.AreEqual(1, session.Pairs.Count);
+            Assert.AreEqual(migratedPairId, session.Pairs[0].Id);
+            Assert.IsTrue(session.LegacyRegion2ReviewPending);
+            Assert.AreEqual(migratedPairId, pairs.LegacyRegion2ReviewPairId);
+        }
+
+        [TestMethod]
+        public void DeletingMigratedRegion2_ClearsReviewPending()
+        {
+            var pairs = new MemoryRegionPairStore
+            {
+                Legacy = new LegacyRegionSlots
+                {
+                    Region = "100,200,800,80",
+                    Region2 = "50,60,400,50"
+                }
+            };
+
+            var session = new LiveOverlaySession(new MemoryOcrIntervalStore(), pairs);
+            session.DeletePair(session.LegacyRegion2ReviewPairId);
+
+            Assert.AreEqual(1, session.Pairs.Count);
+            Assert.IsFalse(session.LegacyRegion2ReviewPending);
+            Assert.AreEqual(0, session.LegacyRegion2ReviewPairId);
+            Assert.IsFalse(pairs.LegacyRegion2ReviewPending);
+            Assert.AreEqual(0, pairs.LegacyRegion2ReviewPairId);
+        }
+
+        [TestMethod]
+        public void DeletingLastPair_ClearsReviewPending()
+        {
+            var pairs = new MemoryRegionPairStore
+            {
+                StoredPairs =
+                {
+                    new RegionPairRecord
+                    {
+                        Id = 7,
+                        Capture = new OverlayRect(10, 20, 30, 40),
+                        Display = new OverlayRect(11, 21, 30, 40)
+                    }
+                },
+                LegacyRegion2ReviewPending = true,
+                LegacyRegion2ReviewPairId = 7
+            };
+
+            var session = new LiveOverlaySession(new MemoryOcrIntervalStore(), pairs);
+            session.DeletePair(7);
+
+            Assert.AreEqual(0, session.Pairs.Count);
+            Assert.IsFalse(session.LegacyRegion2ReviewPending);
+            Assert.IsFalse(pairs.LegacyRegion2ReviewPending);
+        }
+
+        [TestMethod]
         public void StoredPairList_IsUsedAsIs_WithoutReadingLegacy()
         {
             var pairs = new MemoryRegionPairStore
@@ -329,7 +400,7 @@ namespace GI_Test
             }
         }
 
-        private sealed class MemoryRegionPairStore : IRegionPairStore, ILegacyRegion2ReviewStore
+        private sealed class MemoryRegionPairStore : IRegionPairStore, ILegacyRegion2ReviewStore, ILegacyRegion2ReviewPairStore
         {
             public LegacyRegionSlots Legacy = new LegacyRegionSlots();
             public System.Collections.Generic.List<RegionPairRecord> StoredPairs =
@@ -338,6 +409,7 @@ namespace GI_Test
             public int NextPairId;
             public int WriteCount;
             public bool LegacyRegion2ReviewPending;
+            public int LegacyRegion2ReviewPairId;
             public OverlayRect DarkScreenDisplay = OverlayRect.Invalid;
             public OverlayRect DialogueOptionDisplay = OverlayRect.Invalid;
 
@@ -432,6 +504,16 @@ namespace GI_Test
             public void WriteLegacyRegion2ReviewPending(bool pending)
             {
                 LegacyRegion2ReviewPending = pending;
+            }
+
+            public int ReadLegacyRegion2ReviewPairId()
+            {
+                return LegacyRegion2ReviewPairId;
+            }
+
+            public void WriteLegacyRegion2ReviewPairId(int pairId)
+            {
+                LegacyRegion2ReviewPairId = pairId;
             }
         }
     }
