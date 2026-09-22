@@ -313,10 +313,12 @@
             </Setter>
         </Style>
 
-        <Style TargetType="ListBoxItem">
+        <Style x:Key="OutputSelectorItemStyle" TargetType="ListBoxItem">
             <Setter Property="Padding" Value="8,6"/>
             <Setter Property="Margin" Value="2"/>
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Template">
                 <Setter.Value>
@@ -488,7 +490,9 @@
                                 <ListBox Name="OutputSelector"
                                          Width="150"
                                          Height="80"
-                                         SelectionMode="Multiple">
+                                         SelectionMode="Multiple"
+                                         HorizontalContentAlignment="Stretch"
+                                         ItemContainerStyle="{StaticResource OutputSelectorItemStyle}">
                                 </ListBox>
                                 <Button x:Name="OutputConfirmButton"
                                         Content="Apply"
@@ -871,6 +875,11 @@
                                     Click="TestVoice_Click"
                                     Padding="10,2"/>
                         </StackPanel>
+                        <TextBlock x:Name="VoiceTestStatus"
+                                   Margin="0,0,0,6"
+                                   TextWrapping="Wrap"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontStyle="Italic"/>
                         <TextBlock x:Name="VoicePrimaryHint"
                                    Margin="22,0,0,6"
                                    TextWrapping="Wrap"

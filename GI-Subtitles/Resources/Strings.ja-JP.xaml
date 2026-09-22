@@ -160,6 +160,11 @@
     <sys:String x:Key="Overlay_DarkScreenCandidateOutlineLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">検出帯</sys:String>
     <sys:String x:Key="Btn_TestVoice" xmlns:sys="clr-namespace:System;assembly=mscorlib">音声テスト</sys:String>
     <sys:String x:Key="Btn_TestVoice_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">「笑死我了。」を認識したものとして、対応する音声を再生します。</sys:String>
+    <sys:String x:Key="VoiceTest_InProgress" xmlns:sys="clr-namespace:System;assembly=mscorlib">音声をテスト中…</sys:String>
+    <sys:String x:Key="VoiceTest_Playing" xmlns:sys="clr-namespace:System;assembly=mscorlib">テスト音声の再生を開始しました。</sys:String>
+    <sys:String x:Key="VoiceTest_NotFound" xmlns:sys="clr-namespace:System;assembly=mscorlib">テスト音声がローカルにも設定サーバーにも見つかりません。</sys:String>
+    <sys:String x:Key="VoiceTest_Superseded" xmlns:sys="clr-namespace:System;assembly=mscorlib">別の音声リクエストに置き換えられました。認識を停止して再試行してください。</sys:String>
+    <sys:String x:Key="VoiceTest_Failed" xmlns:sys="clr-namespace:System;assembly=mscorlib">音声テストに失敗しました：{0}</sys:String>
     <sys:String x:Key="Btn_OpenFolder" xmlns:sys="clr-namespace:System;assembly=mscorlib">アプリフォルダを開く</sys:String>
     <sys:String x:Key="Btn_ResetLocation" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕位置をリセット</sys:String>
     <sys:String x:Key="Btn_SecondRegion" xmlns:sys="clr-namespace:System;assembly=mscorlib">第2認識領域を追加</sys:String>

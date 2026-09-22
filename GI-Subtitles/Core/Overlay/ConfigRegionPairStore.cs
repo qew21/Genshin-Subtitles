@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using GI_Subtitles.Common;
 using GI_Subtitles.Core.Config;
 using AppConfig = GI_Subtitles.Core.Config.Config;
 
@@ -38,6 +39,9 @@ namespace GI_Subtitles.Core.Overlay
         public IReadOnlyList<RegionPairRecord> ReadPairs()
         {
             List<RegionPairRecord> stored = ReadLayout().RegionPairs;
+            Logger.Log.Debug(
+                "[RegionPairs] loaded game=" + _gameName
+                + " count=" + (stored == null ? 0 : stored.Count));
             if (stored == null)
             {
                 return Array.Empty<RegionPairRecord>();
@@ -76,6 +80,9 @@ namespace GI_Subtitles.Core.Overlay
             RegionAdjustTrace.StoreWrite(
                 "pairs",
                 "count=" + layout.RegionPairs.Count);
+            Logger.Log.Info(
+                "[RegionPairs] saved game=" + _gameName
+                + " count=" + layout.RegionPairs.Count);
             WriteLayout(layout);
         }
 

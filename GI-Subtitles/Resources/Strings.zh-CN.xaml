@@ -168,6 +168,11 @@
     <sys:String x:Key="Overlay_DarkScreenCandidateOutlineLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">检测带</sys:String>
     <sys:String x:Key="Btn_TestVoice" xmlns:sys="clr-namespace:System;assembly=mscorlib">测试配音</sys:String>
     <sys:String x:Key="Btn_TestVoice_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">模拟识别到“笑死我了。”并测试对应配音。</sys:String>
+    <sys:String x:Key="VoiceTest_InProgress" xmlns:sys="clr-namespace:System;assembly=mscorlib">正在测试配音…</sys:String>
+    <sys:String x:Key="VoiceTest_Playing" xmlns:sys="clr-namespace:System;assembly=mscorlib">测试配音已开始播放。</sys:String>
+    <sys:String x:Key="VoiceTest_NotFound" xmlns:sys="clr-namespace:System;assembly=mscorlib">未找到测试配音：本地缓存不存在，服务器也没有返回音频。</sys:String>
+    <sys:String x:Key="VoiceTest_Superseded" xmlns:sys="clr-namespace:System;assembly=mscorlib">测试配音被新的配音请求替换，请暂停识别后重试。</sys:String>
+    <sys:String x:Key="VoiceTest_Failed" xmlns:sys="clr-namespace:System;assembly=mscorlib">测试配音失败：{0}</sys:String>
     <sys:String x:Key="Btn_OpenFolder" xmlns:sys="clr-namespace:System;assembly=mscorlib">打开程序文件夹</sys:String>
     <sys:String x:Key="Btn_ResetLocation" xmlns:sys="clr-namespace:System;assembly=mscorlib">重设字幕位置</sys:String>
     <sys:String x:Key="Btn_SecondRegion" xmlns:sys="clr-namespace:System;assembly=mscorlib">添加第二识别区域</sys:String>

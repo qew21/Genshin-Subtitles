@@ -160,6 +160,11 @@
     <sys:String x:Key="Overlay_DarkScreenCandidateOutlineLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">Candidate</sys:String>
     <sys:String x:Key="Btn_TestVoice" xmlns:sys="clr-namespace:System;assembly=mscorlib">Test voice</sys:String>
     <sys:String x:Key="Btn_TestVoice_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Simulate recognizing “笑死我了。” and play its mapped voice.</sys:String>
+    <sys:String x:Key="VoiceTest_InProgress" xmlns:sys="clr-namespace:System;assembly=mscorlib">Testing voice…</sys:String>
+    <sys:String x:Key="VoiceTest_Playing" xmlns:sys="clr-namespace:System;assembly=mscorlib">Test voice playback started.</sys:String>
+    <sys:String x:Key="VoiceTest_NotFound" xmlns:sys="clr-namespace:System;assembly=mscorlib">Test voice was not found locally or on the configured server.</sys:String>
+    <sys:String x:Key="VoiceTest_Superseded" xmlns:sys="clr-namespace:System;assembly=mscorlib">Test voice was replaced by another voice request. Pause recognition and try again.</sys:String>
+    <sys:String x:Key="VoiceTest_Failed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Voice test failed: {0}</sys:String>
     <sys:String x:Key="Btn_OpenFolder" xmlns:sys="clr-namespace:System;assembly=mscorlib">Open App Folder</sys:String>
     <sys:String x:Key="Btn_ResetLocation" xmlns:sys="clr-namespace:System;assembly=mscorlib">Reset Subtitle Position</sys:String>
     <sys:String x:Key="Btn_SecondRegion" xmlns:sys="clr-namespace:System;assembly=mscorlib">Add Secondary Recognition Region</sys:String>
