@@ -82,9 +82,11 @@ namespace GI_Subtitles.Views
         double Scale = 1;
         INotifyIcon notifyIcon;
         private readonly string _version;
+        private readonly MainWindow _mainWindow;
         private readonly LiveOverlaySession _overlaySession;
         private readonly RegionPairSettings _pairSettings;
         private readonly ObservableCollection<RegionPairCard> _pairCards = new ObservableCollection<RegionPairCard>();
+        private bool _legacyRegion2ReviewAutoSelected;
         private OcrIntervalSettingsView _ocrIntervalView;
         private bool _ocrIntervalBinding;
         private SubtitleIdleTimeoutSettingsView _subtitleIdleTimeoutView;
@@ -154,14 +156,24 @@ namespace GI_Subtitles.Views
             window.RefreshUrl();
         }
 
-        public SettingsWindow(string version, INotifyIcon notify, double scale, LiveOverlaySession overlaySession)
+        public SettingsWindow(
+            string version,
+            INotifyIcon notify,
+            double scale,
+            LiveOverlaySession overlaySession,
+            MainWindow mainWindow)
         {
             if (overlaySession == null)
             {
                 throw new ArgumentNullException(nameof(overlaySession));
             }
+            if (mainWindow == null)
+            {
+                throw new ArgumentNullException(nameof(mainWindow));
+            }
 
             _version = version;
+            _mainWindow = mainWindow;
             _overlaySession = overlaySession;
             _pairSettings = new RegionPairSettings(overlaySession);
             _overlaySession.AdjustChanged += (sender, args) =>
@@ -277,6 +289,7 @@ namespace GI_Subtitles.Views
                 BindOcrIntervalSettings();
                 BindSubtitleIdleTimeoutSettings();
                 RefreshAppliedLayoutUi();
+                SelectRegionPairTabForLegacyReview();
             }
         }
 
@@ -412,7 +425,28 @@ namespace GI_Subtitles.Views
                 AddRegionPairButton.IsEnabled = _pairSettings.CanAdd;
             }
 
+            if (RegionPairMigrationNotice != null)
+            {
+                RegionPairMigrationNotice.Visibility = _overlaySession.LegacyRegion2ReviewPending
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+            }
+
             UpdateVoicePrimaryHint();
+        }
+
+        private void SelectRegionPairTabForLegacyReview()
+        {
+            if (_legacyRegion2ReviewAutoSelected || !_overlaySession.LegacyRegion2ReviewPending)
+            {
+                return;
+            }
+
+            _legacyRegion2ReviewAutoSelected = true;
+            if (SettingsTabs != null)
+            {
+                SettingsTabs.SelectedIndex = 2;
+            }
         }
 
         private void UpdateVoicePrimaryHint()
@@ -446,6 +480,11 @@ namespace GI_Subtitles.Views
             _overlaySession.PreviewCaptureRegion(
                 _overlaySession.HasValidCapture,
                 RecognizeDarkScreenSubtitlesCheckBox.IsChecked == true);
+            if (_overlaySession.LegacyRegion2ReviewPending)
+            {
+                _overlaySession.AcknowledgeLegacyRegion2Review();
+                RefreshPairPage();
+            }
         }
 
         private void AdjustRegion_Click(object sender, RoutedEventArgs e)
@@ -493,7 +532,12 @@ namespace GI_Subtitles.Views
                 return;
             }
 
+            int deletedOrdinal = _pairSettings.OrdinalOf(pairId);
             _pairSettings.Delete(pairId);
+            if (deletedOrdinal == 2 || _overlaySession.Pairs.Count < 2)
+            {
+                _overlaySession.AcknowledgeLegacyRegion2Review();
+            }
             RefreshPairPage();
         }
 
@@ -732,7 +776,6 @@ namespace GI_Subtitles.Views
             }).ToList();
 
             GameSelector.ItemsSource = displayList;
-            GameSelector.DisplayMemberPath = "Display";
             GameSelector.SelectedValuePath = "Name";
         }
 
@@ -2304,9 +2347,67 @@ namespace GI_Subtitles.Views
 
         private void TestVoice_Click(object sender, RoutedEventArgs e)
         {
-            if (System.Windows.Application.Current.MainWindow is MainWindow mainWindow)
+            Logger.Log.Info("[VoiceTest] settings button clicked.");
+            if (VoiceTestStatus != null)
             {
-                mainWindow.PlayVoiceTest();
+                VoiceTestStatus.Text = TryFindResource("VoiceTest_InProgress") as string
+                    ?? "正在测试配音…";
+                VoiceTestStatus.Foreground = (System.Windows.Media.Brush)FindResource("TextSecondaryBrush");
+            }
+
+            if (_mainWindow != null)
+            {
+                Logger.Log.Info("[VoiceTest] dispatching request to main window.");
+                _mainWindow.PlayVoiceTest((success, reason) =>
+                {
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        if (VoiceTestStatus == null)
+                        {
+                            return;
+                        }
+
+                        if (success)
+                        {
+                            Logger.Log.Info("[VoiceTest] playback initialization reported success.");
+                            VoiceTestStatus.Text = TryFindResource("VoiceTest_Playing") as string
+                                ?? "测试配音已开始播放。";
+                            VoiceTestStatus.Foreground = (System.Windows.Media.Brush)FindResource("TextSecondaryBrush");
+                            return;
+                        }
+
+                        if (reason == "not-found")
+                        {
+                            Logger.Log.Warn("[VoiceTest] server reported that the test audio was not found.");
+                            VoiceTestStatus.Text = TryFindResource("VoiceTest_NotFound") as string
+                                ?? "未找到测试配音：本地缓存不存在，服务器也没有返回音频。";
+                        }
+                        else if (reason == "superseded")
+                        {
+                            Logger.Log.Warn("[VoiceTest] request was superseded by another voice request.");
+                            VoiceTestStatus.Text = TryFindResource("VoiceTest_Superseded") as string
+                                ?? "测试配音被新的配音请求替换，请暂停识别后重试。";
+                        }
+                        else
+                        {
+                            Logger.Log.Warn($"[VoiceTest] playback failed: {reason ?? "unknown error"}");
+                            string format = TryFindResource("VoiceTest_Failed") as string
+                                ?? "测试配音失败：{0}";
+                            VoiceTestStatus.Text = string.Format(format, reason ?? "未知错误");
+                        }
+
+                        VoiceTestStatus.Foreground = (System.Windows.Media.Brush)FindResource("WarningBorderBrush");
+                    }));
+                });
+                return;
+            }
+
+            Logger.Log.Error("[VoiceTest] main window reference is unavailable.");
+            if (VoiceTestStatus != null)
+            {
+                VoiceTestStatus.Text = TryFindResource("VoiceTest_Failed") as string
+                    ?? "测试配音失败：无法连接到主窗口。";
+                VoiceTestStatus.Foreground = (System.Windows.Media.Brush)FindResource("WarningBorderBrush");
             }
         }
 

@@ -116,6 +116,8 @@ namespace GI_Subtitles.Views
         private readonly bool _performanceDiagnostics = Config.Get("PerformanceDiagnostics", false);
         private const int DarkScreenAnalysisMaxSide = 960;
         private const int DialogueOptionAnalysisMaxSide = 1920;
+        private const int PreviewOutlineBoxZIndex = int.MaxValue - 2;
+        private const int PreviewOutlineLabelZIndex = int.MaxValue - 1;
         string ocrText = "";
         private NotifyIcon notifyIcon;
         string lastHeader = null;
@@ -212,7 +214,7 @@ namespace GI_Subtitles.Views
         private bool _audioPlaybackQueueActive;
         private int _audioPlaybackGeneration;
         private EventHandler<StoppedEventArgs> _playbackStoppedHandler;
-        private static readonly double[] VoicePlaybackSpeeds = { 1.0, 1.25, 1.5, 1.75, 2.0 };
+        private static readonly double[] VoicePlaybackSpeeds = { 0.75, 1.0, 1.25, 1.5, 1.75, 2.0 };
         private double _voicePlaybackSpeed = NormalizePlaybackSpeed(Config.Get<double>("VoicePlaybackSpeed", 1.0));
         private const int AudioTempCleanupThreshold = 60;
         private const int AudioTempFilesToKeep = 10;
@@ -252,6 +254,9 @@ namespace GI_Subtitles.Views
             public string LocalFilePath { get; set; }
             public string RemoteUrl { get; set; }
             public bool LogActivity { get; set; }
+            public Action<bool, string> Completion { get; set; }
+            public string RequestLabel { get; set; }
+            public string AudioKey { get; set; }
         }
 
 
@@ -310,7 +315,7 @@ namespace GI_Subtitles.Views
             notify = new INotifyIcon();
             notify.SetSession(_overlaySession);
             notifyIcon = notify.InitializeNotifyIcon(Scale);
-            data = new SettingsWindow(version, notify, Scale, _overlaySession);
+            data = new SettingsWindow(version, notify, Scale, _overlaySession, this);
             data.InitializeKey(handle);
             notify.SetData(data);
             _activityLogWindow = new ActivityLogWindow(_overlaySession);
@@ -326,6 +331,7 @@ namespace GI_Subtitles.Views
             };
             CleanupOldUpdatePackages();
             _ = CheckForUpdateAsync();
+            bool settingsOpenedAtStartup = false;
             if (!data.FileExists())
             {
                 if (Game == "Genshin")
@@ -339,6 +345,7 @@ namespace GI_Subtitles.Views
                 if (!data.IsVisible)
                 {
                     data.ShowDialog();
+                    settingsOpenedAtStartup = true;
                 }
             }
             else
@@ -376,9 +383,16 @@ namespace GI_Subtitles.Views
                 }
                 );
             }
-            if (!_overlaySession.HasValidCapture)
+            // An empty region layout is valid for a background/tray startup.
+            // Do not reopen settings merely because the user has not configured
+            // a region yet. The settings window is opened here only for a
+            // one-time legacy Region2 review; update notifications and first-run
+            // language-pack setup are handled above/asynchronously.
+            if (_overlaySession.LegacyRegion2ReviewPending &&
+                !settingsOpenedAtStartup &&
+                !data.IsVisible)
             {
-                data.Show();
+                data.ShowDialog();
             }
 
 
@@ -2304,6 +2318,36 @@ namespace GI_Subtitles.Views
             }
         }
 
+        private static string ReadAudioHeader(string filePath)
+        {
+            try
+            {
+                byte[] header = new byte[12];
+                int bytesRead;
+                using (FileStream stream = new FileStream(
+                    filePath,
+                    FileMode.Open,
+                    FileAccess.Read,
+                    FileShare.ReadWrite | FileShare.Delete))
+                {
+                    bytesRead = stream.Read(header, 0, header.Length);
+                }
+
+                return bytesRead == 0
+                    ? "empty"
+                    : BitConverter.ToString(header, 0, bytesRead);
+            }
+            catch (Exception ex)
+            {
+                return "unreadable:" + ex.GetType().Name;
+            }
+        }
+
+        private static bool IsVoiceTestRequest(string requestLabel)
+        {
+            return string.Equals(requestLabel, "test", StringComparison.Ordinal);
+        }
+
 
         private void MainWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
@@ -2518,7 +2562,7 @@ namespace GI_Subtitles.Views
             };
             Canvas.SetLeft(box, canvasPoint.X);
             Canvas.SetTop(box, canvasPoint.Y);
-            System.Windows.Controls.Panel.SetZIndex(box, 40);
+            System.Windows.Controls.Panel.SetZIndex(box, PreviewOutlineBoxZIndex);
             OverlayCanvas.Children.Add(box);
             _outlineElements.Add(box);
 
@@ -2539,7 +2583,7 @@ namespace GI_Subtitles.Views
             };
             Canvas.SetLeft(label, canvasPoint.X);
             Canvas.SetTop(label, canvasPoint.Y - 20);
-            System.Windows.Controls.Panel.SetZIndex(label, 41);
+            System.Windows.Controls.Panel.SetZIndex(label, PreviewOutlineLabelZIndex);
             OverlayCanvas.Children.Add(label);
             _outlineElements.Add(label);
         }
@@ -2578,7 +2622,7 @@ namespace GI_Subtitles.Views
             string format = TryFindResource("Overlay_PairOutlineLabel") as string;
             if (string.IsNullOrEmpty(format))
             {
-                return "对 " + ordinal;
+                return "区域对 " + ordinal;
             }
 
             try
@@ -2956,7 +3000,11 @@ namespace GI_Subtitles.Views
             player.Play();
         }
 
-        private VoiceAudioSource CreateVoiceAudioSource(string audioKey, bool logActivity = false)
+        private VoiceAudioSource CreateVoiceAudioSource(
+            string audioKey,
+            bool logActivity = false,
+            Action<bool, string> completion = null,
+            string requestLabel = null)
         {
             string localFilePath = null;
             if (_overlaySession.AllowsGenshinLocalVoice)
@@ -2968,13 +3016,19 @@ namespace GI_Subtitles.Views
             {
                 LocalFilePath = localFilePath,
                 RemoteUrl = $"{server}?md5={audioKey}&token={token}",
-                LogActivity = logActivity
+                LogActivity = logActivity,
+                Completion = completion,
+                RequestLabel = requestLabel ?? "voice",
+                AudioKey = audioKey
             };
         }
 
         private void PlayDialogueOptionAudio(string audioKey, bool logActivity = false)
         {
-            VoiceAudioSource source = CreateVoiceAudioSource(audioKey, logActivity);
+            VoiceAudioSource source = CreateVoiceAudioSource(
+                audioKey,
+                logActivity,
+                requestLabel: "dialogue-option");
             bool shouldStart;
             int generation;
             lock (_audioPlaybackQueueLock)
@@ -2999,9 +3053,17 @@ namespace GI_Subtitles.Views
             }
         }
 
-        private void PlayMainAudio(string audioKey, bool logActivity = false)
+        private void PlayMainAudio(
+            string audioKey,
+            bool logActivity = false,
+            Action<bool, string> completion = null,
+            string requestLabel = null)
         {
-            VoiceAudioSource source = CreateVoiceAudioSource(audioKey, logActivity);
+            VoiceAudioSource source = CreateVoiceAudioSource(
+                audioKey,
+                logActivity,
+                completion,
+                requestLabel ?? "subtitle");
             int generation;
             lock (_audioPlaybackQueueLock)
             {
@@ -3045,7 +3107,8 @@ namespace GI_Subtitles.Views
             string filePath,
             int generation,
             bool allowTempoProcessing = true,
-            bool logActivity = false)
+            bool logActivity = false,
+            string requestLabel = "voice")
         {
             DisposeCurrentAudioPlayback();
             bool usingSoundTouch =
@@ -3086,14 +3149,47 @@ namespace GI_Subtitles.Views
                             return;
                         }
 
-                        if (args.Exception != null && usingSoundTouch)
+                        if (args.Exception != null)
                         {
-                            Logger.Log.Warn(
-                                $"SoundTouch playback failed; retrying at normal speed: {args.Exception.Message}");
-                            StartAudioPlayback(filePath, generation, allowTempoProcessing: false, logActivity: logActivity);
+                            if (usingSoundTouch)
+                            {
+                                if (IsVoiceTestRequest(requestLabel))
+                                {
+                                    Logger.Log.Warn(
+                                        $"[Voice:{requestLabel}] SoundTouch playback failed; " +
+                                        $"retrying at normal speed: {args.Exception.Message}");
+                                }
+                                else
+                                {
+                                    Logger.Log.Warn(
+                                        $"SoundTouch playback failed; retrying at normal speed: " +
+                                        args.Exception.Message);
+                                }
+                                StartAudioPlayback(
+                                    filePath,
+                                    generation,
+                                    allowTempoProcessing: false,
+                                    logActivity: logActivity,
+                                    requestLabel: requestLabel);
+                            }
+                            else
+                            {
+                                if (IsVoiceTestRequest(requestLabel))
+                                {
+                                    Logger.Log.Error(
+                                        $"[Voice:{requestLabel}] playback stopped with error: " +
+                                        args.Exception);
+                                }
+                                DisposeCurrentAudioPlayback();
+                                _ = ProcessNextAudioAsync(generation);
+                            }
                             return;
                         }
 
+                        if (IsVoiceTestRequest(requestLabel))
+                        {
+                            Logger.Log.Debug($"[Voice:{requestLabel}] playback stopped normally.");
+                        }
                         DisposeCurrentAudioPlayback();
                         _ = ProcessNextAudioAsync(generation);
                     }));
@@ -3101,6 +3197,14 @@ namespace GI_Subtitles.Views
                 waveOut.PlaybackStopped += _playbackStoppedHandler;
                 waveOut.Init(playbackSource);
                 waveOut.Play();
+                if (IsVoiceTestRequest(requestLabel))
+                {
+                    Logger.Log.Info(
+                        $"[Voice:{requestLabel}] playback initialized: " +
+                        $"format={mediaReader.WaveFormat.SampleRate}Hz/" +
+                        $"{mediaReader.WaveFormat.Channels}ch/{mediaReader.WaveFormat.BitsPerSample}bit, " +
+                        $"tempoProcessing={usingSoundTouch}");
+                }
                 if (logActivity)
                 {
                     _overlaySession.NoteVoicePlaybackStarted();
@@ -3108,10 +3212,35 @@ namespace GI_Subtitles.Views
             }
             catch (Exception ex) when (usingSoundTouch)
             {
-                Logger.Log.Warn(
-                    $"SoundTouch initialization failed; retrying at normal speed: {ex.Message}");
+                if (IsVoiceTestRequest(requestLabel))
+                {
+                    Logger.Log.Warn(
+                        $"[Voice:{requestLabel}] SoundTouch initialization failed; " +
+                        $"retrying at normal speed: {ex.Message}");
+                }
+                else
+                {
+                    Logger.Log.Warn(
+                        $"SoundTouch initialization failed; retrying at normal speed: " +
+                        ex.Message);
+                }
                 DisposeCurrentAudioPlayback();
-                StartAudioPlayback(filePath, generation, allowTempoProcessing: false, logActivity: logActivity);
+                StartAudioPlayback(
+                    filePath,
+                    generation,
+                    allowTempoProcessing: false,
+                    logActivity: logActivity,
+                    requestLabel: requestLabel);
+            }
+            catch (Exception ex)
+            {
+                if (IsVoiceTestRequest(requestLabel))
+                {
+                    Logger.Log.Error(
+                        $"[Voice:{requestLabel}] playback initialization failed: {ex}");
+                }
+                DisposeCurrentAudioPlayback();
+                throw;
             }
         }
 
@@ -3155,37 +3284,73 @@ namespace GI_Subtitles.Views
                 {
                     if (IsAudioTempFile(source.LocalFilePath))
                     {
-                        Logger.Log.Debug($"Playing local voice file: {source.LocalFilePath}");
+                        if (IsVoiceTestRequest(source.RequestLabel))
+                        {
+                            Logger.Log.Info(
+                                $"[Voice:{source.RequestLabel}] local audio selected: " +
+                                $"bytes={new FileInfo(source.LocalFilePath).Length}");
+                        }
                         await Dispatcher.InvokeAsync(() =>
                         {
                             lock (_audioPlaybackQueueLock)
                             {
-                                if (generation != _audioPlaybackGeneration) return;
+                                if (generation != _audioPlaybackGeneration)
+                                {
+                                    if (IsVoiceTestRequest(source.RequestLabel))
+                                    {
+                                        Logger.Log.Warn(
+                                            $"[Voice:{source.RequestLabel}] request superseded before local playback.");
+                                    }
+                                    source.Completion?.Invoke(false, "superseded");
+                                    return;
+                                }
                             }
 
                             tempFilePath = source.LocalFilePath;
-                            StartAudioPlayback(source.LocalFilePath, generation, logActivity: source.LogActivity);
+                            StartAudioPlayback(
+                                source.LocalFilePath,
+                                generation,
+                                logActivity: source.LogActivity,
+                                requestLabel: source.RequestLabel);
+                            source.Completion?.Invoke(true, null);
                         });
                         return;
                     }
 
                     Logger.Log.Warn(
-                        $"Local voice file has an unsupported format; falling back to server: " +
-                        source.LocalFilePath);
+                        "Local voice file has an unsupported format; falling back to server.");
                 }
 
                 string tempFile = Path.GetTempFileName();
                 try
                 {
+                    if (IsVoiceTestRequest(source.RequestLabel))
+                    {
+                        Logger.Log.Info(
+                            $"[Voice:{source.RequestLabel}] downloading audio: " +
+                            $"md5={source.AudioKey}");
+                    }
                     using (var webClient = new WebClient())
                     {
                         webClient.Headers[HttpRequestHeader.UserAgent] = "GI-Subtitles/1.0";
                         await webClient.DownloadFileTaskAsync(new Uri(source.RemoteUrl), tempFile);
                     }
 
+                    long downloadedBytes = new FileInfo(tempFile).Length;
                     if (!IsAudioTempFile(tempFile))
                     {
-                        throw new InvalidDataException("Downloaded voice file has an unsupported format.");
+                        string details = IsVoiceTestRequest(source.RequestLabel)
+                            ? $"bytes={downloadedBytes}, header={ReadAudioHeader(tempFile)}"
+                            : "unsupported audio format";
+                        throw new InvalidDataException(
+                            "Downloaded voice file has an unsupported format: " + details + ".");
+                    }
+
+                    if (IsVoiceTestRequest(source.RequestLabel))
+                    {
+                        Logger.Log.Info(
+                            $"[Voice:{source.RequestLabel}] download validated: " +
+                            $"bytes={downloadedBytes}, header={ReadAudioHeader(tempFile)}");
                     }
 
                     await Dispatcher.InvokeAsync(() =>
@@ -3194,24 +3359,50 @@ namespace GI_Subtitles.Views
                         {
                             if (generation != _audioPlaybackGeneration)
                             {
+                                if (IsVoiceTestRequest(source.RequestLabel))
+                                {
+                                    Logger.Log.Warn(
+                                        $"[Voice:{source.RequestLabel}] request superseded before downloaded playback.");
+                                }
                                 TryDeleteAudioTempFile(tempFile);
+                                source.Completion?.Invoke(false, "superseded");
                                 return;
                             }
                         }
 
                         tempFilePath = tempFile;
-                        StartAudioPlayback(tempFile, generation, logActivity: source.LogActivity);
+                        StartAudioPlayback(
+                            tempFile,
+                            generation,
+                            logActivity: source.LogActivity,
+                            requestLabel: source.RequestLabel);
+                        source.Completion?.Invoke(true, null);
                     });
                     return;
                 }
                 catch (WebException ex) when (ex.Response is HttpWebResponse response &&
                                               response.StatusCode == HttpStatusCode.NotFound)
                 {
-                    Logger.Log.Debug($"Audio not found: {source.RemoteUrl}");
+                    if (IsVoiceTestRequest(source.RequestLabel))
+                    {
+                        Logger.Log.Warn(
+                            $"[Voice:{source.RequestLabel}] server returned HTTP 404; " +
+                            $"audio is unavailable for md5={source.AudioKey}.");
+                    }
+                    source.Completion?.Invoke(false, "not-found");
                 }
                 catch (Exception ex)
                 {
-                    Logger.Log.Warn($"Voice playback preparation failed: {ex.Message}");
+                    if (IsVoiceTestRequest(source.RequestLabel))
+                    {
+                        Logger.Log.Warn(
+                            $"[Voice:{source.RequestLabel}] preparation failed: {ex}");
+                    }
+                    else
+                    {
+                        Logger.Log.Warn($"Voice playback preparation failed: {ex.Message}");
+                    }
+                    source.Completion?.Invoke(false, ex.Message);
                 }
 
                 TryDeleteAudioTempFile(tempFile);
@@ -3271,7 +3462,7 @@ namespace GI_Subtitles.Views
                 {
                     generation = _audioPlaybackGeneration;
                 }
-                StartAudioPlayback(tempFilePath, generation);
+                StartAudioPlayback(tempFilePath, generation, requestLabel: "subtitle");
             }
 
             _overlaySession.ChangeVoiceSpeed(_voicePlaybackSpeed);
@@ -3292,10 +3483,14 @@ namespace GI_Subtitles.Views
             UpdateHeaderPosition();
         }
 
-        public void PlayVoiceTest()
+        public void PlayVoiceTest(Action<bool, string> completion = null)
         {
             const string testAudioMd5 = "6f3ea6152a7864d324404f8d93a70a1a";
-            PlayMainAudio(testAudioMd5);
+            Logger.Log.Info($"[VoiceTest] requested: md5={testAudioMd5}");
+            PlayMainAudio(
+                testAudioMd5,
+                completion: completion,
+                requestLabel: "test");
         }
 
         private static double NormalizePlaybackSpeed(double speed)

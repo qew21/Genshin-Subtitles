@@ -82,6 +82,44 @@ namespace GI_Test
         }
 
         [TestMethod]
+        public void MigrationRepair_RecoversEmptyPreVersionLayoutOnce()
+        {
+            var settings = new MemoryConfigMap();
+            settings.Set(OverlayLayoutPersistence.LayoutsConfigKey,
+                new Dictionary<string, OverlayLayoutRecord>
+                {
+                    ["Genshin"] = OverlayLayoutPersistence.Unconfigured()
+                });
+            settings.Set(ConfigRegionPairStore.PairsConfigKey, new List<RegionPairRecord>
+            {
+                new RegionPairRecord
+                {
+                    Id = 4,
+                    Capture = new OverlayRect(10, 20, 30, 40),
+                    Display = new OverlayRect(11, 21, 30, 40)
+                }
+            });
+
+            var repaired = new ConfigRegionPairStore(settings, "Genshin");
+            Assert.AreEqual(1, repaired.ReadPairs().Count);
+            Assert.AreEqual(4, repaired.ReadPairs()[0].Id);
+
+            settings.Set(ConfigRegionPairStore.PairsConfigKey, new List<RegionPairRecord>
+            {
+                new RegionPairRecord
+                {
+                    Id = 9,
+                    Capture = new OverlayRect(1, 2, 3, 4),
+                    Display = OverlayRect.Invalid
+                }
+            });
+
+            var second = new ConfigRegionPairStore(settings, "Genshin");
+            Assert.AreEqual(1, second.ReadPairs().Count);
+            Assert.AreEqual(4, second.ReadPairs()[0].Id);
+        }
+
+        [TestMethod]
         public void BoxingOnGameA_ThenRestartOnB_LeavesBEmpty_AndRestoresA()
         {
             var settings = new MemoryConfigMap();
