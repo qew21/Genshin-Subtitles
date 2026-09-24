@@ -451,6 +451,18 @@ namespace GI_Subtitles.Services.Translation
                 }
             }
 
+            if (string.IsNullOrEmpty(bodyMatch))
+            {
+                bodyMatch = FindClosestMatch(string.Join(" ", lines), out bodyKey);
+                if (!string.IsNullOrEmpty(bodyMatch))
+                {
+                    // The whole OCR block matched one subtitle, so it should not also
+                    // be displayed as a separately matched speaker/header.
+                    headerMatch = "";
+                    matchedHeaders.Clear();
+                }
+            }
+
             key = bodyKey;
             result.Content = bodyMatch;
             result.Header = headerMatch;
