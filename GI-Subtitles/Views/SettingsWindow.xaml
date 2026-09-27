@@ -536,7 +536,7 @@
                                                   Content="{DynamicResource Download_Input_Lang}"
                                                   IsChecked="True" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                         <TextBox x:Name="InputLangDownloadUrl" Style="{StaticResource LinkTextBox}" Text="" 
-                                                 Cursor="Hand" MouseLeftButtonUp="UrlTextBox_MouseLeftButtonUp" IsReadOnly="True"
+                                                 IsReadOnly="True"
                                                  ToolTip="Click to copy URL"/>
                                     </DockPanel>
                                     <DockPanel Margin="0,4,0,0" LastChildFill="True">
@@ -544,7 +544,7 @@
                                                   Content="{DynamicResource Download_Output_Lang}"
                                                   IsChecked="True" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                         <TextBox x:Name="OutputLangDownloadUrl" Style="{StaticResource LinkTextBox}" Text="" 
-                                                 Cursor="Hand" MouseLeftButtonUp="UrlTextBox_MouseLeftButtonUp" IsReadOnly="True"
+                                                 IsReadOnly="True"
                                                  ToolTip="Click to copy URL"/>
                                     </DockPanel>
                                     <!-- Optional second output language download link (when multi-output is enabled) -->
@@ -553,7 +553,7 @@
                                                   Content="{DynamicResource Download_Output_Lang}"
                                                   IsChecked="True" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                         <TextBox x:Name="OutputLangDownloadUrl2" Style="{StaticResource LinkTextBox}" Text="" 
-                                                 Cursor="Hand" MouseLeftButtonUp="UrlTextBox_MouseLeftButtonUp" IsReadOnly="True"
+                                                 IsReadOnly="True"
                                                  ToolTip="Click to copy URL"/>
                                     </DockPanel>
                                 </StackPanel>

@@ -20,6 +20,8 @@
     <sys:String x:Key="Repo_Last_Modified" xmlns:sys="clr-namespace:System;assembly=mscorlib">Last Modified:</sys:String>
     <sys:String x:Key="Download_Input_Lang" xmlns:sys="clr-namespace:System;assembly=mscorlib">Download Input Language:</sys:String>
     <sys:String x:Key="Download_Output_Lang" xmlns:sys="clr-namespace:System;assembly=mscorlib">Download Output Language:</sys:String>
+    <sys:String x:Key="Download_AutoResolved" xmlns:sys="clr-namespace:System;assembly=mscorlib">Auto-discovered from catalog ({0})</sys:String>
+    <sys:String x:Key="Download_AutoResolved_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">The language file is discovered from the repository when downloading.</sys:String>
 
     <sys:String x:Key="Status_Loading" xmlns:sys="clr-namespace:System;assembly=mscorlib">Loading data...</sys:String>
 

@@ -1007,27 +1007,64 @@ namespace GI_Subtitles.Views
         {
             if (_currentGameConfig == null) return;
 
-            string inputUrl = string.IsNullOrEmpty(_currentGameConfig.TextMapFileListUrl)
-                ? _currentGameConfig.GetDownloadUrl(InputLanguage, true)
-                : _currentGameConfig.TextMapFileListUrl;
-            string outputUrl = string.IsNullOrEmpty(_currentGameConfig.TextMapFileListUrl)
-                ? _currentGameConfig.GetDownloadUrl(OutputLanguage, false)
-                : _currentGameConfig.TextMapFileListUrl;
-            InputLangDownloadUrl.Text = inputUrl;
-            OutputLangDownloadUrl.Text = outputUrl;
+            bool useTextMapCatalog = !string.IsNullOrWhiteSpace(_currentGameConfig.TextMapFileListUrl) &&
+                                     !string.IsNullOrWhiteSpace(_currentGameConfig.TextMapFileUrlTemplate);
+            SetDownloadUrlTextBox(
+                InputLangDownloadUrl,
+                useTextMapCatalog ? null : _currentGameConfig.GetDownloadUrl(InputLanguage, true),
+                useTextMapCatalog,
+                _currentGameConfig.GetMappedLanguage(InputLanguage));
+            SetDownloadUrlTextBox(
+                OutputLangDownloadUrl,
+                useTextMapCatalog ? null : _currentGameConfig.GetDownloadUrl(OutputLanguage, false),
+                useTextMapCatalog,
+                _currentGameConfig.GetMappedLanguage(OutputLanguage));
 
             if (!string.IsNullOrEmpty(OutputLanguage2))
             {
-                OutputLangDownloadUrl2.Text = string.IsNullOrEmpty(_currentGameConfig.TextMapFileListUrl)
-                    ? _currentGameConfig.GetDownloadUrl(OutputLanguage2, false)
-                    : _currentGameConfig.TextMapFileListUrl;
+                SetDownloadUrlTextBox(
+                    OutputLangDownloadUrl2,
+                    useTextMapCatalog ? null : _currentGameConfig.GetDownloadUrl(OutputLanguage2, false),
+                    useTextMapCatalog,
+                    _currentGameConfig.GetMappedLanguage(OutputLanguage2));
                 SecondOutputDownloadPanel.Visibility = Visibility.Visible;
             }
             else
             {
-                OutputLangDownloadUrl2.Text = string.Empty;
+                SetDownloadUrlTextBox(OutputLangDownloadUrl2, string.Empty, false, string.Empty);
                 SecondOutputDownloadPanel.Visibility = Visibility.Collapsed;
             }
+        }
+
+        private void SetDownloadUrlTextBox(
+            System.Windows.Controls.TextBox textBox,
+            string url,
+            bool useTextMapCatalog,
+            string mappedLanguage)
+        {
+            if (textBox == null) return;
+
+            textBox.MouseLeftButtonUp -= UrlTextBox_MouseLeftButtonUp;
+            if (useTextMapCatalog)
+            {
+                string labelFormat = TryFindResource("Download_AutoResolved") as string ??
+                                     "Auto-resolved from catalog ({0})";
+                string toolTip = TryFindResource("Download_AutoResolved_Tooltip") as string ??
+                                 "The file URL is discovered from the repository when downloading.";
+                textBox.Text = string.Format(CultureInfo.CurrentUICulture, labelFormat, mappedLanguage);
+                textBox.ToolTip = toolTip;
+                textBox.Cursor = System.Windows.Input.Cursors.Arrow;
+                textBox.Foreground = (Brush)FindResource("TextSecondaryBrush");
+                textBox.TextDecorations = null;
+                return;
+            }
+
+            textBox.Text = url ?? string.Empty;
+            textBox.ToolTip = "Click to copy URL";
+            textBox.Cursor = System.Windows.Input.Cursors.Hand;
+            textBox.Foreground = (Brush)FindResource("AccentBrush");
+            textBox.TextDecorations = TextDecorations.Underline;
+            textBox.MouseLeftButtonUp += UrlTextBox_MouseLeftButtonUp;
         }
 
         private void OnGameSelectorChanged(object sender, SelectionChangedEventArgs e)

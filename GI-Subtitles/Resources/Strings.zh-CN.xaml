@@ -25,6 +25,8 @@
     <sys:String x:Key="Repo_Last_Modified" xmlns:sys="clr-namespace:System;assembly=mscorlib">仓库最后修改：</sys:String>
     <sys:String x:Key="Download_Input_Lang" xmlns:sys="clr-namespace:System;assembly=mscorlib">下载识别语言：</sys:String>
     <sys:String x:Key="Download_Output_Lang" xmlns:sys="clr-namespace:System;assembly=mscorlib">下载转换语言：</sys:String>
+    <sys:String x:Key="Download_AutoResolved" xmlns:sys="clr-namespace:System;assembly=mscorlib">从仓库目录自动发现（{0}）</sys:String>
+    <sys:String x:Key="Download_AutoResolved_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">下载时会根据仓库目录自动查找该语言文件。</sys:String>
 
     <sys:String x:Key="Status_Loading" xmlns:sys="clr-namespace:System;assembly=mscorlib">数据加载中......</sys:String>
 

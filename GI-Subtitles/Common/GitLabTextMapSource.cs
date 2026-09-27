@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Net.Http;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
@@ -21,6 +22,13 @@ namespace GI_Subtitles.Common
     /// </summary>
     public static class GitLabTextMapSource
     {
+        private static readonly Regex LinkHeaderEntryRegex = new Regex(
+            @"<(?<uri>[^>]+)>(?<parameters>[^<]*)",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        private static readonly Regex LinkRelationRegex = new Regex(
+            @"(?:^|;)\s*rel\s*=\s*(?:""(?<value>[^""]+)""|(?<value>[^;,\s]+))",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
         private sealed class Candidate
         {
             public string Name { get; set; }
@@ -95,10 +103,16 @@ namespace GI_Subtitles.Common
         {
             var result = new List<JObject>();
             int page = 1;
+            Uri pageUri = AddPage(fileListUri, page);
+            var requestedPages = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            while (true)
+            while (pageUri != null)
             {
-                Uri pageUri = AddPage(fileListUri, page);
+                if (!requestedPages.Add(pageUri.AbsoluteUri))
+                {
+                    throw new InvalidOperationException("GitLab returned a repeated repository page.");
+                }
+
                 using (var request = new HttpRequestMessage(HttpMethod.Get, pageUri))
                 using (HttpResponseMessage response = await client.SendAsync(
                     request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false))
@@ -108,26 +122,85 @@ namespace GI_Subtitles.Common
                     JArray entries = JArray.Parse(json);
                     result.AddRange(entries.OfType<JObject>());
 
-                    if (!response.Headers.TryGetValues("X-Next-Page", out IEnumerable<string> nextPages))
+                    Uri nextPageUri = GetNextPageUri(response, pageUri, fileListUri, page);
+                    if (nextPageUri == null)
                     {
                         break;
                     }
 
-                    string nextPage = nextPages.FirstOrDefault();
-                    if (string.IsNullOrWhiteSpace(nextPage))
-                    {
-                        break;
-                    }
-                    if (!int.TryParse(nextPage, NumberStyles.None, CultureInfo.InvariantCulture, out int nextPageNumber) ||
-                        nextPageNumber <= page)
-                    {
-                        throw new InvalidOperationException("GitLab returned an invalid next-page value.");
-                    }
-                    page = nextPageNumber;
+                    pageUri = nextPageUri;
+                    page = GetPageNumber(pageUri) ?? (page + 1);
                 }
             }
 
             return result;
+        }
+
+        private static Uri GetNextPageUri(
+            HttpResponseMessage response,
+            Uri currentPageUri,
+            Uri fileListUri,
+            int currentPage)
+        {
+            if (response.Headers.TryGetValues("Link", out IEnumerable<string> linkHeaders))
+            {
+                foreach (string linkHeader in linkHeaders)
+                {
+                    foreach (Match link in LinkHeaderEntryRegex.Matches(linkHeader))
+                    {
+                        Match relation = LinkRelationRegex.Match(link.Groups["parameters"].Value);
+                        if (!relation.Success || !relation.Groups["value"].Value
+                            .Split((char[])null, StringSplitOptions.RemoveEmptyEntries)
+                            .Any(value => string.Equals(value, "next", StringComparison.OrdinalIgnoreCase)))
+                        {
+                            continue;
+                        }
+
+                        string nextUrl = link.Groups["uri"].Value;
+                        if (!Uri.TryCreate(currentPageUri, nextUrl, out Uri nextPageUri))
+                        {
+                            throw new InvalidOperationException("GitLab returned an invalid next-page link.");
+                        }
+
+                        return nextPageUri;
+                    }
+                }
+            }
+
+            if (!response.Headers.TryGetValues("X-Next-Page", out IEnumerable<string> nextPages))
+            {
+                return null;
+            }
+
+            string nextPage = nextPages.FirstOrDefault();
+            if (string.IsNullOrWhiteSpace(nextPage))
+            {
+                return null;
+            }
+            if (!int.TryParse(nextPage, NumberStyles.None, CultureInfo.InvariantCulture, out int nextPageNumber) ||
+                nextPageNumber <= currentPage)
+            {
+                throw new InvalidOperationException("GitLab returned an invalid next-page value.");
+            }
+
+            return AddPage(fileListUri, nextPageNumber);
+        }
+
+        private static int? GetPageNumber(Uri uri)
+        {
+            string pageParameter = uri.Query
+                .TrimStart('?')
+                .Split(new[] { '&' }, StringSplitOptions.RemoveEmptyEntries)
+                .FirstOrDefault(parameter => parameter.StartsWith("page=", StringComparison.OrdinalIgnoreCase));
+            if (pageParameter == null)
+            {
+                return null;
+            }
+
+            string pageText = Uri.UnescapeDataString(pageParameter.Substring(pageParameter.IndexOf('=') + 1));
+            return int.TryParse(pageText, NumberStyles.None, CultureInfo.InvariantCulture, out int page)
+                ? page
+                : (int?)null;
         }
 
         private static Uri AddPage(Uri baseUri, int page)

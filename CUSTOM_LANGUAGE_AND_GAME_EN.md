@@ -101,6 +101,10 @@ Save the file and restart the app.
 
 ### 4. Optional: Configure Download URLs
 
+The built-in Genshin configuration reads the TextMap repository directory when a download starts and discovers the file for the selected language. It recognizes both single files and numbered parts such as `_0` and `_1`, then merges the parts in order. Medium TextMap files are downloaded separately and merged into the main TextMap for matching. You do not need to enter per-language file URLs or part numbers when using the built-in Genshin repository.
+
+For a custom Genshin mirror or another repository, leave out or clear `TextMapFileListUrl` and `TextMapFileUrlTemplate`, then configure direct file URLs with `InputUrlTemplate` and `OutputUrlTemplate`. Directory discovery is used only when both the listing URL and raw file URL template are configured.
+
 If you manually place `TextMapPL.json`, download URLs are not required.
 
 If you want the app to generate download links or download the file automatically, check the game configuration file, for example:
