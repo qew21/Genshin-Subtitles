@@ -37,6 +37,17 @@ namespace GI_Subtitles.Core.Overlay
         void SwitchGame(string gameName);
     }
 
+    /// <summary>
+    /// Optional persistence hook for the one-time legacy Region2 review notice.
+    /// Keeping this separate preserves the lightweight test/store implementations.
+    /// </summary>
+    public interface ILegacyRegion2ReviewStore
+    {
+        bool ReadLegacyRegion2ReviewPending();
+
+        void WriteLegacyRegion2ReviewPending(bool pending);
+    }
+
     public sealed class RegionPairRecord
     {
         public int Id { get; set; }

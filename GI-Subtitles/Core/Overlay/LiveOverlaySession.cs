@@ -334,6 +334,8 @@ namespace GI_Subtitles.Core.Overlay
 
         public bool AddInProgress { get; private set; }
 
+        public bool LegacyRegion2ReviewPending { get; private set; }
+
         public bool VoicePlaybackActive { get; private set; }
 
         public int VoicePlaybackToken { get; private set; }
@@ -485,6 +487,21 @@ namespace GI_Subtitles.Core.Overlay
             if (ArmedPairId == _pairs[pairIndex].Id)
             {
                 RebuildAdjustOutlines();
+            }
+        }
+
+        public void AcknowledgeLegacyRegion2Review()
+        {
+            if (!LegacyRegion2ReviewPending)
+            {
+                return;
+            }
+
+            LegacyRegion2ReviewPending = false;
+            ILegacyRegion2ReviewStore reviewStore = _pairStore as ILegacyRegion2ReviewStore;
+            if (reviewStore != null)
+            {
+                reviewStore.WriteLegacyRegion2ReviewPending(false);
             }
         }
 
@@ -1016,6 +1033,7 @@ namespace GI_Subtitles.Core.Overlay
         private void LoadPairs()
         {
             _pairs.Clear();
+            LegacyRegion2ReviewPending = false;
             if (_pairStore == null)
             {
                 _nextPairId = 1;
@@ -1025,6 +1043,12 @@ namespace GI_Subtitles.Core.Overlay
 
             _nextPairId = _pairStore.ReadNextPairId();
             VoicePrimaryId = _pairStore.ReadVoicePrimaryId();
+
+            ILegacyRegion2ReviewStore reviewStore = _pairStore as ILegacyRegion2ReviewStore;
+            if (reviewStore != null)
+            {
+                LegacyRegion2ReviewPending = reviewStore.ReadLegacyRegion2ReviewPending();
+            }
 
             IReadOnlyList<RegionPairRecord> stored = _pairStore.ReadPairs();
             bool wroteLegacy = false;
@@ -1040,10 +1064,11 @@ namespace GI_Subtitles.Core.Overlay
             }
             else
             {
-                List<RegionPair> migrated = MigrateLegacy(_pairStore.ReadLegacy());
-                if (migrated.Count > 0)
+                LegacyMigrationResult migration = MigrateLegacy(_pairStore.ReadLegacy());
+                if (migration.Pairs.Count > 0)
                 {
-                    _pairs.AddRange(migrated);
+                    _pairs.AddRange(migration.Pairs);
+                    LegacyRegion2ReviewPending = migration.ReviewSecondRegion;
                     wroteLegacy = true;
                 }
             }
@@ -1054,6 +1079,11 @@ namespace GI_Subtitles.Core.Overlay
             if (wroteLegacy || identitiesChanged || truncated)
             {
                 PersistPairs();
+            }
+
+            if (wroteLegacy && reviewStore != null)
+            {
+                reviewStore.WriteLegacyRegion2ReviewPending(LegacyRegion2ReviewPending);
             }
         }
 
@@ -1142,12 +1172,19 @@ namespace GI_Subtitles.Core.Overlay
             _pairStore.WriteNextPairId(_nextPairId);
         }
 
-        private static List<RegionPair> MigrateLegacy(LegacyRegionSlots legacy)
+        private sealed class LegacyMigrationResult
         {
-            var pairs = new List<RegionPair>();
+            public List<RegionPair> Pairs { get; } = new List<RegionPair>();
+
+            public bool ReviewSecondRegion { get; set; }
+        }
+
+        private static LegacyMigrationResult MigrateLegacy(LegacyRegionSlots legacy)
+        {
+            var result = new LegacyMigrationResult();
             if (legacy == null)
             {
-                return pairs;
+                return result;
             }
 
             OverlayRect primaryCapture;
@@ -1155,22 +1192,42 @@ namespace GI_Subtitles.Core.Overlay
             OverlayRect secondCapture;
             bool hasSecond = OverlayRect.TryParse(legacy.Region2, out secondCapture);
 
+            bool secondOverlapsPrimary = hasPrimary && hasSecond && Overlaps(primaryCapture, secondCapture);
+
             if (hasPrimary)
             {
                 OverlayRect display = primaryCapture.Offset(legacy.PadHorizontal, legacy.PadVertical);
-                pairs.Add(new RegionPair(0, primaryCapture, display));
+                result.Pairs.Add(new RegionPair(0, primaryCapture, display));
             }
             else if (hasSecond)
             {
-                pairs.Add(new RegionPair(0, OverlayRect.Invalid, OverlayRect.Invalid));
+                result.Pairs.Add(new RegionPair(0, OverlayRect.Invalid, OverlayRect.Invalid));
             }
 
-            if (hasSecond)
+            if (hasSecond && !secondOverlapsPrimary)
             {
-                pairs.Add(new RegionPair(0, secondCapture, OverlayRect.Invalid));
+                result.Pairs.Add(new RegionPair(0, secondCapture, OverlayRect.Invalid));
+                result.ReviewSecondRegion = true;
             }
 
-            return pairs;
+            return result;
+        }
+
+        private static bool Overlaps(OverlayRect left, OverlayRect right)
+        {
+            if (left == null || right == null || !left.IsValid || !right.IsValid)
+            {
+                return false;
+            }
+
+            long leftRight = (long)left.X + left.Width;
+            long rightRight = (long)right.X + right.Width;
+            long leftBottom = (long)left.Y + left.Height;
+            long rightBottom = (long)right.Y + right.Height;
+            return left.X < rightRight
+                && right.X < leftRight
+                && left.Y < rightBottom
+                && right.Y < leftBottom;
         }
 
         private static RegionPair FromRecord(RegionPairRecord record)

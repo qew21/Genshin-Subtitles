@@ -65,14 +65,13 @@
                 <TranslateTransform Y="-20"/>
             </TextBlock.RenderTransform>
         </TextBlock>
-        <StackPanel x:Name="HeaderPanel"
-                    Orientation="Horizontal"
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Top"
-                    IsHitTestVisible="False">
-            <StackPanel.RenderTransform>
+        <Grid x:Name="HeaderPanel"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Top"
+              IsHitTestVisible="False">
+            <Grid.RenderTransform>
                 <TranslateTransform Y="-20"/>
-            </StackPanel.RenderTransform>
+            </Grid.RenderTransform>
             <TextBlock x:Name="HeaderText"
                        TextWrapping="Wrap"
                        FontFamily="{DynamicResource SubtitleFontFamily}"
@@ -86,6 +85,7 @@
                     Margin="6,0,0,0"
                     Background="Transparent"
                     BorderThickness="0"
+                    HorizontalAlignment="Right"
                     VerticalAlignment="Center"
                     Visibility="Collapsed">
                 <TextBlock x:Name="PlaybackSpeedText"
@@ -95,6 +95,6 @@
                            Opacity="0.72"
                            Text=""/>
             </Border>
-        </StackPanel>
+        </Grid>
     </Canvas>
 </Window>

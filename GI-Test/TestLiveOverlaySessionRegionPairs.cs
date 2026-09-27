@@ -45,6 +45,48 @@ namespace GI_Test
             Assert.IsFalse(session.Pairs[1].Display.IsValid);
 
             Assert.AreEqual(1, pairs.WriteCount);
+            Assert.IsTrue(session.LegacyRegion2ReviewPending);
+        }
+
+        [TestMethod]
+        public void LegacyOverlappingRegion2_IsDroppedDuringMigration()
+        {
+            var pairs = new MemoryRegionPairStore
+            {
+                Legacy = new LegacyRegionSlots
+                {
+                    Region = "100,200,800,80",
+                    Region2 = "50,220,400,50",
+                    PadVertical = 86,
+                    PadHorizontal = 10
+                }
+            };
+
+            var session = new LiveOverlaySession(new MemoryOcrIntervalStore(), pairs);
+
+            Assert.AreEqual(1, session.Pairs.Count);
+            Assert.AreEqual(100, session.Pairs[0].Capture.X);
+            Assert.IsFalse(session.LegacyRegion2ReviewPending);
+        }
+
+        [TestMethod]
+        public void LegacyNonOverlappingRegion2_IsPersistedForOneTimeReview()
+        {
+            var pairs = new MemoryRegionPairStore
+            {
+                Legacy = new LegacyRegionSlots
+                {
+                    Region = "100,200,800,80",
+                    Region2 = "50,60,400,50"
+                }
+            };
+
+            var session = new LiveOverlaySession(new MemoryOcrIntervalStore(), pairs);
+
+            Assert.IsTrue(session.LegacyRegion2ReviewPending);
+            session.AcknowledgeLegacyRegion2Review();
+            Assert.IsFalse(session.LegacyRegion2ReviewPending);
+            Assert.IsFalse(pairs.LegacyRegion2ReviewPending);
         }
 
         [TestMethod]
@@ -287,7 +329,7 @@ namespace GI_Test
             }
         }
 
-        private sealed class MemoryRegionPairStore : IRegionPairStore
+        private sealed class MemoryRegionPairStore : IRegionPairStore, ILegacyRegion2ReviewStore
         {
             public LegacyRegionSlots Legacy = new LegacyRegionSlots();
             public System.Collections.Generic.List<RegionPairRecord> StoredPairs =
@@ -295,6 +337,7 @@ namespace GI_Test
             public int VoicePrimaryId;
             public int NextPairId;
             public int WriteCount;
+            public bool LegacyRegion2ReviewPending;
             public OverlayRect DarkScreenDisplay = OverlayRect.Invalid;
             public OverlayRect DialogueOptionDisplay = OverlayRect.Invalid;
 
@@ -379,6 +422,16 @@ namespace GI_Test
 
             public void SwitchGame(string gameName)
             {
+            }
+
+            public bool ReadLegacyRegion2ReviewPending()
+            {
+                return LegacyRegion2ReviewPending;
+            }
+
+            public void WriteLegacyRegion2ReviewPending(bool pending)
+            {
+                LegacyRegion2ReviewPending = pending;
             }
         }
     }
