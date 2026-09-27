@@ -46,12 +46,6 @@ namespace GI_Subtitles.Core.Overlay
         public void StartRecognition(bool hasCaptureRegion)
         {
             Tick();
-            if (!hasCaptureRegion)
-            {
-                WriteOperatorAction(OperatorJob.StartRecognition, null, HintResourceCaptureRegionMissing);
-                return;
-            }
-
             RecognitionRunning = true;
             WriteOperatorAction(OperatorJob.StartRecognition, null, HintResourceRecognitionRunning);
         }

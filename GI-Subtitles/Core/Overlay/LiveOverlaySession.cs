@@ -18,6 +18,7 @@ namespace GI_Subtitles.Core.Overlay
         public const int DialogueOptionScanIntervalMs = 400;
         public const int DarkScreenOcrSlot = -2;
         public const int DialogueOptionsOcrSlot = -1;
+        public const int AutoRegionOcrSlot = -3;
         public const int SettingsPairCap = 4;
         public const int EnginePairCap = SettingsPairCap;
         public const int DefaultSubtitleIdleTimeoutSeconds = 0;
@@ -65,6 +66,7 @@ namespace GI_Subtitles.Core.Overlay
         private int _nextPairId = 1;
         private int _darkScreenGeneration;
         private int _dialogueOptionsGeneration;
+        private int _autoRegionGeneration;
         private int _busyOcrGeneration;
         private OverlayRect _addCapture = OverlayRect.Invalid;
         private OverlayRect _addDisplay = OverlayRect.Invalid;
@@ -140,6 +142,11 @@ namespace GI_Subtitles.Core.Overlay
         public int? BusyOcrSlot
         {
             get { return _busyPairIndex; }
+        }
+
+        public int? BusyOcrGeneration
+        {
+            get { return _busyPairIndex.HasValue ? (int?)_busyOcrGeneration : null; }
         }
 
         public int? BusyOcrPairIndex
@@ -828,6 +835,90 @@ namespace GI_Subtitles.Core.Overlay
             TryStartNextOcr();
         }
 
+        public void RequestAutoRegionOcr()
+        {
+            if (!RecognitionRunning ||
+                _busyPairIndex == AutoRegionOcrSlot ||
+                _ocrQueue.Contains(AutoRegionOcrSlot))
+            {
+                return;
+            }
+
+            _autoRegionGeneration++;
+            EnqueueOcr(AutoRegionOcrSlot);
+            TryStartNextOcr();
+        }
+
+        public void CancelQueuedAutoRegionOcr()
+        {
+            RemoveQueuedSlot(AutoRegionOcrSlot);
+        }
+
+        public void CompleteAutoRegionOcr(int generation)
+        {
+            if (_busyPairIndex == AutoRegionOcrSlot &&
+                _busyOcrGeneration == generation &&
+                _autoRegionGeneration == generation)
+            {
+                ReleaseBusySlot();
+            }
+        }
+
+        public bool ApplyAutoDetectedRegion(OverlayRect capture, OverlayRect defaultDisplay)
+        {
+            if (capture == null || !capture.IsValid)
+            {
+                return false;
+            }
+
+            int pairIndex = IndexOfPair(VoicePrimaryId);
+            if (pairIndex < 0)
+            {
+                pairIndex = 0;
+                EnsurePairSlot(pairIndex);
+            }
+
+            RegionPair current = _pairs[pairIndex];
+            if (SameRect(current.Capture, capture) && current.Display.IsValid)
+            {
+                return false;
+            }
+
+            int deltaX = current.Capture.IsValid
+                ? capture.X + capture.Width / 2 - (current.Capture.X + current.Capture.Width / 2)
+                : 0;
+            int deltaY = current.Capture.IsValid
+                ? capture.Y + capture.Height / 2 - (current.Capture.Y + current.Capture.Height / 2)
+                : 0;
+            OverlayRect display = current.Display.IsValid
+                ? current.Display.Offset(deltaX, deltaY)
+                : (defaultDisplay ?? OverlayRect.Invalid);
+            _pairs[pairIndex] = new RegionPair(current.Id, capture, display);
+            if (pairIndex < _pairGenerations.Count)
+            {
+                _pairGenerations[pairIndex]++;
+            }
+
+            RemoveQueuedSlot(pairIndex);
+            SyncPairRuntime();
+            PersistPairs();
+            if (ArmedPairId == current.Id)
+            {
+                RebuildAdjustOutlines();
+            }
+
+            return true;
+        }
+
+        private static bool SameRect(OverlayRect left, OverlayRect right)
+        {
+            return left != null && right != null
+                && left.X == right.X
+                && left.Y == right.Y
+                && left.Width == right.Width
+                && left.Height == right.Height;
+        }
+
         public void CompleteOcr(
             bool miss,
             string content = null,
@@ -847,6 +938,12 @@ namespace GI_Subtitles.Core.Overlay
 
             int busy = _busyPairIndex.Value;
             if (_busyOcrGeneration != GetSlotGeneration(busy))
+            {
+                ReleaseBusySlot();
+                return;
+            }
+
+            if (busy == AutoRegionOcrSlot)
             {
                 ReleaseBusySlot();
                 return;
@@ -1368,6 +1465,7 @@ namespace GI_Subtitles.Core.Overlay
             ClearDialogueOptionsRecognition();
             _ocrQueue.Clear();
             _busyPairIndex = null;
+            _autoRegionGeneration++;
             for (int i = 0; i < _headers.Count; i++)
             {
                 ClearPairSubtitle(i);
@@ -1709,6 +1807,11 @@ namespace GI_Subtitles.Core.Overlay
             if (slot == DialogueOptionsOcrSlot)
             {
                 return _dialogueOptionsGeneration;
+            }
+
+            if (slot == AutoRegionOcrSlot)
+            {
+                return _autoRegionGeneration;
             }
 
             if (slot >= 0 && slot < _pairGenerations.Count)
