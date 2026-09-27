@@ -205,6 +205,7 @@
     <Compile Include="Core\Screen\ScreenInfo.cs" />
     <Compile Include="Core\Screen\GameWindowLocator.cs" />
     <Compile Include="Core\Screen\GameWindowCaptureSource.cs" />
+    <Compile Include="Core\Screen\SubtitleTextRegionDetector.cs" />
     <Compile Include="Views\RegionPairSettings.cs" />
     <Compile Include="Views\Font.xaml.cs">
       <DependentUpon>Font.xaml</DependentUpon>

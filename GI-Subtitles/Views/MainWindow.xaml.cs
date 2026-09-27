@@ -85,6 +85,7 @@ namespace GI_Subtitles.Views
         private DateTime _lastAutoRegionSearchStartedUtc = DateTime.MinValue;
         private DateTime _lastPrimaryPairMatchUtc = DateTime.MinValue;
         private bool _autoRegionOcrInFlight;
+        private int _autoRegionCcMissesSinceBroadScan;
         private bool _autoRegionValidated;
         private bool _autoRegionRepairPending = true;
         private readonly double ChangeThreshold = Math.Max(0, Math.Min(1, Config.Get<double>("OCRThreshold", 0.01)));
@@ -303,6 +304,13 @@ namespace GI_Subtitles.Views
             public string Text { get; set; }
             public System.Drawing.Rectangle Bounds { get; set; }
             public float Score { get; set; }
+        }
+
+        private sealed class AutoRegionScanResult
+        {
+            public OCRResult OcrResult { get; set; }
+            public System.Drawing.Rectangle OcrBounds { get; set; }
+            public System.Drawing.Rectangle? VisualCandidateBounds { get; set; }
         }
 
 
@@ -690,6 +698,7 @@ namespace GI_Subtitles.Views
             _autoRegionValidated = false;
             _autoRegionRepairPending = true;
             _lastAutoRegionSearchStartedUtc = DateTime.MinValue;
+            Interlocked.Exchange(ref _autoRegionCcMissesSinceBroadScan, 0);
             DisposePairBuffers();
             DisposeDarkScreenHold();
             DisposeDialogueOptionHold();
@@ -744,7 +753,9 @@ namespace GI_Subtitles.Views
             bool primaryCaptureMissing = primaryIndex < 0 || !pairs[primaryIndex].Capture.IsValid;
             if (primaryCaptureMissing)
             {
-                return true;
+                int missingRegionRetryDelay = Math.Max(500, _overlaySession.EngineOcrIntervalMs * 2);
+                return DateTime.UtcNow - _lastAutoRegionSearchStartedUtc >=
+                       TimeSpan.FromMilliseconds(missingRegionRetryDelay);
             }
 
             if (!_autoRegionRepairPending && _autoRegionValidated)
@@ -1421,9 +1432,87 @@ namespace GI_Subtitles.Views
             int generation)
         {
             string ocrGame = _overlaySession.AppliedGame;
+            int broadFallbackMissLimit = _overlaySession.HasValidCapture ? 2 : 6;
             try
             {
-                OCRResult result = await Task.Run(() => data.engine.DetectTextFromMat(frame));
+                AutoRegionScanResult scan = await Task.Run(() =>
+                {
+                    System.Drawing.Rectangle? visualBounds = null;
+                    System.Drawing.Rectangle ocrBounds = searchBounds;
+                    Mat ocrFrame = frame;
+                    Mat candidateFrame = null;
+                    try
+                    {
+                        System.Drawing.Rectangle? localCandidate = SubtitleTextRegionDetector.FindCandidate(frame);
+                        if (localCandidate.HasValue)
+                        {
+                            System.Drawing.Rectangle local = localCandidate.Value;
+                            visualBounds = new System.Drawing.Rectangle(
+                                searchBounds.Left + local.Left,
+                                searchBounds.Top + local.Top,
+                                local.Width,
+                                local.Height);
+
+                            OverlayRect expanded = CreateAutoCaptureRegion(visualBounds.Value, capturedWindow.ClientBounds);
+                            var expandedBounds = new System.Drawing.Rectangle(
+                                expanded.X,
+                                expanded.Y,
+                                expanded.Width,
+                                expanded.Height);
+                            bool broadFallbackDue = Interlocked.CompareExchange(
+                                ref _autoRegionCcMissesSinceBroadScan,
+                                0,
+                                0) >= broadFallbackMissLimit;
+                            if (broadFallbackDue)
+                            {
+                                Interlocked.Exchange(ref _autoRegionCcMissesSinceBroadScan, 0);
+                            }
+                            else
+                            {
+                                ocrBounds = System.Drawing.Rectangle.Intersect(expandedBounds, searchBounds);
+                                if (ocrBounds.Width > 0 && ocrBounds.Height > 0)
+                                {
+                                    var localOcrBounds = new OpenCvSharp.Rect(
+                                        ocrBounds.Left - searchBounds.Left,
+                                        ocrBounds.Top - searchBounds.Top,
+                                        ocrBounds.Width,
+                                        ocrBounds.Height);
+                                    candidateFrame = new Mat(frame, localOcrBounds);
+                                    ocrFrame = candidateFrame;
+                                }
+                                else
+                                {
+                                    ocrBounds = searchBounds;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            int missedCandidates = Interlocked.Increment(ref _autoRegionCcMissesSinceBroadScan);
+                            if (missedCandidates < broadFallbackMissLimit)
+                            {
+                                return new AutoRegionScanResult { OcrBounds = searchBounds };
+                            }
+
+                            // A slow full-band OCR scan protects against unusual
+                            // subtitle colors or styles the connected-component
+                            // proposal misses.
+                            Interlocked.Exchange(ref _autoRegionCcMissesSinceBroadScan, 0);
+                        }
+
+                        return new AutoRegionScanResult
+                        {
+                            OcrResult = data.engine.DetectTextFromMat(ocrFrame),
+                            OcrBounds = ocrBounds,
+                            VisualCandidateBounds = visualBounds
+                        };
+                    }
+                    finally
+                    {
+                        candidateFrame?.Dispose();
+                    }
+                });
+
                 if (!string.Equals(ocrGame, _overlaySession.AppliedGame, StringComparison.Ordinal) ||
                     _activeGameWindow == null ||
                     _activeGameWindow.Handle != capturedWindow.Handle ||
@@ -1432,22 +1521,53 @@ namespace GI_Subtitles.Views
                     return;
                 }
 
-                SubtitleTextCandidate candidate = FindMappedSubtitleCandidate(
-                    result,
-                    searchBounds,
-                    capturedWindow.ClientBounds);
-                if (candidate == null)
+                if (scan.OcrResult == null)
                 {
-                    Logger.Log.Debug("Automatic subtitle-region scan found no mapped subtitle text.");
+                    Logger.Log.Debug("Connected-component scan found no lower-center subtitle candidate; OCR was skipped.");
                     return;
                 }
+
+                SubtitleTextCandidate candidate = FindMappedSubtitleCandidate(
+                    scan.OcrResult,
+                    scan.OcrBounds,
+                    capturedWindow.ClientBounds);
+                if (candidate == null && scan.VisualCandidateBounds.HasValue)
+                {
+                    candidate = FindOcrConfirmedCandidate(
+                        scan.OcrResult,
+                        scan.OcrBounds,
+                        scan.VisualCandidateBounds.Value,
+                        capturedWindow.ClientBounds);
+                }
+                if (candidate == null)
+                {
+                    if (scan.VisualCandidateBounds.HasValue)
+                    {
+                        Interlocked.Increment(ref _autoRegionCcMissesSinceBroadScan);
+                    }
+                    else
+                    {
+                        Interlocked.Exchange(ref _autoRegionCcMissesSinceBroadScan, 0);
+                    }
+                    Logger.Log.Debug("Automatic subtitle-region scan found no OCR-confirmed text near the candidate.");
+                    return;
+                }
+
+                Interlocked.Exchange(ref _autoRegionCcMissesSinceBroadScan, 0);
 
                 IReadOnlyList<RegionPair> pairs = _overlaySession.Pairs;
                 int primaryIndex = FindPrimaryPairIndex(pairs);
                 OverlayRect currentCapture = primaryIndex >= 0
                     ? pairs[primaryIndex].Capture
                     : OverlayRect.Invalid;
-                if (ContainsSubtitleWithMargin(currentCapture, candidate.Bounds))
+                System.Drawing.Rectangle detectionBounds = scan.VisualCandidateBounds ?? candidate.Bounds;
+                OverlayRect recommendedCapture = CreateAutoCaptureRegion(detectionBounds, capturedWindow.ClientBounds);
+                var recommendedBounds = new System.Drawing.Rectangle(
+                    recommendedCapture.X,
+                    recommendedCapture.Y,
+                    recommendedCapture.Width,
+                    recommendedCapture.Height);
+                if (ContainsRegion(currentCapture, recommendedBounds))
                 {
                     if (primaryIndex >= 0 && !pairs[primaryIndex].Display.IsValid)
                     {
@@ -1466,7 +1586,7 @@ namespace GI_Subtitles.Views
                 }
                 else
                 {
-                    OverlayRect capture = CreateAutoCaptureRegion(candidate.Bounds, capturedWindow.ClientBounds);
+                    OverlayRect capture = recommendedCapture;
                     OverlayRect display = CreateAutoDisplayRegion(candidate.Bounds, capture, capturedWindow.ClientBounds);
                     if (_overlaySession.ApplyAutoDetectedRegion(capture, display))
                     {
@@ -1555,14 +1675,18 @@ namespace GI_Subtitles.Views
                 string combinedText = string.Empty;
                 System.Drawing.Rectangle combinedBounds = System.Drawing.Rectangle.Empty;
                 float combinedConfidence = 0;
-                for (int end = start; end < Math.Min(blocks.Count, start + 2); end++)
+                // A speaker label plus two or three wrapped subtitle lines can
+                // arrive as separate OCR blocks; evaluate the whole cluster.
+                for (int end = start; end < Math.Min(blocks.Count, start + 4); end++)
                 {
                     SubtitleTextCandidate block = blocks[end];
                     if (end > start)
                     {
                         SubtitleTextCandidate previous = blocks[end - 1];
                         int verticalGap = block.Bounds.Top - previous.Bounds.Bottom;
-                        int maxGap = Math.Max(36, previous.Bounds.Height * 2);
+                        int maxGap = Math.Max(
+                            (int)Math.Round(clientBounds.Height * 0.025),
+                            previous.Bounds.Height * 2);
                         int centerDelta = Math.Abs(
                             (block.Bounds.Left + block.Bounds.Width / 2) -
                             (previous.Bounds.Left + previous.Bounds.Width / 2));
@@ -1622,35 +1746,110 @@ namespace GI_Subtitles.Views
             return best;
         }
 
-        private static bool ContainsSubtitleWithMargin(OverlayRect capture, System.Drawing.Rectangle subtitle)
+        private SubtitleTextCandidate FindOcrConfirmedCandidate(
+            OCRResult result,
+            System.Drawing.Rectangle ocrBounds,
+            System.Drawing.Rectangle visualHint,
+            System.Drawing.Rectangle clientBounds)
+        {
+            var acceptanceBounds = System.Drawing.Rectangle.Inflate(
+                visualHint,
+                Math.Max(1, (int)Math.Round(clientBounds.Width * 0.08)),
+                Math.Max(1, (int)Math.Round(clientBounds.Height * 0.16)));
+            var accepted = new List<SubtitleTextCandidate>();
+            IEnumerable<PaddleOCRSharp.TextBlock> blocks = result?.TextBlocks ??
+                Enumerable.Empty<PaddleOCRSharp.TextBlock>();
+            foreach (PaddleOCRSharp.TextBlock block in blocks)
+            {
+                if (block == null || string.IsNullOrWhiteSpace(block.Text) ||
+                    block.Score < 0.42f || block.BoxPoints == null || block.BoxPoints.Length == 0)
+                {
+                    continue;
+                }
+
+                float minX = block.BoxPoints.Min(point => point.X);
+                float minY = block.BoxPoints.Min(point => point.Y);
+                float maxX = block.BoxPoints.Max(point => point.X);
+                float maxY = block.BoxPoints.Max(point => point.Y);
+                var bounds = System.Drawing.Rectangle.FromLTRB(
+                    ocrBounds.Left + (int)Math.Floor(minX),
+                    ocrBounds.Top + (int)Math.Floor(minY),
+                    ocrBounds.Left + (int)Math.Ceiling(maxX),
+                    ocrBounds.Top + (int)Math.Ceiling(maxY));
+                if (System.Drawing.Rectangle.Intersect(bounds, acceptanceBounds).IsEmpty ||
+                    bounds.Left + bounds.Width / 2 < clientBounds.Left + clientBounds.Width * 0.12 ||
+                    bounds.Left + bounds.Width / 2 > clientBounds.Right - clientBounds.Width * 0.12 ||
+                    bounds.Top + bounds.Height / 2 < clientBounds.Top + clientBounds.Height * 0.45)
+                {
+                    continue;
+                }
+
+                accepted.Add(new SubtitleTextCandidate
+                {
+                    Text = block.Text.Trim(),
+                    Bounds = bounds,
+                    Score = block.Score
+                });
+            }
+
+            if (accepted.Count == 0)
+            {
+                return null;
+            }
+
+            accepted = accepted
+                .OrderBy(block => Math.Abs(
+                    block.Bounds.Left + block.Bounds.Width / 2.0 -
+                    (visualHint.Left + visualHint.Width / 2.0)))
+                .ThenBy(block => Math.Abs(
+                    block.Bounds.Top + block.Bounds.Height / 2.0 -
+                    (visualHint.Top + visualHint.Height / 2.0)))
+                .Take(4)
+                .ToList();
+            System.Drawing.Rectangle combinedBounds = accepted
+                .Select(block => block.Bounds)
+                .Aggregate(System.Drawing.Rectangle.Union);
+            return new SubtitleTextCandidate
+            {
+                Text = string.Join("\n", accepted.Select(block => block.Text)),
+                Bounds = combinedBounds,
+                Score = accepted.Average(block => block.Score)
+            };
+        }
+
+        private static bool ContainsRegion(OverlayRect capture, System.Drawing.Rectangle region)
         {
             if (capture == null || !capture.IsValid)
             {
                 return false;
             }
 
-            const int marginX = 4;
-            const int marginY = 4;
-            return subtitle.Left - capture.X >= marginX &&
-                   subtitle.Top - capture.Y >= marginY &&
-                   capture.X + capture.Width - subtitle.Right >= marginX &&
-                   capture.Y + capture.Height - subtitle.Bottom >= marginY;
+            return region.Left >= capture.X &&
+                   region.Top >= capture.Y &&
+                   region.Right <= capture.X + capture.Width &&
+                   region.Bottom <= capture.Y + capture.Height;
         }
 
         private static OverlayRect CreateAutoCaptureRegion(
             System.Drawing.Rectangle subtitle,
             System.Drawing.Rectangle clientBounds)
         {
+            // Leave room above the detected text for a speaker label and up to
+            // three subtitle lines, with a smaller safety margin below.
+            int horizontalPadding = (int)Math.Round(clientBounds.Width * 0.04);
+            int topPadding = (int)Math.Round(clientBounds.Height * 0.18);
+            int bottomPadding = (int)Math.Round(clientBounds.Height * 0.03);
             int width = Math.Min(
                 clientBounds.Width,
-                Math.Max(subtitle.Width + 96, (int)Math.Round(clientBounds.Width * 0.50)));
+                Math.Max(subtitle.Width + horizontalPadding * 2, (int)Math.Round(clientBounds.Width * 0.68)));
             int height = Math.Min(
                 clientBounds.Height,
-                Math.Max(subtitle.Height + 48, (int)Math.Round(clientBounds.Height * 0.12)));
+                Math.Max(
+                    subtitle.Height + topPadding + bottomPadding,
+                    (int)Math.Round(clientBounds.Height * 0.24)));
             int centerX = subtitle.Left + subtitle.Width / 2;
-            int centerY = subtitle.Top + subtitle.Height / 2;
             int x = Math.Max(clientBounds.Left, Math.Min(centerX - width / 2, clientBounds.Right - width));
-            int y = Math.Max(clientBounds.Top, Math.Min(centerY - height / 2, clientBounds.Bottom - height));
+            int y = Math.Max(clientBounds.Top, Math.Min(subtitle.Top - topPadding, clientBounds.Bottom - height));
             return new OverlayRect(x, y, width, height);
         }
 
@@ -3233,6 +3432,7 @@ namespace GI_Subtitles.Views
             _autoRegionValidated = false;
             _autoRegionRepairPending = true;
             _lastAutoRegionSearchStartedUtc = DateTime.MinValue;
+            Interlocked.Exchange(ref _autoRegionCcMissesSinceBroadScan, 0);
             CancelRegionDrag();
             DisposePairBuffers();
             DisposeDarkScreenHold();
