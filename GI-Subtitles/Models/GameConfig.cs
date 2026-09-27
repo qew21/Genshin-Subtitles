@@ -12,6 +12,8 @@ namespace GI_Subtitles.Models
         public string InputUrlTemplate { get; set; }
         public string OutputUrlTemplate { get; set; }
         public string MediumUrlTemplate { get; set; }
+        public string TextMapFileListUrl { get; set; }
+        public string TextMapFileUrlTemplate { get; set; }
         public string TestFile { get; set; }
         public string Warning { get; set; }
         
@@ -34,15 +36,21 @@ namespace GI_Subtitles.Models
             return FillTemplate(MediumUrlTemplate, language);
         }
 
+        public string GetMappedLanguage(string language)
+        {
+            if (LanguageMapping != null && LanguageMapping.TryGetValue(language, out string mappedLanguage))
+            {
+                return mappedLanguage;
+            }
+
+            return language;
+        }
+
         private string FillTemplate(string template, string language)
         {
             if (string.IsNullOrEmpty(template)) return string.Empty;
 
-            string mappedLang = language;
-            if (LanguageMapping != null && LanguageMapping.ContainsKey(language))
-            {
-                mappedLang = LanguageMapping[language];
-            }
+            string mappedLang = GetMappedLanguage(language);
 
             // Replace common placeholders with mapped language
             return template.Replace("{Language}", mappedLang)

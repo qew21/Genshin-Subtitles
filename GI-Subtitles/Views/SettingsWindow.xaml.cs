@@ -801,6 +801,20 @@ namespace GI_Subtitles.Views
                     configChanged = true;
                 }
 
+                if (IsDimbreathGenshinConfig(_currentGameConfig))
+                {
+                    if (string.IsNullOrEmpty(_currentGameConfig.TextMapFileListUrl))
+                    {
+                        _currentGameConfig.TextMapFileListUrl = GameConfigStore.GenshinTextMapFileListUrl;
+                        configChanged = true;
+                    }
+                    if (string.IsNullOrEmpty(_currentGameConfig.TextMapFileUrlTemplate))
+                    {
+                        _currentGameConfig.TextMapFileUrlTemplate = GameConfigStore.GenshinTextMapFileUrlTemplate;
+                        configChanged = true;
+                    }
+                }
+
                 if (configChanged)
                 {
                     try
@@ -888,6 +902,14 @@ namespace GI_Subtitles.Views
                    (config.OutputUrlTemplate?.IndexOf("animegamedata", StringComparison.OrdinalIgnoreCase) >= 0);
         }
 
+        private static bool IsDimbreathGenshinConfig(GameConfig config)
+        {
+            const string repository = "gitlab.com/Dimbreath/animegamedata2/";
+            return config != null &&
+                   ((config.InputUrlTemplate?.IndexOf(repository, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                    (config.OutputUrlTemplate?.IndexOf(repository, StringComparison.OrdinalIgnoreCase) >= 0));
+        }
+
         private static string MigrateGenshinRepositoryUrl(string url, ref bool configChanged)
         {
             const string newRepository = "https://gitlab.com/Dimbreath/animegamedata2";
@@ -928,6 +950,8 @@ namespace GI_Subtitles.Views
                     config.InputUrlTemplate = "https://gitlab.com/Dimbreath/animegamedata2/-/raw/main/TextMap/TextMap{Language}.json?inline=false";
                     config.OutputUrlTemplate = "https://gitlab.com/Dimbreath/animegamedata2/-/raw/main/TextMap/TextMap{Language}.json?inline=false";
                     config.MediumUrlTemplate = "https://gitlab.com/Dimbreath/animegamedata2/-/raw/main/TextMap/TextMap_Medium{Language}.json?inline=false";
+                    config.TextMapFileListUrl = GameConfigStore.GenshinTextMapFileListUrl;
+                    config.TextMapFileUrlTemplate = GameConfigStore.GenshinTextMapFileUrlTemplate;
                     break;
                 case "StarRail":
                     config.RepoUrl = "https://gitlab.com/Dimbreath/turnbasedgamedata/-/refs/main/logs_tree/?format=json&offset=0&ref_type=HEADS";
@@ -983,12 +1007,20 @@ namespace GI_Subtitles.Views
         {
             if (_currentGameConfig == null) return;
 
-            InputLangDownloadUrl.Text = _currentGameConfig.GetDownloadUrl(InputLanguage, true);
-            OutputLangDownloadUrl.Text = _currentGameConfig.GetDownloadUrl(OutputLanguage, false);
+            string inputUrl = string.IsNullOrEmpty(_currentGameConfig.TextMapFileListUrl)
+                ? _currentGameConfig.GetDownloadUrl(InputLanguage, true)
+                : _currentGameConfig.TextMapFileListUrl;
+            string outputUrl = string.IsNullOrEmpty(_currentGameConfig.TextMapFileListUrl)
+                ? _currentGameConfig.GetDownloadUrl(OutputLanguage, false)
+                : _currentGameConfig.TextMapFileListUrl;
+            InputLangDownloadUrl.Text = inputUrl;
+            OutputLangDownloadUrl.Text = outputUrl;
 
             if (!string.IsNullOrEmpty(OutputLanguage2))
             {
-                OutputLangDownloadUrl2.Text = _currentGameConfig.GetDownloadUrl(OutputLanguage2, false);
+                OutputLangDownloadUrl2.Text = string.IsNullOrEmpty(_currentGameConfig.TextMapFileListUrl)
+                    ? _currentGameConfig.GetDownloadUrl(OutputLanguage2, false)
+                    : _currentGameConfig.TextMapFileListUrl;
                 SecondOutputDownloadPanel.Visibility = Visibility.Visible;
             }
             else
@@ -1482,7 +1514,19 @@ namespace GI_Subtitles.Views
         private async Task DownloadFileAsync(string url, string fileName, string gameName = "", string language = "")
         {
             if (string.IsNullOrEmpty(url)) return;
-            if (!Uri.TryCreate(url, UriKind.Absolute, out Uri uri))
+
+            bool useTextMapCatalog = !string.IsNullOrWhiteSpace(_currentGameConfig?.TextMapFileListUrl) &&
+                                     !string.IsNullOrWhiteSpace(_currentGameConfig?.TextMapFileUrlTemplate);
+            Uri uri = null;
+            if (useTextMapCatalog)
+            {
+                if (!Uri.TryCreate(_currentGameConfig.TextMapFileListUrl, UriKind.Absolute, out uri))
+                {
+                    System.Windows.MessageBox.Show($"Invalid TextMap file list URL: {_currentGameConfig.TextMapFileListUrl}");
+                    return;
+                }
+            }
+            else if (!Uri.TryCreate(url, UriKind.Absolute, out uri))
             {
                 System.Windows.MessageBox.Show($"Invalid URL: {url}");
                 return;
@@ -1506,40 +1550,55 @@ namespace GI_Subtitles.Views
             {
                 try
                 {
-                    await PerformDownloadAsync(uri, tmpUpdateFile);
+                    if (useTextMapCatalog)
+                    {
+                        await DownloadAndMergeCatalogTextMapsAsync(language, uri, tmpUpdateFile, tmpMediumFile);
+                    }
+                    else
+                    {
+                        await PerformDownloadAsync(uri, tmpUpdateFile);
+
+                        if (File.Exists(tmpUpdateFile))
+                        {
+                            if (gameName == "Wuthering")
+                            {
+                                await DownloadAndMergeWutheringPartsAsync(uri, tmpUpdateFile);
+                            }
+                            else if (gameName == "Genshin")
+                            {
+                                string mediumUrl = _currentGameConfig?.GetMediumDownloadUrl(language);
+                                if (!string.IsNullOrEmpty(mediumUrl) &&
+                                    !string.IsNullOrEmpty(tmpMediumFile) &&
+                                    Uri.TryCreate(mediumUrl, UriKind.Absolute, out Uri mediumUri))
+                                {
+                                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                                    {
+                                        Status.Content = $"Downloading Medium data for {language}...";
+                                    });
+
+                                    await PerformDownloadAsync(mediumUri, tmpMediumFile);
+                                    await Task.Run(() => TextMapNormalizer.MergeIdContentArrayFiles(
+                                        tmpUpdateFile, new[] { tmpMediumFile }));
+                                }
+                            }
+                            else if (gameName == "Endfield")
+                            {
+                                await DownloadAndMergeEndfieldChunksAsync(uri, tmpUpdateFile);
+                            }
+                            else if (gameName == "StarRail" && language == "KR")
+                            {
+                                await DownloadAndMergeStarRailKoreanPartAsync(uri, tmpUpdateFile);
+                            }
+                        }
+                    }
 
                     if (File.Exists(tmpUpdateFile))
                     {
-                        if (gameName == "Wuthering")
+                        if (useTextMapCatalog &&
+                            !string.IsNullOrEmpty(tmpMediumFile) && File.Exists(tmpMediumFile))
                         {
-                            await DownloadAndMergeWutheringPartsAsync(uri, tmpUpdateFile);
-                        }
-                        else if (gameName == "Genshin")
-                        {
-                            string mediumUrl = _currentGameConfig?.GetMediumDownloadUrl(language);
-                            if (!string.IsNullOrEmpty(mediumUrl) &&
-                                !string.IsNullOrEmpty(tmpMediumFile) &&
-                                Uri.TryCreate(mediumUrl, UriKind.Absolute, out Uri mediumUri))
-                            {
-                                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
-                                {
-                                    Status.Content = $"Downloading Medium data for {language}...";
-                                });
-
-                                await PerformDownloadAsync(mediumUri, tmpMediumFile);
-                                await Task.Run(() => VoiceContentHelper.MergeJsonFiles(tmpMediumFile, tmpUpdateFile));
-
-                                if (File.Exists(mediumFilePath)) File.Delete(mediumFilePath);
-                                File.Move(tmpMediumFile, mediumFilePath);
-                            }
-                        }
-                        else if (gameName == "Endfield")
-                        {
-                            await DownloadAndMergeEndfieldChunksAsync(uri, tmpUpdateFile);
-                        }
-                        else if (gameName == "StarRail" && language == "KR")
-                        {
-                            await DownloadAndMergeStarRailKoreanPartAsync(uri, tmpUpdateFile);
+                            if (File.Exists(mediumFilePath)) File.Delete(mediumFilePath);
+                            File.Move(tmpMediumFile, mediumFilePath);
                         }
 
                         if (File.Exists(fullPath)) File.Delete(fullPath);
@@ -1552,9 +1611,6 @@ namespace GI_Subtitles.Views
                                 IsDataIncomplete = HasMissingRequiredMediumData();
                             });
                         }
-
-                        if (File.Exists(tmpUpdateFile)) File.Delete(tmpUpdateFile);
-                        if (!string.IsNullOrEmpty(tmpMediumFile) && File.Exists(tmpMediumFile)) File.Delete(tmpMediumFile);
 
                         string directoryPath = Path.GetDirectoryName(fullPath);
                         string baseFileName = Path.GetFileNameWithoutExtension(fullPath);
@@ -1602,10 +1658,90 @@ namespace GI_Subtitles.Views
                 }
             }
 
+            TryDeleteDownloadFile(tmpUpdateFile);
+            TryDeleteDownloadFile(tmpMediumFile);
+
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 _overlaySession.NoteLanguagePackDownloadFinished(packLabel, success);
             });
+        }
+
+        private async Task DownloadAndMergeCatalogTextMapsAsync(
+            string language,
+            Uri fileListUri,
+            string mainDestinationPath,
+            string mediumDestinationPath)
+        {
+            string mappedLanguage = _currentGameConfig.GetMappedLanguage(language);
+            TextMapDownloadPlan plan = await GitLabTextMapSource.DiscoverAsync(
+                client,
+                fileListUri,
+                _currentGameConfig.TextMapFileUrlTemplate,
+                mappedLanguage);
+
+            await DownloadAndMergeTextMapGroupAsync(
+                plan.MainFiles, mainDestinationPath, language, "TextMap");
+            await DownloadAndMergeTextMapGroupAsync(
+                plan.MediumFiles, mediumDestinationPath, language, "Medium TextMap");
+
+            await Task.Run(() => TextMapNormalizer.MergeIdContentArrayFiles(
+                mainDestinationPath, new[] { mediumDestinationPath }));
+        }
+
+        private static void TryDeleteDownloadFile(string filePath)
+        {
+            if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath)) return;
+            try
+            {
+                File.Delete(filePath);
+            }
+            catch (Exception ex)
+            {
+                Logger.Log.Error($"Failed to delete temporary download file {filePath}: {ex.Message}");
+            }
+        }
+
+        private async Task DownloadAndMergeTextMapGroupAsync(
+            IReadOnlyList<Uri> partUris,
+            string destinationPath,
+            string language,
+            string resourceName)
+        {
+            if (partUris == null || partUris.Count == 0)
+            {
+                throw new InvalidOperationException($"No {resourceName} files were discovered for {language}.");
+            }
+
+            var overlayPaths = new List<string>();
+            try
+            {
+                for (int index = 0; index < partUris.Count; index++)
+                {
+                    string partPath = index == 0
+                        ? destinationPath
+                        : destinationPath + $".part{index}";
+                    if (index > 0) overlayPaths.Add(partPath);
+
+                    int partNumber = index + 1;
+                    int totalParts = partUris.Count;
+                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                    {
+                        Status.Content = $"Downloading {resourceName} for {language} ({partNumber}/{totalParts})...";
+                    });
+                    await PerformDownloadAsync(partUris[index], partPath);
+                }
+
+                await Task.Run(() => TextMapNormalizer.MergeIdContentArrayFiles(
+                    destinationPath, overlayPaths));
+            }
+            finally
+            {
+                foreach (string overlayPath in overlayPaths)
+                {
+                    TryDeleteDownloadFile(overlayPath);
+                }
+            }
         }
 
         private async Task DownloadAndMergeStarRailKoreanPartAsync(Uri firstPartUri, string destinationPath)
