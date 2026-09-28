@@ -67,7 +67,7 @@ namespace GI_Test
                 }
             }";
 
-            Assert.ThrowsException<InvalidOperationException>(() =>
+            Assert.ThrowsExactly<InvalidOperationException>(() =>
                 EndfieldTextMapSource.ParseChunkUris(firstChunk, manifest));
         }
     }

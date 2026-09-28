@@ -8,11 +8,11 @@ namespace GI_Test
     public class TestLiveOverlaySessionHint
     {
         [TestMethod]
-        public void StartRecognition_WithCaptureRegion_ShowsRecognizingHint()
+        public void StartRecognition_WithoutConfiguredCaptureRegion_StartsRecognition()
         {
             LiveOverlaySession session = CreateSession();
 
-            session.StartRecognition(hasCaptureRegion: true);
+            session.StartRecognition();
 
             Assert.IsTrue(session.HintVisible);
             Assert.AreEqual("Hint_RecognitionRunning", session.HintResourceKey);
@@ -23,13 +23,13 @@ namespace GI_Test
         {
             LiveOverlaySession session = CreateSession();
 
-            session.StartRecognition(hasCaptureRegion: true);
+            session.StartRecognition();
             Assert.AreEqual("Hint_RecognitionRunning", session.HintResourceKey);
 
             session.StopRecognition();
             Assert.AreEqual("Hint_RecognitionStopped", session.HintResourceKey);
 
-            session.StartRecognition(hasCaptureRegion: true);
+            session.StartRecognition();
             Assert.AreEqual("Hint_RecognitionRunning", session.HintResourceKey);
             Assert.IsTrue(session.RecognitionRunning);
         }
@@ -40,7 +40,7 @@ namespace GI_Test
             DateTime now = new DateTime(2026, 1, 1, 12, 0, 0, DateTimeKind.Utc);
             LiveOverlaySession session = CreateSession(() => now);
 
-            session.StartRecognition(hasCaptureRegion: true);
+            session.StartRecognition();
             Assert.AreEqual("Hint_RecognitionRunning", session.HintResourceKey);
 
             now = now.AddSeconds(1);
@@ -63,7 +63,7 @@ namespace GI_Test
         {
             LiveOverlaySession session = CreateSession();
 
-            session.StartRecognition(hasCaptureRegion: true);
+            session.StartRecognition();
             session.HideSubtitles();
 
             Assert.IsFalse(session.SubtitlesVisible);
@@ -92,7 +92,7 @@ namespace GI_Test
         {
             LiveOverlaySession session = CreateSession();
 
-            session.StartRecognition(hasCaptureRegion: true);
+            session.StartRecognition();
             session.PreviewCaptureRegion(hasCaptureRegion: true);
 
             Assert.AreEqual("Hint_RecognitionRunning", session.HintResourceKey);
@@ -104,9 +104,9 @@ namespace GI_Test
         {
             LiveOverlaySession session = CreateSession();
 
-            session.StartRecognition(hasCaptureRegion: false);
-            Assert.AreEqual("Hint_CaptureRegionMissing", session.HintResourceKey);
-            Assert.IsFalse(session.RecognitionRunning);
+            session.StartRecognition();
+            Assert.AreEqual("Hint_RecognitionRunning", session.HintResourceKey);
+            Assert.IsTrue(session.RecognitionRunning);
 
             session.CaptureRegionSelectionCancelled();
             Assert.AreEqual("Hint_CaptureRegionMissing", session.HintResourceKey);
@@ -132,7 +132,7 @@ namespace GI_Test
             Assert.IsFalse(session.HintVisible);
             Assert.IsNull(session.HintResourceKey);
 
-            session.StartRecognition(hasCaptureRegion: true);
+            session.StartRecognition();
             session.NoteOcrMiss();
             session.NoteMatchMiss();
 

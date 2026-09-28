@@ -54,8 +54,8 @@
     <Reference Include="Emgu.CV.World, Version=4.1.0.3408, Culture=neutral, PublicKeyToken=7281126722ab4438, processorArchitecture=MSIL">
       <HintPath>..\packages\EMGU.CV.4.1.0.3408\lib\net35\Emgu.CV.World.dll</HintPath>
     </Reference>
-    <Reference Include="log4net, Version=2.0.17.0, Culture=neutral, PublicKeyToken=669e0ddf0bb1aa2a, processorArchitecture=MSIL">
-      <HintPath>..\packages\log4net.2.0.17\lib\net45\log4net.dll</HintPath>
+    <Reference Include="log4net, Version=3.4.0.0, Culture=neutral, PublicKeyToken=669e0ddf0bb1aa2a, processorArchitecture=MSIL">
+      <HintPath>..\packages\log4net.3.4.0\lib\net462\log4net.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.ML.OnnxRuntime, Version=1.24.1.0, Culture=neutral, PublicKeyToken=f27f157f0a5b7bb6, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.ML.OnnxRuntime.Managed.1.24.1\lib\netstandard2.0\Microsoft.ML.OnnxRuntime.dll</HintPath>
@@ -158,6 +158,7 @@
     <Compile Include="Core\Cache\LRUCache.cs" />
     <Compile Include="Common\OCRSummary.cs" />
     <Compile Include="Common\TextMapNormalizer.cs" />
+    <Compile Include="Common\GitLabTextMapSource.cs" />
     <Compile Include="Common\EndfieldTextMapSource.cs" />
     <Compile Include="Common\WutheringTextMapSource.cs" />
     <Compile Include="Core\Input\HotkeySettings.cs" />
@@ -173,6 +174,7 @@
     <Compile Include="Services\Translation\OptimizedMatcherCache.cs" />
     <Compile Include="Services\Translation\MatchDataLoader.cs" />
     <Compile Include="Core\Screen\ScreenInfo.cs" />
+    <Compile Include="Core\Screen\SubtitleTextRegionDetector.cs" />
     <Compile Include="Views\RegionPairSettings.cs" />
     <Compile Include="Views\Font.xaml.cs">
       <DependentUpon>Font.xaml</DependentUpon>

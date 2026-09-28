@@ -16,7 +16,7 @@ namespace GI_Test
             DateTime now = new DateTime(2026, 9, 7, 12, 0, 0, DateTimeKind.Utc);
             var store = CreateGenshinStore();
             var session = new LiveOverlaySession(new MemoryOcrIntervalStore(), store, () => now);
-            session.StartRecognition(hasCaptureRegion: true);
+            session.StartRecognition();
 
             session.Beat(ExtraPathSample.DialogueOptionsReady(), PairFrameSample.Unchanged());
             Assert.AreEqual(LiveOverlaySession.DialogueOptionsOcrSlot, session.BusyOcrSlot);

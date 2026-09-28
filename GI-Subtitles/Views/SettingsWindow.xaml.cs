@@ -175,6 +175,9 @@ namespace GI_Subtitles.Views
             _version = version;
             _mainWindow = mainWindow;
             _overlaySession = overlaySession;
+            _mainWindow.DebugSamplingOverlayEnabledChanged += MainWindow_DebugSamplingOverlayEnabledChanged;
+            Closed += (sender, args) =>
+                _mainWindow.DebugSamplingOverlayEnabledChanged -= MainWindow_DebugSamplingOverlayEnabledChanged;
             _pairSettings = new RegionPairSettings(overlaySession);
             _overlaySession.AdjustChanged += (sender, args) =>
             {
@@ -271,11 +274,13 @@ namespace GI_Subtitles.Views
             saveButton.Click += SaveButton_Click;
             resetButton.Click += ResetButton_Click;
             RegionPairCards.ItemsSource = _pairCards;
+            RefreshPairPage();
 
             // Boolean flags
             AutoStartCheckBox.IsChecked = Config.Get("AutoStart", false);
             PlayVoiceCheckBox.IsChecked = Config.Get("PlayVoice", true);
             LogDenoiseCheckBox.IsChecked = Config.Get("LogDenoise", true);
+            DebugSamplingOverlayCheckBox.IsChecked = _mainWindow.DebugSamplingOverlayEnabled;
             BindOcrIntervalSettings();
             BindSubtitleIdleTimeoutSettings();
             RefreshAppliedLayoutUi();
@@ -289,6 +294,7 @@ namespace GI_Subtitles.Views
                 BindOcrIntervalSettings();
                 BindSubtitleIdleTimeoutSettings();
                 RefreshAppliedLayoutUi();
+                RefreshPairPage();
                 SelectRegionPairTabForLegacyReview();
             }
         }
@@ -532,12 +538,7 @@ namespace GI_Subtitles.Views
                 return;
             }
 
-            int deletedOrdinal = _pairSettings.OrdinalOf(pairId);
             _pairSettings.Delete(pairId);
-            if (deletedOrdinal == 2 || _overlaySession.Pairs.Count < 2)
-            {
-                _overlaySession.AcknowledgeLegacyRegion2Review();
-            }
             RefreshPairPage();
         }
 
@@ -804,6 +805,20 @@ namespace GI_Subtitles.Views
                     configChanged = true;
                 }
 
+                if (IsDimbreathGenshinConfig(_currentGameConfig))
+                {
+                    if (string.IsNullOrEmpty(_currentGameConfig.TextMapFileListUrl))
+                    {
+                        _currentGameConfig.TextMapFileListUrl = GameConfigStore.GenshinTextMapFileListUrl;
+                        configChanged = true;
+                    }
+                    if (string.IsNullOrEmpty(_currentGameConfig.TextMapFileUrlTemplate))
+                    {
+                        _currentGameConfig.TextMapFileUrlTemplate = GameConfigStore.GenshinTextMapFileUrlTemplate;
+                        configChanged = true;
+                    }
+                }
+
                 if (configChanged)
                 {
                     try
@@ -891,6 +906,14 @@ namespace GI_Subtitles.Views
                    (config.OutputUrlTemplate?.IndexOf("animegamedata", StringComparison.OrdinalIgnoreCase) >= 0);
         }
 
+        private static bool IsDimbreathGenshinConfig(GameConfig config)
+        {
+            const string repository = "gitlab.com/Dimbreath/animegamedata2/";
+            return config != null &&
+                   ((config.InputUrlTemplate?.IndexOf(repository, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                    (config.OutputUrlTemplate?.IndexOf(repository, StringComparison.OrdinalIgnoreCase) >= 0));
+        }
+
         private static string MigrateGenshinRepositoryUrl(string url, ref bool configChanged)
         {
             const string newRepository = "https://gitlab.com/Dimbreath/animegamedata2";
@@ -931,6 +954,8 @@ namespace GI_Subtitles.Views
                     config.InputUrlTemplate = "https://gitlab.com/Dimbreath/animegamedata2/-/raw/main/TextMap/TextMap{Language}.json?inline=false";
                     config.OutputUrlTemplate = "https://gitlab.com/Dimbreath/animegamedata2/-/raw/main/TextMap/TextMap{Language}.json?inline=false";
                     config.MediumUrlTemplate = "https://gitlab.com/Dimbreath/animegamedata2/-/raw/main/TextMap/TextMap_Medium{Language}.json?inline=false";
+                    config.TextMapFileListUrl = GameConfigStore.GenshinTextMapFileListUrl;
+                    config.TextMapFileUrlTemplate = GameConfigStore.GenshinTextMapFileUrlTemplate;
                     break;
                 case "StarRail":
                     config.RepoUrl = "https://gitlab.com/Dimbreath/turnbasedgamedata/-/refs/main/logs_tree/?format=json&offset=0&ref_type=HEADS";
@@ -986,19 +1011,64 @@ namespace GI_Subtitles.Views
         {
             if (_currentGameConfig == null) return;
 
-            InputLangDownloadUrl.Text = _currentGameConfig.GetDownloadUrl(InputLanguage, true);
-            OutputLangDownloadUrl.Text = _currentGameConfig.GetDownloadUrl(OutputLanguage, false);
+            bool useTextMapCatalog = !string.IsNullOrWhiteSpace(_currentGameConfig.TextMapFileListUrl) &&
+                                     !string.IsNullOrWhiteSpace(_currentGameConfig.TextMapFileUrlTemplate);
+            SetDownloadUrlTextBox(
+                InputLangDownloadUrl,
+                useTextMapCatalog ? null : _currentGameConfig.GetDownloadUrl(InputLanguage, true),
+                useTextMapCatalog,
+                _currentGameConfig.GetMappedLanguage(InputLanguage));
+            SetDownloadUrlTextBox(
+                OutputLangDownloadUrl,
+                useTextMapCatalog ? null : _currentGameConfig.GetDownloadUrl(OutputLanguage, false),
+                useTextMapCatalog,
+                _currentGameConfig.GetMappedLanguage(OutputLanguage));
 
             if (!string.IsNullOrEmpty(OutputLanguage2))
             {
-                OutputLangDownloadUrl2.Text = _currentGameConfig.GetDownloadUrl(OutputLanguage2, false);
+                SetDownloadUrlTextBox(
+                    OutputLangDownloadUrl2,
+                    useTextMapCatalog ? null : _currentGameConfig.GetDownloadUrl(OutputLanguage2, false),
+                    useTextMapCatalog,
+                    _currentGameConfig.GetMappedLanguage(OutputLanguage2));
                 SecondOutputDownloadPanel.Visibility = Visibility.Visible;
             }
             else
             {
-                OutputLangDownloadUrl2.Text = string.Empty;
+                SetDownloadUrlTextBox(OutputLangDownloadUrl2, string.Empty, false, string.Empty);
                 SecondOutputDownloadPanel.Visibility = Visibility.Collapsed;
             }
+        }
+
+        private void SetDownloadUrlTextBox(
+            System.Windows.Controls.TextBox textBox,
+            string url,
+            bool useTextMapCatalog,
+            string mappedLanguage)
+        {
+            if (textBox == null) return;
+
+            textBox.MouseLeftButtonUp -= UrlTextBox_MouseLeftButtonUp;
+            if (useTextMapCatalog)
+            {
+                string labelFormat = TryFindResource("Download_AutoResolved") as string ??
+                                     "Auto-resolved from catalog ({0})";
+                string toolTip = TryFindResource("Download_AutoResolved_Tooltip") as string ??
+                                 "The file URL is discovered from the repository when downloading.";
+                textBox.Text = string.Format(CultureInfo.CurrentUICulture, labelFormat, mappedLanguage);
+                textBox.ToolTip = toolTip;
+                textBox.Cursor = System.Windows.Input.Cursors.Arrow;
+                textBox.Foreground = (System.Windows.Media.Brush)FindResource("TextSecondaryBrush");
+                textBox.TextDecorations = null;
+                return;
+            }
+
+            textBox.Text = url ?? string.Empty;
+            textBox.ToolTip = "Click to copy URL";
+            textBox.Cursor = System.Windows.Input.Cursors.Hand;
+            textBox.Foreground = (System.Windows.Media.Brush)FindResource("AccentBrush");
+            textBox.TextDecorations = TextDecorations.Underline;
+            textBox.MouseLeftButtonUp += UrlTextBox_MouseLeftButtonUp;
         }
 
         private void OnGameSelectorChanged(object sender, SelectionChangedEventArgs e)
@@ -1149,6 +1219,7 @@ namespace GI_Subtitles.Views
 
         public async Task CheckDataAsync(bool renew = false)
         {
+            Stopwatch loadStopwatch = Stopwatch.StartNew();
             await _dataLoadLock.WaitAsync();
             try
             {
@@ -1209,6 +1280,12 @@ namespace GI_Subtitles.Views
                         {
                             contentDict = loaded.Content;
                             Matcher = loaded.Matcher;
+                            if (Config.Get<bool>("Debug", false))
+                            {
+                                Logger.Log.Info(
+                                    $"[Matcher readiness] assigned game={game}, entries={contentDict.Count}, " +
+                                    $"fromCache={loaded.LoadedFromMatcherCache}, elapsedMs={loadStopwatch.Elapsed.TotalMilliseconds:F1}");
+                            }
                             if (string.IsNullOrEmpty(outputLanguage2))
                             {
                                 Status.Content = $"Loaded {contentDict.Count} key-values，{inputLanguage} -> {outputLanguage}";
@@ -1246,6 +1323,12 @@ namespace GI_Subtitles.Views
             }
             finally
             {
+                if (Config.Get<bool>("Debug", false))
+                {
+                    Logger.Log.Info(
+                        $"[Matcher readiness] CheckDataAsync finished elapsedMs={loadStopwatch.Elapsed.TotalMilliseconds:F1}, " +
+                        $"ready={Matcher != null}, entries={contentDict?.Count ?? 0}");
+                }
                 _dataLoadLock.Release();
             }
         }
@@ -1485,7 +1568,19 @@ namespace GI_Subtitles.Views
         private async Task DownloadFileAsync(string url, string fileName, string gameName = "", string language = "")
         {
             if (string.IsNullOrEmpty(url)) return;
-            if (!Uri.TryCreate(url, UriKind.Absolute, out Uri uri))
+
+            bool useTextMapCatalog = !string.IsNullOrWhiteSpace(_currentGameConfig?.TextMapFileListUrl) &&
+                                     !string.IsNullOrWhiteSpace(_currentGameConfig?.TextMapFileUrlTemplate);
+            Uri uri = null;
+            if (useTextMapCatalog)
+            {
+                if (!Uri.TryCreate(_currentGameConfig.TextMapFileListUrl, UriKind.Absolute, out uri))
+                {
+                    System.Windows.MessageBox.Show($"Invalid TextMap file list URL: {_currentGameConfig.TextMapFileListUrl}");
+                    return;
+                }
+            }
+            else if (!Uri.TryCreate(url, UriKind.Absolute, out uri))
             {
                 System.Windows.MessageBox.Show($"Invalid URL: {url}");
                 return;
@@ -1509,40 +1604,55 @@ namespace GI_Subtitles.Views
             {
                 try
                 {
-                    await PerformDownloadAsync(uri, tmpUpdateFile);
+                    if (useTextMapCatalog)
+                    {
+                        await DownloadAndMergeCatalogTextMapsAsync(language, uri, tmpUpdateFile, tmpMediumFile);
+                    }
+                    else
+                    {
+                        await PerformDownloadAsync(uri, tmpUpdateFile);
+
+                        if (File.Exists(tmpUpdateFile))
+                        {
+                            if (gameName == "Wuthering")
+                            {
+                                await DownloadAndMergeWutheringPartsAsync(uri, tmpUpdateFile);
+                            }
+                            else if (gameName == "Genshin")
+                            {
+                                string mediumUrl = _currentGameConfig?.GetMediumDownloadUrl(language);
+                                if (!string.IsNullOrEmpty(mediumUrl) &&
+                                    !string.IsNullOrEmpty(tmpMediumFile) &&
+                                    Uri.TryCreate(mediumUrl, UriKind.Absolute, out Uri mediumUri))
+                                {
+                                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                                    {
+                                        Status.Content = $"Downloading Medium data for {language}...";
+                                    });
+
+                                    await PerformDownloadAsync(mediumUri, tmpMediumFile);
+                                    await Task.Run(() => TextMapNormalizer.MergeIdContentArrayFiles(
+                                        tmpUpdateFile, new[] { tmpMediumFile }));
+                                }
+                            }
+                            else if (gameName == "Endfield")
+                            {
+                                await DownloadAndMergeEndfieldChunksAsync(uri, tmpUpdateFile);
+                            }
+                            else if (gameName == "StarRail" && language == "KR")
+                            {
+                                await DownloadAndMergeStarRailKoreanPartAsync(uri, tmpUpdateFile);
+                            }
+                        }
+                    }
 
                     if (File.Exists(tmpUpdateFile))
                     {
-                        if (gameName == "Wuthering")
+                        if (useTextMapCatalog &&
+                            !string.IsNullOrEmpty(tmpMediumFile) && File.Exists(tmpMediumFile))
                         {
-                            await DownloadAndMergeWutheringPartsAsync(uri, tmpUpdateFile);
-                        }
-                        else if (gameName == "Genshin")
-                        {
-                            string mediumUrl = _currentGameConfig?.GetMediumDownloadUrl(language);
-                            if (!string.IsNullOrEmpty(mediumUrl) &&
-                                !string.IsNullOrEmpty(tmpMediumFile) &&
-                                Uri.TryCreate(mediumUrl, UriKind.Absolute, out Uri mediumUri))
-                            {
-                                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
-                                {
-                                    Status.Content = $"Downloading Medium data for {language}...";
-                                });
-
-                                await PerformDownloadAsync(mediumUri, tmpMediumFile);
-                                await Task.Run(() => VoiceContentHelper.MergeJsonFiles(tmpMediumFile, tmpUpdateFile));
-
-                                if (File.Exists(mediumFilePath)) File.Delete(mediumFilePath);
-                                File.Move(tmpMediumFile, mediumFilePath);
-                            }
-                        }
-                        else if (gameName == "Endfield")
-                        {
-                            await DownloadAndMergeEndfieldChunksAsync(uri, tmpUpdateFile);
-                        }
-                        else if (gameName == "StarRail" && language == "KR")
-                        {
-                            await DownloadAndMergeStarRailKoreanPartAsync(uri, tmpUpdateFile);
+                            if (File.Exists(mediumFilePath)) File.Delete(mediumFilePath);
+                            File.Move(tmpMediumFile, mediumFilePath);
                         }
 
                         if (File.Exists(fullPath)) File.Delete(fullPath);
@@ -1555,9 +1665,6 @@ namespace GI_Subtitles.Views
                                 IsDataIncomplete = HasMissingRequiredMediumData();
                             });
                         }
-
-                        if (File.Exists(tmpUpdateFile)) File.Delete(tmpUpdateFile);
-                        if (!string.IsNullOrEmpty(tmpMediumFile) && File.Exists(tmpMediumFile)) File.Delete(tmpMediumFile);
 
                         string directoryPath = Path.GetDirectoryName(fullPath);
                         string baseFileName = Path.GetFileNameWithoutExtension(fullPath);
@@ -1605,10 +1712,90 @@ namespace GI_Subtitles.Views
                 }
             }
 
+            TryDeleteDownloadFile(tmpUpdateFile);
+            TryDeleteDownloadFile(tmpMediumFile);
+
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 _overlaySession.NoteLanguagePackDownloadFinished(packLabel, success);
             });
+        }
+
+        private async Task DownloadAndMergeCatalogTextMapsAsync(
+            string language,
+            Uri fileListUri,
+            string mainDestinationPath,
+            string mediumDestinationPath)
+        {
+            string mappedLanguage = _currentGameConfig.GetMappedLanguage(language);
+            TextMapDownloadPlan plan = await GitLabTextMapSource.DiscoverAsync(
+                client,
+                fileListUri,
+                _currentGameConfig.TextMapFileUrlTemplate,
+                mappedLanguage);
+
+            await DownloadAndMergeTextMapGroupAsync(
+                plan.MainFiles, mainDestinationPath, language, "TextMap");
+            await DownloadAndMergeTextMapGroupAsync(
+                plan.MediumFiles, mediumDestinationPath, language, "Medium TextMap");
+
+            await Task.Run(() => TextMapNormalizer.MergeIdContentArrayFiles(
+                mainDestinationPath, new[] { mediumDestinationPath }));
+        }
+
+        private static void TryDeleteDownloadFile(string filePath)
+        {
+            if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath)) return;
+            try
+            {
+                File.Delete(filePath);
+            }
+            catch (Exception ex)
+            {
+                Logger.Log.Error($"Failed to delete temporary download file {filePath}: {ex.Message}");
+            }
+        }
+
+        private async Task DownloadAndMergeTextMapGroupAsync(
+            IReadOnlyList<Uri> partUris,
+            string destinationPath,
+            string language,
+            string resourceName)
+        {
+            if (partUris == null || partUris.Count == 0)
+            {
+                throw new InvalidOperationException($"No {resourceName} files were discovered for {language}.");
+            }
+
+            var overlayPaths = new List<string>();
+            try
+            {
+                for (int index = 0; index < partUris.Count; index++)
+                {
+                    string partPath = index == 0
+                        ? destinationPath
+                        : destinationPath + $".part{index}";
+                    if (index > 0) overlayPaths.Add(partPath);
+
+                    int partNumber = index + 1;
+                    int totalParts = partUris.Count;
+                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                    {
+                        Status.Content = $"Downloading {resourceName} for {language} ({partNumber}/{totalParts})...";
+                    });
+                    await PerformDownloadAsync(partUris[index], partPath);
+                }
+
+                await Task.Run(() => TextMapNormalizer.MergeIdContentArrayFiles(
+                    destinationPath, overlayPaths));
+            }
+            finally
+            {
+                foreach (string overlayPath in overlayPaths)
+                {
+                    TryDeleteDownloadFile(overlayPath);
+                }
+            }
         }
 
         private async Task DownloadAndMergeStarRailKoreanPartAsync(Uri firstPartUri, string destinationPath)
@@ -1899,21 +2086,23 @@ namespace GI_Subtitles.Views
                     Thread.Sleep(1000);
                     Console.WriteLine("Sleeping ...");
                 }
-                DateTime dateTime = DateTime.Now;
-                Bitmap target;
-                if (bitmap == null)
+                if (bitmap != null)
                 {
-                    target = (Bitmap)Bitmap.FromFile(testFile);
+                    OCRResult ocrResult = engine.DetectText(bitmap);
+                    string ocrText = ocrResult.Text;
+                    string res = Matcher.FindClosestMatch(ocrText, out string key);
+                    report = $"OCR: {ocrText}\nMatch: {key}\nTranslate: {res}";
                 }
                 else
                 {
-                    target = bitmap;
+                    using (Bitmap target = (Bitmap)Bitmap.FromFile(testFile))
+                    {
+                        OCRResult ocrResult = engine.DetectText(target);
+                        string ocrText = ocrResult.Text;
+                        string res = Matcher.FindClosestMatch(ocrText, out string key);
+                        report = $"OCR: {ocrText}\nMatch: {key}\nTranslate: {res}";
+                    }
                 }
-                OCRResult ocrResult = engine.DetectText(target);
-                string ocrText = ocrResult.Text;
-                dateTime = DateTime.Now;
-                string res = Matcher.FindClosestMatch(ocrText, out string key);
-                report = $"OCR: {ocrText}\nMatch: {key}\nTranslate: {res}";
             }
             catch (Exception ex)
             {
@@ -1924,23 +2113,42 @@ namespace GI_Subtitles.Views
 
         public void SetImage(Bitmap bitmap)
         {
+            if (bitmap == null)
+            {
+                throw new ArgumentNullException(nameof(bitmap));
+            }
+
+            BitmapImage bitmapImage;
             using (MemoryStream ms = new MemoryStream())
             {
-                this.bitmap = bitmap;
                 bitmap.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
                 ms.Position = 0;
 
-                BitmapImage bitmapImage = new BitmapImage();
+                bitmapImage = new BitmapImage();
                 bitmapImage.BeginInit();
                 bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
                 bitmapImage.UriSource = null;
                 bitmapImage.StreamSource = ms;
                 bitmapImage.EndInit();
                 bitmapImage.Freeze(); // Freeze, so it can be used in multiple threads
-
-                // Set the Source property of the Image control
-                Capture.Source = bitmapImage;
             }
+
+            Bitmap replacement = (Bitmap)bitmap.Clone();
+            ReplaceStoredBitmap(ref this.bitmap, replacement);
+
+            // Set the Source property of the Image control
+            Capture.Source = bitmapImage;
+        }
+
+        internal static void ReplaceStoredBitmap(ref Bitmap current, Bitmap replacement)
+        {
+            if (ReferenceEquals(current, replacement))
+            {
+                return;
+            }
+
+            current?.Dispose();
+            current = replacement;
         }
 
         private void RegionButton_Click(object sender, RoutedEventArgs e)
@@ -2317,6 +2525,8 @@ namespace GI_Subtitles.Views
             {
 
             }
+            bitmap?.Dispose();
+            bitmap = null;
             this.Close();
         }
 
@@ -2343,6 +2553,40 @@ namespace GI_Subtitles.Views
 
             Config.Set("LogDenoise", LogDenoiseCheckBox.IsChecked == true);
             LogDenoiseChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        private void DebugSamplingOverlayCheckBox_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_mainWindow != null)
+            {
+                _mainWindow.SetDebugSamplingOverlayEnabled(DebugSamplingOverlayCheckBox.IsChecked == true);
+            }
+        }
+
+        private void MainWindow_DebugSamplingOverlayEnabledChanged(object sender, EventArgs e)
+        {
+            if (DebugSamplingOverlayCheckBox == null)
+            {
+                return;
+            }
+
+            Action updateCheckBox = () =>
+            {
+                bool enabled = _mainWindow.DebugSamplingOverlayEnabled;
+                if (DebugSamplingOverlayCheckBox.IsChecked != enabled)
+                {
+                    DebugSamplingOverlayCheckBox.IsChecked = enabled;
+                }
+            };
+
+            if (Dispatcher.CheckAccess())
+            {
+                updateCheckBox();
+            }
+            else
+            {
+                Dispatcher.BeginInvoke(updateCheckBox);
+            }
         }
 
         private void TestVoice_Click(object sender, RoutedEventArgs e)

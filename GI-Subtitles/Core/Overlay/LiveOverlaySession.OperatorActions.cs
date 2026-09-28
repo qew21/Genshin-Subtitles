@@ -43,15 +43,9 @@ namespace GI_Subtitles.Core.Overlay
 
         public object[] HintFormatArguments { get; private set; }
 
-        public void StartRecognition(bool hasCaptureRegion)
+        public void StartRecognition()
         {
             Tick();
-            if (!hasCaptureRegion)
-            {
-                WriteOperatorAction(OperatorJob.StartRecognition, null, HintResourceCaptureRegionMissing);
-                return;
-            }
-
             RecognitionRunning = true;
             WriteOperatorAction(OperatorJob.StartRecognition, null, HintResourceRecognitionRunning);
         }
@@ -60,6 +54,7 @@ namespace GI_Subtitles.Core.Overlay
         {
             Tick();
             RecognitionRunning = false;
+            InvalidateAutoRegionOcr();
             WriteOperatorAction(OperatorJob.StopRecognition, null, HintResourceRecognitionStopped);
         }
 

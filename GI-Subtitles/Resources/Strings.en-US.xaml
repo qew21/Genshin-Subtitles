@@ -20,6 +20,8 @@
     <sys:String x:Key="Repo_Last_Modified" xmlns:sys="clr-namespace:System;assembly=mscorlib">Last Modified:</sys:String>
     <sys:String x:Key="Download_Input_Lang" xmlns:sys="clr-namespace:System;assembly=mscorlib">Download Input Language:</sys:String>
     <sys:String x:Key="Download_Output_Lang" xmlns:sys="clr-namespace:System;assembly=mscorlib">Download Output Language:</sys:String>
+    <sys:String x:Key="Download_AutoResolved" xmlns:sys="clr-namespace:System;assembly=mscorlib">Auto-discovered from catalog ({0})</sys:String>
+    <sys:String x:Key="Download_AutoResolved_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">The language file is discovered from the repository when downloading.</sys:String>
 
     <sys:String x:Key="Status_Loading" xmlns:sys="clr-namespace:System;assembly=mscorlib">Loading data...</sys:String>
 
@@ -77,7 +79,7 @@
     <sys:String x:Key="RegionPair_BoxDisplayMask" xmlns:sys="clr-namespace:System;assembly=mscorlib">Box display region (region pair {0})</sys:String>
     <sys:String x:Key="RegionPair_BoxCaptureTooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Box this region pair's capture region</sys:String>
     <sys:String x:Key="RegionPair_BoxDisplayTooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Box this region pair's display region</sys:String>
-    <sys:String x:Key="RegionPair_MigrationReviewMessage" xmlns:sys="clr-namespace:System;assembly=mscorlib">A second capture region from the legacy version was migrated as region pair 2. Click “Preview all” to inspect every frame; delete region pair 2 if you do not need it.</sys:String>
+    <sys:String x:Key="RegionPair_MigrationReviewMessage" xmlns:sys="clr-namespace:System;assembly=mscorlib">A second capture region from the legacy version was migrated as a region pair. Click “Preview all” to inspect every frame; delete that region pair if you do not need it.</sys:String>
     <sys:String x:Key="Config_OcrInterval_Label" xmlns:sys="clr-namespace:System;assembly=mscorlib">Minimum OCR interval</sys:String>
     <sys:String x:Key="Config_OcrInterval_OutOfRange" xmlns:sys="clr-namespace:System;assembly=mscorlib">Current {0}ms, outside 200–1000. The engine is still using this value. An edit will clamp it into range.</sys:String>
     <sys:String x:Key="Config_SubtitleIdleTimeout_Label" xmlns:sys="clr-namespace:System;assembly=mscorlib">Subtitle idle timeout</sys:String>
@@ -144,6 +146,10 @@
     <sys:String x:Key="Config_PlayVoice" xmlns:sys="clr-namespace:System;assembly=mscorlib">Enable voice</sys:String>
     <sys:String x:Key="Config_LogDenoise" xmlns:sys="clr-namespace:System;assembly=mscorlib">Hide repeat recognition rows in the activity log</sys:String>
     <sys:String x:Key="Config_LogDenoise_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">When off, the activity log window shows every run, with repeated recognition rows dimmed and marked. This only changes what the log shows — no rows are removed, and subtitles and voice are unaffected.</sys:String>
+    <sys:String x:Key="Config_DebugSamplingOverlay" xmlns:sys="clr-namespace:System;assembly=mscorlib">Show recognition debug panel</sys:String>
+    <sys:String x:Key="Config_DebugSamplingOverlay_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Shows sampling and skipped-frame reasons, plus process CPU and memory while recognition is running. It hides when recognition is paused.</sys:String>
+    <sys:String x:Key="Debug_ProcessResources" xmlns:sys="clr-namespace:System;assembly=mscorlib">Process CPU {0:F1}% (of total)  Memory {1:F0} MB</sys:String>
+    <sys:String x:Key="Debug_ProcessResourcesUnavailable" xmlns:sys="clr-namespace:System;assembly=mscorlib">Process CPU / memory unavailable</sys:String>
     <sys:String x:Key="Config_RecognizeDarkScreenSubtitles" xmlns:sys="clr-namespace:System;assembly=mscorlib">Recognize dark-screen subtitles</sys:String>
     <sys:String x:Key="Config_RecognizeDarkScreenSubtitles_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Detects the central subtitle band on a mostly-dark cutscene and shows the translation. This is not a region pair.</sys:String>
     <sys:String x:Key="Config_RecognizeDialogueOptions" xmlns:sys="clr-namespace:System;assembly=mscorlib">Recognize dialogue choices</sys:String>

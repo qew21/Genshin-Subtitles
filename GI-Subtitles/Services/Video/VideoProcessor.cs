@@ -122,7 +122,7 @@ namespace GI_Subtitles.Services.Video
                     if (currentTime > maxDuration) break;
 
                     // 2. Crop ROI
-                    roiFrame = new Mat(currentFrame, validRoi);
+                    roiFrame = ReplaceRoiFrame(roiFrame, currentFrame, validRoi);
 
                     // 3. Image preprocessing (key optimization)
                     // Convert the image into a binary form that is easy to compare, filtering out background interference
@@ -408,6 +408,12 @@ namespace GI_Subtitles.Services.Video
 
         public void Dispose()
         {
+        }
+
+        internal static Mat ReplaceRoiFrame(Mat previousFrame, Mat source, OpenCvSharp.Rect region)
+        {
+            previousFrame?.Dispose();
+            return new Mat(source, region);
         }
     }
 

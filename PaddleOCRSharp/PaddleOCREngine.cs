@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Globalization;
@@ -518,7 +519,20 @@ namespace PaddleOCRSharp
             if (bitmap == null)
                 throw new ArgumentException("Image must be a Bitmap", nameof(image));
 
-            return DetectTextFromMat(bitmap.ToMat());
+            return WithBitmapMat(bitmap, DetectTextFromMat);
+        }
+
+        internal static TResult WithBitmapMat<TResult>(Bitmap bitmap, Func<Mat, TResult> process)
+        {
+            if (bitmap == null)
+                throw new ArgumentNullException(nameof(bitmap));
+            if (process == null)
+                throw new ArgumentNullException(nameof(process));
+
+            using (Mat mat = bitmap.ToMat())
+            {
+                return process(mat);
+            }
         }
 
         /// <summary>
@@ -558,11 +572,56 @@ namespace PaddleOCRSharp
             if (src == null || src.IsDisposed || src.Empty())
                 throw new ArgumentException("Invalid Mat object", nameof(src));
 
-            // Text detection
+            Stopwatch detectionTimer = Stopwatch.StartNew();
             var rects = DetectTextRegions(src);
+            detectionTimer.Stop();
+            return RecognizeTextRegions(
+                src,
+                rects,
+                rects.Length,
+                detectionTimer.Elapsed.TotalMilliseconds,
+                0);
+        }
+
+        /// <summary>
+        /// Recognizes lower-center subtitle text while ignoring unrelated UI text
+        /// elsewhere in the frame. This is intended for live subtitle sampling;
+        /// generic OCR callers should keep using <see cref="DetectTextFromMat(Mat)"/>.
+        /// </summary>
+        public OCRResult DetectSubtitleTextFromMat(Mat src)
+        {
+            if (src == null || src.IsDisposed || src.Empty())
+                throw new ArgumentException("Invalid Mat object", nameof(src));
+
+            Stopwatch detectionTimer = Stopwatch.StartNew();
+            RotatedRect[] detected = DetectTextRegions(src);
+            detectionTimer.Stop();
+            Stopwatch selectionTimer = Stopwatch.StartNew();
+            RotatedRect[] subtitleRegions = SelectSubtitleTextRegions(
+                detected,
+                src.Width,
+                src.Height);
+            selectionTimer.Stop();
+            return RecognizeTextRegions(
+                src,
+                subtitleRegions,
+                detected.Length,
+                detectionTimer.Elapsed.TotalMilliseconds,
+                selectionTimer.Elapsed.TotalMilliseconds);
+        }
+
+        private OCRResult RecognizeTextRegions(
+            Mat src,
+            RotatedRect[] rects,
+            int detectedRegionCount,
+            double detectionElapsedMilliseconds,
+            double subtitleSelectionElapsedMilliseconds)
+        {
+            Stopwatch recognitionTimer = Stopwatch.StartNew();
 
             // Text recognition
             var textBlocks = new List<TextBlock>();
+            int recognizedRegionCount = 0;
             if (rects.Length > 0)
             {
                 var croppedMats = new List<Mat>();
@@ -582,6 +641,7 @@ namespace PaddleOCRSharp
                         validRectIndices.Add(i); // Record original index of valid rectangles
                     }
 
+                    recognizedRegionCount = croppedMats.Count;
                     var results = RecognizeText(croppedMats.ToArray());
                     for (int i = 0; i < results.Count && i < validRectIndices.Count; i++)
                     {
@@ -602,13 +662,238 @@ namespace PaddleOCRSharp
                 }
             }
 
+            recognitionTimer.Stop();
             return new OCRResult
             {
                 TextBlocks = textBlocks,
+                DetectedTextRegionCount = detectedRegionCount,
+                RecognizedTextRegionCount = recognizedRegionCount,
+                TextDetectionElapsedMilliseconds = detectionElapsedMilliseconds,
+                SubtitleSelectionElapsedMilliseconds = subtitleSelectionElapsedMilliseconds,
+                TextRecognitionElapsedMilliseconds = recognitionTimer.Elapsed.TotalMilliseconds,
                 Text = string.Join("\n", textBlocks
                     .Where(tb => tb.Score >= _parameter.rec_score_thresh)
                     .Select(tb => tb.Text))
             };
+        }
+
+        private static RotatedRect[] SelectSubtitleTextRegions(
+            RotatedRect[] detected,
+            int frameWidth,
+            int frameHeight)
+        {
+            if (detected == null || detected.Length == 0 || frameWidth <= 0 || frameHeight <= 0)
+            {
+                return Array.Empty<RotatedRect>();
+            }
+
+            double frameCenterX = frameWidth / 2.0;
+            var candidates = detected
+                .Select((region, index) => new SubtitleRegionCandidate(
+                    index,
+                    GetTextRegionBounds(region)))
+                .Where(candidate =>
+                    candidate.Bounds.Height >= Math.Max(6, frameHeight * 0.02) &&
+                    candidate.Bounds.CenterY >= frameHeight * 0.05 &&
+                    candidate.Bounds.CenterY <= frameHeight * 0.96)
+                .OrderBy(candidate => candidate.Bounds.CenterY)
+                .ThenBy(candidate => candidate.Bounds.CenterX)
+                .ToList();
+
+            if (candidates.Count == 0)
+            {
+                return Array.Empty<RotatedRect>();
+            }
+
+            List<SubtitleTextLine> lines = GroupSubtitleBoxesIntoLines(candidates, frameWidth);
+            List<List<SubtitleTextLine>> clusters = GroupSubtitleLines(lines, frameWidth, frameHeight);
+            List<SubtitleTextLine> bestCluster = clusters
+                .Where(cluster => IsSubtitleCluster(cluster, frameWidth, frameHeight))
+                .OrderByDescending(cluster => cluster.Count)
+                .ThenByDescending(cluster => cluster.Sum(line => line.Bounds.Width))
+                .ThenBy(cluster => cluster.Average(line =>
+                    Math.Abs(line.Bounds.CenterX - frameCenterX)))
+                .FirstOrDefault();
+
+            if (bestCluster == null)
+            {
+                return Array.Empty<RotatedRect>();
+            }
+
+            return bestCluster
+                .SelectMany(line => line.RegionIndexes)
+                .Distinct()
+                .OrderBy(index => detected[index].Center.Y)
+                .ThenBy(index => detected[index].Center.X)
+                .Take(8)
+                .Select(index => detected[index])
+                .ToArray();
+        }
+
+        private static List<SubtitleTextLine> GroupSubtitleBoxesIntoLines(
+            List<SubtitleRegionCandidate> candidates,
+            int frameWidth)
+        {
+            var lines = new List<SubtitleTextLine>();
+            foreach (SubtitleRegionCandidate candidate in candidates)
+            {
+                SubtitleTextLine line = lines
+                    .Where(existing =>
+                        Math.Abs(existing.Bounds.CenterY - candidate.Bounds.CenterY) <=
+                            Math.Max(10, Math.Min(existing.Bounds.Height, candidate.Bounds.Height) * 0.65))
+                    .OrderBy(existing => Math.Abs(existing.Bounds.CenterY - candidate.Bounds.CenterY))
+                    .FirstOrDefault();
+
+                if (line == null)
+                {
+                    line = new SubtitleTextLine();
+                    lines.Add(line);
+                }
+
+                line.Add(candidate);
+            }
+
+            return lines
+                // DB OCR can split one centered subtitle row into several regions
+                // with very different individual centers. Merge by baseline first,
+                // then judge the center of the complete row.
+                .Where(line =>
+                    Math.Abs(line.Bounds.CenterX - frameWidth / 2.0) <= frameWidth * 0.30)
+                .OrderBy(line => line.Bounds.CenterY)
+                .ToList();
+        }
+
+        private static List<List<SubtitleTextLine>> GroupSubtitleLines(
+            List<SubtitleTextLine> lines,
+            int frameWidth,
+            int frameHeight)
+        {
+            var clusters = new List<List<SubtitleTextLine>>();
+            foreach (SubtitleTextLine line in lines)
+            {
+                List<SubtitleTextLine> cluster = clusters.LastOrDefault();
+                if (cluster != null)
+                {
+                    SubtitleTextLine previous = cluster[cluster.Count - 1];
+                    double verticalGap = line.Bounds.Top - previous.Bounds.Bottom;
+                    double maximumGap = Math.Max(
+                        frameHeight * 0.10,
+                        Math.Max(previous.Bounds.Height, line.Bounds.Height) * 2.5);
+                    double minimumLineSeparation = Math.Max(
+                        12,
+                        Math.Min(previous.Bounds.Height, line.Bounds.Height) * 0.65);
+                    bool verticallySeparate =
+                        line.Bounds.CenterY - previous.Bounds.CenterY >= minimumLineSeparation;
+                    bool closeEnough = verticallySeparate &&
+                        verticalGap <= maximumGap &&
+                        Math.Abs(line.Bounds.CenterX - previous.Bounds.CenterX) <= frameWidth * 0.12;
+                    if (!closeEnough)
+                    {
+                        cluster = null;
+                    }
+                }
+
+                if (cluster == null)
+                {
+                    cluster = new List<SubtitleTextLine>();
+                    clusters.Add(cluster);
+                }
+                cluster.Add(line);
+            }
+
+            return clusters;
+        }
+
+        private static bool IsSubtitleCluster(
+            List<SubtitleTextLine> cluster,
+            int frameWidth,
+            int frameHeight)
+        {
+            if (cluster == null || cluster.Count == 0)
+            {
+                return false;
+            }
+
+            if (cluster.Count >= 2)
+            {
+                return true;
+            }
+
+            SubtitleTextLine line = cluster[0];
+            // A lone, short centered control label is common in desktop UI. Keep a
+            // single-row subtitle only when OCR found a substantial centered line.
+            return line.RegionIndexes.Count == 1 &&
+                   line.Bounds.CenterY >= frameHeight * 0.30 &&
+                   line.Bounds.Width >= frameWidth * 0.12 &&
+                   Math.Abs(line.Bounds.CenterX - frameWidth / 2.0) <= frameWidth * 0.08;
+        }
+
+        private static TextRegionBounds GetTextRegionBounds(RotatedRect region)
+        {
+            Point2f[] points = region.Points();
+            float left = points.Min(point => point.X);
+            float top = points.Min(point => point.Y);
+            float right = points.Max(point => point.X);
+            float bottom = points.Max(point => point.Y);
+            return new TextRegionBounds(left, top, right, bottom);
+        }
+
+        private sealed class SubtitleRegionCandidate
+        {
+            public SubtitleRegionCandidate(int index, TextRegionBounds bounds)
+            {
+                Index = index;
+                Bounds = bounds;
+            }
+
+            public int Index { get; }
+            public TextRegionBounds Bounds { get; }
+        }
+
+        private sealed class SubtitleTextLine
+        {
+            private readonly List<SubtitleRegionCandidate> _regions =
+                new List<SubtitleRegionCandidate>();
+
+            public List<int> RegionIndexes => _regions.Select(region => region.Index).ToList();
+            public TextRegionBounds Bounds { get; private set; }
+
+            public void Add(SubtitleRegionCandidate candidate)
+            {
+                _regions.Add(candidate);
+                Bounds = _regions
+                    .Select(region => region.Bounds)
+                    .Aggregate(TextRegionBounds.Union);
+            }
+        }
+
+        private readonly struct TextRegionBounds
+        {
+            public TextRegionBounds(float left, float top, float right, float bottom)
+            {
+                Left = left;
+                Top = top;
+                Right = right;
+                Bottom = bottom;
+            }
+
+            public float Left { get; }
+            public float Top { get; }
+            public float Right { get; }
+            public float Bottom { get; }
+            public float Width => Right - Left;
+            public float Height => Bottom - Top;
+            public float CenterX => (Left + Right) / 2;
+            public float CenterY => (Top + Bottom) / 2;
+
+            public static TextRegionBounds Union(TextRegionBounds left, TextRegionBounds right)
+            {
+                return new TextRegionBounds(
+                    Math.Min(left.Left, right.Left),
+                    Math.Min(left.Top, right.Top),
+                    Math.Max(left.Right, right.Right),
+                    Math.Max(left.Bottom, right.Bottom));
+            }
         }
 
         /// <summary>

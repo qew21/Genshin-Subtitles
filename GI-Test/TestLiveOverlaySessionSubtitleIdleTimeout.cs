@@ -285,7 +285,7 @@ namespace GI_Test
             LiveOverlaySession session = CreateSession(1, () => now);
             session.SetSubtitleIdleTimeoutSeconds(2);
 
-            session.StartRecognition(hasCaptureRegion: true);
+            session.StartRecognition();
             Assert.AreEqual("Hint_RecognitionRunning", session.HintResourceKey);
 
             session.Beat(PairFrameSample.ChangedAndStable());
@@ -316,7 +316,7 @@ namespace GI_Test
             LiveOverlaySession session = CreateSession(1, () => now);
             session.SetSubtitleIdleTimeoutSeconds(2);
 
-            session.StartRecognition(hasCaptureRegion: true);
+            session.StartRecognition();
             session.Beat(PairFrameSample.ChangedAndStable());
             session.CompleteOcr(miss: false, content: "line", ocrText: "line", original: "orig");
             Assert.IsNotNull(session.TakeVoicePlayRequest());
@@ -363,6 +363,7 @@ namespace GI_Test
             DateTime now = new DateTime(2026, 9, 10, 13, 0, 0, DateTimeKind.Utc);
             LiveOverlaySession session = CreateSession(1, () => now);
             session.SetSubtitleIdleTimeoutSeconds(2);
+            session.StartRecognition();
 
             session.Beat(PairFrameSample.ChangedAndStable());
             session.CompleteOcr(miss: false, content: "line", ocrText: "line", original: "orig");

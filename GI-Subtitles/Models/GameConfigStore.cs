@@ -18,6 +18,10 @@ namespace GI_Subtitles.Models
             "https://github.com/cmyyx/cep/commits/main/public/game-i18n.atom";
         public const string EndfieldTextMapUrlTemplate =
             "https://raw.githubusercontent.com/cmyyx/cep/main/public/game-i18n/{Language}/000.json";
+        public const string GenshinTextMapFileListUrl =
+            "https://gitlab.com/api/v4/projects/Dimbreath%2Fanimegamedata2/repository/tree?path=TextMap&ref=main&per_page=100";
+        public const string GenshinTextMapFileUrlTemplate =
+            "https://gitlab.com/Dimbreath/animegamedata2/-/raw/main/{Path}?inline=false";
 
         public static GameConfig LoadOrCreate(
             string configPath,

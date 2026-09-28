@@ -24,7 +24,8 @@
                 Cursor="SizeAll"
                 Visibility="Collapsed"
                 Panel.ZIndex="8"
-                IsHitTestVisible="False">
+                IsHitTestVisible="True"
+                Focusable="False">
             <Image Source="../Resources/drag.png" Stretch="Uniform" Width="20" Height="20"
                    HorizontalAlignment="Center"
                    VerticalAlignment="Center" />
@@ -69,9 +70,6 @@
               HorizontalAlignment="Stretch"
               VerticalAlignment="Top"
               IsHitTestVisible="False">
-            <Grid.RenderTransform>
-                <TranslateTransform Y="-20"/>
-            </Grid.RenderTransform>
             <TextBlock x:Name="HeaderText"
                        TextWrapping="Wrap"
                        FontFamily="{DynamicResource SubtitleFontFamily}"
@@ -96,5 +94,58 @@
                            Text=""/>
             </Border>
         </Grid>
+
+        <Border x:Name="DebugSamplingPanel"
+                Width="760"
+                Height="158"
+                Padding="8"
+                Background="#E6202733"
+                BorderBrush="#CC69D7F5"
+                BorderThickness="1"
+                CornerRadius="4"
+                Visibility="Collapsed"
+                IsHitTestVisible="False"
+                Panel.ZIndex="100000">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <TextBlock x:Name="DebugResourceText"
+                           Grid.Row="0"
+                           Foreground="#FF8DE8FF"
+                           FontFamily="Consolas"
+                           FontSize="13"
+                           FontWeight="Bold"
+                           Margin="0,0,28,5"
+                           Text="CPU -- | Memory --"/>
+                <ScrollViewer x:Name="DebugSamplingScrollViewer"
+                              Grid.Row="1"
+                              VerticalScrollBarVisibility="Hidden"
+                              HorizontalScrollBarVisibility="Disabled"
+                              IsHitTestVisible="False">
+                    <TextBlock x:Name="DebugSamplingText"
+                               Foreground="#FFF4F7FB"
+                               FontFamily="Consolas"
+                               FontSize="13"
+                               TextWrapping="Wrap"
+                               VerticalAlignment="Top"/>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+        <Button x:Name="DebugSamplingCloseButton"
+                Width="22" Height="22"
+                Content="×"
+                FontSize="17"
+                FontWeight="Bold"
+                Foreground="White"
+                Background="#CC3A4656"
+                BorderThickness="0"
+                Cursor="Hand"
+                Visibility="Collapsed"
+                IsHitTestVisible="True"
+                Focusable="False"
+                Click="DebugSamplingCloseButton_Click"
+                Panel.ZIndex="100001"/>
     </Canvas>
 </Window>

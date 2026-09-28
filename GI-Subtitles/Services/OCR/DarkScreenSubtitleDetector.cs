@@ -35,9 +35,7 @@ namespace GI_Subtitles.Services.OCR
 
             using var analysisFrame = new Mat();
             using var gray = new Mat();
-            using var hsv = new Mat();
             using var darkMask = new Mat();
-            using var brightMask = new Mat();
 
             // Resize before color conversion. At 6K/8K, cloning the original BGR frame
             // before shrinking it can copy tens of megabytes on every scan.
@@ -45,20 +43,24 @@ namespace GI_Subtitles.Services.OCR
             CopyScaledBgr(screen, analysisFrame, analysisScale);
 
             Cv2.CvtColor(analysisFrame, gray, ColorConversionCodes.BGR2GRAY);
-            Cv2.CvtColor(analysisFrame, hsv, ColorConversionCodes.BGR2HSV);
             Cv2.InRange(gray, Scalar.All(0), Scalar.All(48), darkMask);
-            // White and light-gray subtitle pixels have high value and relatively low saturation.
-            // This excludes the common yellow "continue" prompt even if it enters the search area.
-            Cv2.InRange(hsv, new Scalar(0, 0, 185), new Scalar(180, 90, 255), brightMask);
-
             double totalPixels = analysisFrame.Width * (double)analysisFrame.Height;
             darkRatio = Cv2.CountNonZero(darkMask) / totalPixels;
-            brightRatio = Cv2.CountNonZero(brightMask) / totalPixels;
             isDarkScreen = darkRatio >= MinimumDarkRatio;
             if (!isDarkScreen)
             {
                 return false;
             }
+
+            // Most scans are ordinary gameplay. Only pay for HSV conversion and
+            // subtitle-pixel analysis after the cheap grayscale dark-frame gate passes.
+            using var hsv = new Mat();
+            using var brightMask = new Mat();
+            Cv2.CvtColor(analysisFrame, hsv, ColorConversionCodes.BGR2HSV);
+            // White and light-gray subtitle pixels have high value and relatively low saturation.
+            // This excludes the common yellow "continue" prompt even if it enters the search area.
+            Cv2.InRange(hsv, new Scalar(0, 0, 185), new Scalar(180, 90, 255), brightMask);
+            brightRatio = Cv2.CountNonZero(brightMask) / totalPixels;
 
             if (brightRatio < MinimumBrightRatio || brightRatio > MaximumBrightRatio)
             {

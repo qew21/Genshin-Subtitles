@@ -32,28 +32,26 @@ namespace GI_Subtitles.Common
             {
                 string fileName = Path.GetFileName(file);
                 Logger.Log.Debug($"Processing: {fileName}");
-                Bitmap bitmap;
-
                 try
                 {
-                    // Load image
-                    bitmap = (Bitmap)Bitmap.FromFile(file);
-
-                    // Perform OCR and time it
-                    var sw = Stopwatch.StartNew();
-                    OCRResult ocrResult = engine.DetectText(bitmap);
-                    sw.Stop();
-
-                    string ocrText = ocrResult?.Text ?? string.Empty;
-                    double durationMs = sw.Elapsed.TotalMilliseconds;
-                    totalDuration += durationMs;
-
-                    results.Add(new OCRTestResult
+                    using (Bitmap bitmap = (Bitmap)Bitmap.FromFile(file))
                     {
-                        FileName = fileName,
-                        OCRText = ocrText,
-                        DurationMs = durationMs
-                    });
+                        // Perform OCR and time it
+                        var sw = Stopwatch.StartNew();
+                        OCRResult ocrResult = engine.DetectText(bitmap);
+                        sw.Stop();
+
+                        string ocrText = ocrResult?.Text ?? string.Empty;
+                        double durationMs = sw.Elapsed.TotalMilliseconds;
+                        totalDuration += durationMs;
+
+                        results.Add(new OCRTestResult
+                        {
+                            FileName = fileName,
+                            OCRText = ocrText,
+                            DurationMs = durationMs
+                        });
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -64,12 +62,6 @@ namespace GI_Subtitles.Common
                         OCRText = $"[ERROR: {ex.Message}]",
                         DurationMs = -1
                     });
-                }
-                finally
-                {
-                    // Ensure bitmap is disposed if it was created
-                    // Note: In this version, 'bitmap' is created inside the using block and disposed there
-                    // If ImageProcessor.EnhanceTextInImage returns a new bitmap, you may need to dispose it explicitly
                 }
             }
 

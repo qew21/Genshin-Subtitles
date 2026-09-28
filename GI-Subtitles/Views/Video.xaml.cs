@@ -90,6 +90,11 @@ namespace GI_Subtitles.Views
                 Dispatcher.BeginInvoke(new Action(() => Topmost = false),
                     System.Windows.Threading.DispatcherPriority.ApplicationIdle);
             };
+            Closed += (s, e) =>
+            {
+                videoCapture?.Dispose();
+                videoCapture = null;
+            };
 
             // Calculate the image boundaries
             PreviewImage.Loaded += (s, e) => UpdateImageBounds();
@@ -184,6 +189,7 @@ namespace GI_Subtitles.Views
             if (dialog.ShowDialog() == true)
             {
                 _videoPath = dialog.FileName;
+                videoCapture?.Dispose();
                 videoCapture = new VideoCapture(_videoPath);
                 if (!videoCapture.IsOpened())
                     throw new InvalidOperationException("Failed to open video, please try to convert to .avi format.");

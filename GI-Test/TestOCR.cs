@@ -74,7 +74,7 @@ namespace GI_Test
         [TestMethod]
         public void TestLegacyChineseModelsAreNotAvailableAtRuntime()
         {
-            Assert.ThrowsException<NotSupportedException>(() =>
+            Assert.ThrowsExactly<NotSupportedException>(() =>
                 SettingsWindow.LoadEngine(
                     "CHS",
                     "V4",

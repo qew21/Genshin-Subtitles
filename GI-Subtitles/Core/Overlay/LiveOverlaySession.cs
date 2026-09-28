@@ -18,6 +18,7 @@ namespace GI_Subtitles.Core.Overlay
         public const int DialogueOptionScanIntervalMs = 400;
         public const int DarkScreenOcrSlot = -2;
         public const int DialogueOptionsOcrSlot = -1;
+        public const int AutoRegionOcrSlot = -3;
         public const int SettingsPairCap = 4;
         public const int EnginePairCap = SettingsPairCap;
         public const int DefaultSubtitleIdleTimeoutSeconds = 0;
@@ -65,6 +66,7 @@ namespace GI_Subtitles.Core.Overlay
         private int _nextPairId = 1;
         private int _darkScreenGeneration;
         private int _dialogueOptionsGeneration;
+        private int _autoRegionGeneration;
         private int _busyOcrGeneration;
         private OverlayRect _addCapture = OverlayRect.Invalid;
         private OverlayRect _addDisplay = OverlayRect.Invalid;
@@ -142,6 +144,11 @@ namespace GI_Subtitles.Core.Overlay
             get { return _busyPairIndex; }
         }
 
+        public int? BusyOcrGeneration
+        {
+            get { return _busyPairIndex.HasValue ? (int?)_busyOcrGeneration : null; }
+        }
+
         public int? BusyOcrPairIndex
         {
             get
@@ -160,7 +167,8 @@ namespace GI_Subtitles.Core.Overlay
             get
             {
                 OverlayRect display = ResolveDarkScreenDisplay();
-                bool visible = SubtitlesVisible
+                bool visible = RecognitionRunning
+                    && SubtitlesVisible
                     && display.IsValid
                     && !string.IsNullOrEmpty(_darkScreenContent);
                 return new ExtraPathBody(
@@ -217,7 +225,8 @@ namespace GI_Subtitles.Core.Overlay
             get
             {
                 OverlayRect display = ResolveEchoDisplay();
-                bool visible = SubtitlesVisible
+                bool visible = RecognitionRunning
+                    && SubtitlesVisible
                     && display.IsValid
                     && !string.IsNullOrEmpty(_echoContent);
                 return new ExtraPathBody(
@@ -256,7 +265,10 @@ namespace GI_Subtitles.Core.Overlay
                 {
                     OverlayRect display = _pairs[i].Display;
                     string content = _contents[i];
-                    bool visible = SubtitlesVisible && display.IsValid && !string.IsNullOrEmpty(content);
+                    bool visible = RecognitionRunning
+                        && SubtitlesVisible
+                        && display.IsValid
+                        && !string.IsNullOrEmpty(content);
                     bodies[i] = new PairSubtitleBody(
                         i,
                         display,
@@ -335,6 +347,8 @@ namespace GI_Subtitles.Core.Overlay
         public bool AddInProgress { get; private set; }
 
         public bool LegacyRegion2ReviewPending { get; private set; }
+
+        public int LegacyRegion2ReviewPairId { get; private set; }
 
         public bool VoicePlaybackActive { get; private set; }
 
@@ -492,20 +506,37 @@ namespace GI_Subtitles.Core.Overlay
 
         public void AcknowledgeLegacyRegion2Review()
         {
-            if (!LegacyRegion2ReviewPending)
+            if (!LegacyRegion2ReviewPending && LegacyRegion2ReviewPairId == 0)
             {
                 return;
             }
 
             LegacyRegion2ReviewPending = false;
-            ILegacyRegion2ReviewStore reviewStore = _pairStore as ILegacyRegion2ReviewStore;
-            if (reviewStore != null)
-            {
-                reviewStore.WriteLegacyRegion2ReviewPending(false);
-            }
+            LegacyRegion2ReviewPairId = 0;
+            PersistLegacyRegion2ReviewState();
         }
 
         public void SetDisplay(int pairIndex, OverlayRect display)
+        {
+            SetDisplayCore(pairIndex, display, persist: true);
+        }
+
+        public void PreviewDisplay(int pairIndex, OverlayRect display)
+        {
+            SetDisplayCore(pairIndex, display, persist: false);
+        }
+
+        public void CommitDisplay(int pairIndex)
+        {
+            if (pairIndex < 0 || pairIndex >= _pairs.Count)
+            {
+                return;
+            }
+
+            PersistPairs();
+        }
+
+        private void SetDisplayCore(int pairIndex, OverlayRect display, bool persist)
         {
             if (pairIndex < 0 || pairIndex >= _pairs.Count)
             {
@@ -516,7 +547,10 @@ namespace GI_Subtitles.Core.Overlay
             RegionPair current = _pairs[pairIndex];
             _pairs[pairIndex] = new RegionPair(current.Id, current.Capture, nextDisplay);
             RegionAdjustTrace.DisplaySet(OverlayAdjustTarget.Pair, current.Id, nextDisplay);
-            PersistPairs();
+            if (persist)
+            {
+                PersistPairs();
+            }
             if (ArmedPairId == current.Id)
             {
                 if (!nextDisplay.IsValid)
@@ -596,6 +630,8 @@ namespace GI_Subtitles.Core.Overlay
                 return;
             }
 
+            bool wasPendingReviewPair = LegacyRegion2ReviewPending
+                && LegacyRegion2ReviewPairId == id;
             bool wasPrimary = VoicePrimaryId == id;
             bool wasArmed = ArmedPairId == id;
             RemovePairAt(index);
@@ -605,6 +641,14 @@ namespace GI_Subtitles.Core.Overlay
             }
 
             PersistPairs();
+            if (LegacyRegion2ReviewPending
+                && (wasPendingReviewPair
+                    || _pairs.Count == 0
+                    || IndexOfPair(LegacyRegion2ReviewPairId) < 0))
+            {
+                AcknowledgeLegacyRegion2Review();
+            }
+
             if (wasArmed)
             {
                 ClearArm();
@@ -828,6 +872,152 @@ namespace GI_Subtitles.Core.Overlay
             TryStartNextOcr();
         }
 
+        public void RequestAutoRegionOcr()
+        {
+            if (!RecognitionRunning ||
+                _busyPairIndex == AutoRegionOcrSlot ||
+                _ocrQueue.Contains(AutoRegionOcrSlot))
+            {
+                return;
+            }
+
+            _autoRegionGeneration++;
+            EnqueueOcr(AutoRegionOcrSlot);
+            TryStartNextOcr();
+        }
+
+        public void CancelQueuedAutoRegionOcr()
+        {
+            RemoveQueuedSlot(AutoRegionOcrSlot);
+        }
+
+        public void InvalidateAutoRegionOcr()
+        {
+            _autoRegionGeneration++;
+            RemoveQueuedSlot(AutoRegionOcrSlot);
+        }
+
+        public bool IsAutoRegionOcrCurrent(int generation)
+        {
+            return RecognitionRunning &&
+                _busyPairIndex == AutoRegionOcrSlot &&
+                _busyOcrGeneration == generation &&
+                _autoRegionGeneration == generation;
+        }
+
+        public bool IsAutoRegionOcrCurrent(
+            int generation,
+            int expectedPrimaryPairId,
+            OverlayRect expectedPrimaryCapture)
+        {
+            if (!IsAutoRegionOcrCurrent(generation))
+            {
+                return false;
+            }
+
+            int pairIndex = IndexOfPair(VoicePrimaryId);
+            if (pairIndex < 0 && _pairs.Count > 0)
+            {
+                pairIndex = 0;
+            }
+            if (pairIndex < 0)
+            {
+                return expectedPrimaryPairId == 0 && _pairs.Count == 0;
+            }
+
+            RegionPair current = _pairs[pairIndex];
+            return current.Id == expectedPrimaryPairId &&
+                SameRect(current.Capture, expectedPrimaryCapture ?? OverlayRect.Invalid);
+        }
+
+        public void CompleteAutoRegionOcr(int generation)
+        {
+            // Invalidation prevents the result from being applied, but the matching
+            // worker still owns the slot until its completion path releases it.
+            if (_busyPairIndex == AutoRegionOcrSlot &&
+                _busyOcrGeneration == generation)
+            {
+                ReleaseBusySlot();
+            }
+        }
+
+        public bool ApplyAutoDetectedRegion(
+            int generation,
+            int expectedPrimaryPairId,
+            OverlayRect expectedPrimaryCapture,
+            OverlayRect capture,
+            OverlayRect defaultDisplay)
+        {
+            if (!IsAutoRegionOcrCurrent(generation, expectedPrimaryPairId, expectedPrimaryCapture) ||
+                capture == null ||
+                !capture.IsValid)
+            {
+                return false;
+            }
+
+            int pairIndex = IndexOfPair(VoicePrimaryId);
+            if (pairIndex < 0 && _pairs.Count > 0)
+            {
+                pairIndex = 0;
+            }
+
+            bool createdPrimaryPair = pairIndex < 0;
+            if (createdPrimaryPair)
+            {
+                if (expectedPrimaryPairId != 0 || _pairs.Count != 0)
+                {
+                    return false;
+                }
+
+                pairIndex = 0;
+                EnsurePairSlot(pairIndex);
+            }
+
+            RegionPair current = _pairs[pairIndex];
+            if (!createdPrimaryPair &&
+                (current.Id != expectedPrimaryPairId ||
+                 !SameRect(current.Capture, expectedPrimaryCapture ?? OverlayRect.Invalid)))
+            {
+                return false;
+            }
+
+            if (SameRect(current.Capture, capture) && current.Display.IsValid)
+            {
+                return false;
+            }
+
+            // The capture rectangle tracks where the game's subtitle appears;
+            // the display rectangle is the user's chosen overlay location.
+            // Repairing the capture region must not move the translated subtitle.
+            OverlayRect display = current.Display.IsValid
+                ? current.Display
+                : (defaultDisplay ?? OverlayRect.Invalid);
+            _pairs[pairIndex] = new RegionPair(current.Id, capture, display);
+            if (pairIndex < _pairGenerations.Count)
+            {
+                _pairGenerations[pairIndex]++;
+            }
+
+            RemoveQueuedSlot(pairIndex);
+            SyncPairRuntime();
+            PersistPairs();
+            if (ArmedPairId == current.Id)
+            {
+                RebuildAdjustOutlines();
+            }
+
+            return true;
+        }
+
+        private static bool SameRect(OverlayRect left, OverlayRect right)
+        {
+            return left != null && right != null
+                && left.X == right.X
+                && left.Y == right.Y
+                && left.Width == right.Width
+                && left.Height == right.Height;
+        }
+
         public void CompleteOcr(
             bool miss,
             string content = null,
@@ -847,6 +1037,12 @@ namespace GI_Subtitles.Core.Overlay
 
             int busy = _busyPairIndex.Value;
             if (_busyOcrGeneration != GetSlotGeneration(busy))
+            {
+                ReleaseBusySlot();
+                return;
+            }
+
+            if (busy == AutoRegionOcrSlot)
             {
                 ReleaseBusySlot();
                 return;
@@ -1034,6 +1230,7 @@ namespace GI_Subtitles.Core.Overlay
         {
             _pairs.Clear();
             LegacyRegion2ReviewPending = false;
+            LegacyRegion2ReviewPairId = 0;
             if (_pairStore == null)
             {
                 _nextPairId = 1;
@@ -1050,9 +1247,16 @@ namespace GI_Subtitles.Core.Overlay
                 LegacyRegion2ReviewPending = reviewStore.ReadLegacyRegion2ReviewPending();
             }
 
+            ILegacyRegion2ReviewPairStore reviewPairStore = _pairStore as ILegacyRegion2ReviewPairStore;
+            if (reviewPairStore != null)
+            {
+                LegacyRegion2ReviewPairId = reviewPairStore.ReadLegacyRegion2ReviewPairId();
+            }
+
             IReadOnlyList<RegionPairRecord> stored = _pairStore.ReadPairs();
             bool wroteLegacy = false;
             bool truncated = false;
+            bool migratedSecondRegion = false;
             if (stored != null && stored.Count > 0)
             {
                 int count = Math.Min(SettingsPairCap, stored.Count);
@@ -1069,21 +1273,67 @@ namespace GI_Subtitles.Core.Overlay
                 {
                     _pairs.AddRange(migration.Pairs);
                     LegacyRegion2ReviewPending = migration.ReviewSecondRegion;
+                    migratedSecondRegion = migration.ReviewSecondRegion;
                     wroteLegacy = true;
                 }
             }
 
             SyncPairRuntime();
             bool identitiesChanged = EnsureIdentities();
+            bool reviewStateChanged = false;
+            if (LegacyRegion2ReviewPending)
+            {
+                if (LegacyRegion2ReviewPairId <= 0
+                    && migratedSecondRegion
+                    && _pairs.Count > 1)
+                {
+                    LegacyRegion2ReviewPairId = _pairs[1].Id;
+                    reviewStateChanged = true;
+                }
+                else if (LegacyRegion2ReviewPairId <= 0
+                    && _pairs.Count > 1)
+                {
+                    // Layouts written by the first migration implementation
+                    // stored only the pending flag. The second pair was the
+                    // migrated Region2, so repair its stable ID once.
+                    LegacyRegion2ReviewPairId = _pairs[1].Id;
+                    reviewStateChanged = true;
+                }
+
+                if (LegacyRegion2ReviewPairId <= 0
+                    || IndexOfPair(LegacyRegion2ReviewPairId) < 0)
+                {
+                    LegacyRegion2ReviewPending = false;
+                    LegacyRegion2ReviewPairId = 0;
+                    reviewStateChanged = true;
+                }
+            }
+
             LoadExtraPathDisplays();
             if (wroteLegacy || identitiesChanged || truncated)
             {
                 PersistPairs();
             }
 
-            if (wroteLegacy && reviewStore != null)
+            if (wroteLegacy || reviewStateChanged)
+            {
+                PersistLegacyRegion2ReviewState();
+            }
+        }
+
+        private void PersistLegacyRegion2ReviewState()
+        {
+            ILegacyRegion2ReviewStore reviewStore = _pairStore as ILegacyRegion2ReviewStore;
+            if (reviewStore != null)
             {
                 reviewStore.WriteLegacyRegion2ReviewPending(LegacyRegion2ReviewPending);
+            }
+
+            ILegacyRegion2ReviewPairStore reviewPairStore = _pairStore as ILegacyRegion2ReviewPairStore;
+            if (reviewPairStore != null)
+            {
+                reviewPairStore.WriteLegacyRegion2ReviewPairId(
+                    LegacyRegion2ReviewPending ? LegacyRegion2ReviewPairId : 0);
             }
         }
 
@@ -1368,6 +1618,7 @@ namespace GI_Subtitles.Core.Overlay
             ClearDialogueOptionsRecognition();
             _ocrQueue.Clear();
             _busyPairIndex = null;
+            _autoRegionGeneration++;
             for (int i = 0; i < _headers.Count; i++)
             {
                 ClearPairSubtitle(i);
@@ -1709,6 +1960,11 @@ namespace GI_Subtitles.Core.Overlay
             if (slot == DialogueOptionsOcrSlot)
             {
                 return _dialogueOptionsGeneration;
+            }
+
+            if (slot == AutoRegionOcrSlot)
+            {
+                return _autoRegionGeneration;
             }
 
             if (slot >= 0 && slot < _pairGenerations.Count)

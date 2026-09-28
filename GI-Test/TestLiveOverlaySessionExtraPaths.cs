@@ -64,6 +64,7 @@ namespace GI_Test
             DateTime now = new DateTime(2026, 6, 1, 13, 0, 0, DateTimeKind.Utc);
             LiveOverlaySession session = CreateSessionWithPairs(2, () => now);
             OverlayRect band = new OverlayRect(10, 20, 300, 40);
+            session.StartRecognition();
 
             session.Beat(
                 ExtraPathSample.DarkScreenCandidate(band, needsOcr: true)
@@ -109,6 +110,9 @@ namespace GI_Test
             DateTime now = new DateTime(2026, 6, 2, 12, 0, 0, DateTimeKind.Utc);
             LiveOverlaySession session = CreateSessionWithPairs(2, () => now);
             session.SetVoicePrimary(2);
+            session.StartRecognition();
+            now = now.AddMilliseconds(LiveOverlaySession.HintDurationMs);
+            session.Tick();
 
             session.Beat(ExtraPathSample.DialogueChoice("跳过"));
 
@@ -241,8 +245,12 @@ namespace GI_Test
         [TestMethod]
         public void ExtraPathTexts_HideWithSubtitles_AndAreNotHints()
         {
-            LiveOverlaySession session = CreateSessionWithPairs(1);
+            DateTime now = new DateTime(2026, 6, 2, 13, 0, 0, DateTimeKind.Utc);
+            LiveOverlaySession session = CreateSessionWithPairs(1, () => now);
             OverlayRect band = new OverlayRect(1, 2, 100, 20);
+            session.StartRecognition();
+            now = now.AddMilliseconds(LiveOverlaySession.HintDurationMs);
+            session.Tick();
 
             session.Beat(
                 ExtraPathSample.DarkScreenCandidate(band, needsOcr: true),
@@ -265,6 +273,16 @@ namespace GI_Test
             Assert.AreEqual("Hint_SubtitlesHidden", session.HintResourceKey);
 
             session.ShowSubtitles();
+            Assert.IsTrue(session.DarkScreenBody.Visible);
+            Assert.IsTrue(session.DialogueChoiceEcho.Visible);
+
+            session.StopRecognition();
+            Assert.IsFalse(session.DarkScreenBody.Visible);
+            Assert.IsFalse(session.DialogueChoiceEcho.Visible);
+            Assert.AreEqual("card", session.DarkScreenBody.Content);
+            Assert.AreEqual("◆ 好的", session.DialogueChoiceEcho.Content);
+
+            session.StartRecognition();
             Assert.IsTrue(session.DarkScreenBody.Visible);
             Assert.IsTrue(session.DialogueChoiceEcho.Visible);
         }
@@ -367,10 +385,14 @@ namespace GI_Test
         [TestMethod]
         public void DialogueChoiceEcho_DetachesToDisplay_WithNoDuplicate()
         {
+            DateTime now = new DateTime(2026, 6, 2, 14, 0, 0, DateTimeKind.Utc);
             OverlayRect pin = new OverlayRect(200, 300, 160, 40);
-            LiveOverlaySession session = CreateSessionWithPairs(2);
+            LiveOverlaySession session = CreateSessionWithPairs(2, () => now);
             session.SetVoicePrimary(2);
             session.SetDialogueOptionDisplay(pin);
+            session.StartRecognition();
+            now = now.AddMilliseconds(LiveOverlaySession.HintDurationMs);
+            session.Tick();
 
             session.Beat(ExtraPathSample.DialogueChoice("跳过"));
 
@@ -415,6 +437,7 @@ namespace GI_Test
             };
             var session = new LiveOverlaySession(new MemoryOcrIntervalStore(), store);
             session.SetDialogueOptionDisplay(pin);
+            session.StartRecognition();
             session.Beat(ExtraPathSample.DialogueChoice("同意"));
 
             ExtraPathBody echo = session.DialogueChoiceEcho;
