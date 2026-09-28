@@ -54,6 +54,7 @@ namespace GI_Subtitles.Core.Overlay
         {
             Tick();
             RecognitionRunning = false;
+            InvalidateAutoRegionOcr();
             WriteOperatorAction(OperatorJob.StopRecognition, null, HintResourceRecognitionStopped);
         }
 

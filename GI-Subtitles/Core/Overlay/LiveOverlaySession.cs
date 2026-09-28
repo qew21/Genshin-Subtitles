@@ -891,31 +891,96 @@ namespace GI_Subtitles.Core.Overlay
             RemoveQueuedSlot(AutoRegionOcrSlot);
         }
 
-        public void CompleteAutoRegionOcr(int generation)
+        public void InvalidateAutoRegionOcr()
         {
-            if (_busyPairIndex == AutoRegionOcrSlot &&
-                _busyOcrGeneration == generation &&
-                _autoRegionGeneration == generation)
-            {
-                ReleaseBusySlot();
-            }
+            _autoRegionGeneration++;
+            RemoveQueuedSlot(AutoRegionOcrSlot);
         }
 
-        public bool ApplyAutoDetectedRegion(OverlayRect capture, OverlayRect defaultDisplay)
+        public bool IsAutoRegionOcrCurrent(int generation)
         {
-            if (capture == null || !capture.IsValid)
+            return RecognitionRunning &&
+                _busyPairIndex == AutoRegionOcrSlot &&
+                _busyOcrGeneration == generation &&
+                _autoRegionGeneration == generation;
+        }
+
+        public bool IsAutoRegionOcrCurrent(
+            int generation,
+            int expectedPrimaryPairId,
+            OverlayRect expectedPrimaryCapture)
+        {
+            if (!IsAutoRegionOcrCurrent(generation))
             {
                 return false;
             }
 
             int pairIndex = IndexOfPair(VoicePrimaryId);
+            if (pairIndex < 0 && _pairs.Count > 0)
+            {
+                pairIndex = 0;
+            }
             if (pairIndex < 0)
             {
+                return expectedPrimaryPairId == 0 && _pairs.Count == 0;
+            }
+
+            RegionPair current = _pairs[pairIndex];
+            return current.Id == expectedPrimaryPairId &&
+                SameRect(current.Capture, expectedPrimaryCapture ?? OverlayRect.Invalid);
+        }
+
+        public void CompleteAutoRegionOcr(int generation)
+        {
+            // Invalidation prevents the result from being applied, but the matching
+            // worker still owns the slot until its completion path releases it.
+            if (_busyPairIndex == AutoRegionOcrSlot &&
+                _busyOcrGeneration == generation)
+            {
+                ReleaseBusySlot();
+            }
+        }
+
+        public bool ApplyAutoDetectedRegion(
+            int generation,
+            int expectedPrimaryPairId,
+            OverlayRect expectedPrimaryCapture,
+            OverlayRect capture,
+            OverlayRect defaultDisplay)
+        {
+            if (!IsAutoRegionOcrCurrent(generation, expectedPrimaryPairId, expectedPrimaryCapture) ||
+                capture == null ||
+                !capture.IsValid)
+            {
+                return false;
+            }
+
+            int pairIndex = IndexOfPair(VoicePrimaryId);
+            if (pairIndex < 0 && _pairs.Count > 0)
+            {
+                pairIndex = 0;
+            }
+
+            bool createdPrimaryPair = pairIndex < 0;
+            if (createdPrimaryPair)
+            {
+                if (expectedPrimaryPairId != 0 || _pairs.Count != 0)
+                {
+                    return false;
+                }
+
                 pairIndex = 0;
                 EnsurePairSlot(pairIndex);
             }
 
             RegionPair current = _pairs[pairIndex];
+            if (!createdPrimaryPair &&
+                (current.Id != expectedPrimaryPairId ||
+                 !SameRect(current.Capture, expectedPrimaryCapture ?? OverlayRect.Invalid)))
+            {
+                return false;
+            }
+
             if (SameRect(current.Capture, capture) && current.Display.IsValid)
             {
                 return false;

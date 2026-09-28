@@ -2279,6 +2279,20 @@ namespace GI_Subtitles.Views
                     $"elapsedMs={(long)(_lastAutoRegionSearchStartedUtc - previousSearchStartedUtc).TotalMilliseconds}");
             }
 
+            IReadOnlyList<RegionPair> pairs = _overlaySession.Pairs;
+            int primaryIndex = FindPrimaryPairIndex(pairs);
+            int expectedPrimaryPairId = primaryIndex >= 0 ? pairs[primaryIndex].Id : 0;
+            OverlayRect expectedPrimaryCapture = OverlayRect.Invalid;
+            if (primaryIndex >= 0 && pairs[primaryIndex].Capture != null)
+            {
+                OverlayRect currentCapture = pairs[primaryIndex].Capture;
+                expectedPrimaryCapture = new OverlayRect(
+                    currentCapture.X,
+                    currentCapture.Y,
+                    currentCapture.Width,
+                    currentCapture.Height);
+            }
+
             // Reserve the OCR slot before starting capture so the dispatcher timer
             // cannot queue another sampling pass while the frame is being prepared.
             _autoRegionOcrInFlight = true;
@@ -2288,6 +2302,8 @@ namespace GI_Subtitles.Views
                 searchBounds,
                 generation,
                 triggerReason,
+                expectedPrimaryPairId,
+                expectedPrimaryCapture,
                 debug ? Stopwatch.GetTimestamp() : 0);
         }
 
@@ -2296,6 +2312,8 @@ namespace GI_Subtitles.Views
             System.Drawing.Rectangle searchBounds,
             int generation,
             string triggerReason,
+            int expectedPrimaryPairId,
+            OverlayRect expectedPrimaryCapture,
             long pipelineStartedTimestamp)
         {
             AutoRegionCaptureResult captured = null;
@@ -2345,6 +2363,15 @@ namespace GI_Subtitles.Views
 
             Dispatcher.BeginInvoke(new Action(() =>
             {
+                if (!_overlaySession.IsAutoRegionOcrCurrent(
+                    generation, expectedPrimaryPairId, expectedPrimaryCapture))
+                {
+                    captured?.Frame?.Dispose();
+                    captured?.Bitmap?.Dispose();
+                    CompleteAutoRegionCapture(generation);
+                    return;
+                }
+
                 if (failure != null)
                 {
                     if (debug)
@@ -2390,6 +2417,8 @@ namespace GI_Subtitles.Views
                     searchBounds,
                     generation,
                     triggerReason,
+                    expectedPrimaryPairId,
+                    expectedPrimaryCapture,
                     captured.QueueMs,
                     captured.CaptureMs,
                     captured.BitmapToMatMs,
@@ -2431,6 +2460,8 @@ namespace GI_Subtitles.Views
             System.Drawing.Rectangle searchBounds,
             int generation,
             string triggerReason,
+            int expectedPrimaryPairId,
+            OverlayRect expectedPrimaryCapture,
             double captureQueueMs,
             double captureMs,
             double bitmapToMatMs,
@@ -2541,7 +2572,9 @@ namespace GI_Subtitles.Views
                 });
                 postProcessStopwatch = debug ? Stopwatch.StartNew() : null;
 
-                if (!string.Equals(ocrGame, _overlaySession.AppliedGame, StringComparison.Ordinal))
+                if (!string.Equals(ocrGame, _overlaySession.AppliedGame, StringComparison.Ordinal) ||
+                    !_overlaySession.IsAutoRegionOcrCurrent(
+                        generation, expectedPrimaryPairId, expectedPrimaryCapture))
                 {
                     return;
                 }
@@ -2613,7 +2646,12 @@ namespace GI_Subtitles.Views
                             candidate.Bounds,
                             currentCapture,
                             screenBounds);
-                        _overlaySession.ApplyAutoDetectedRegion(currentCapture, defaultDisplay);
+                        _overlaySession.ApplyAutoDetectedRegion(
+                            generation,
+                            expectedPrimaryPairId,
+                            expectedPrimaryCapture,
+                            currentCapture,
+                            defaultDisplay);
                         ApplyPairOverlay();
                     }
 
@@ -2625,7 +2663,12 @@ namespace GI_Subtitles.Views
                 {
                     OverlayRect capture = recommendedCapture;
                     OverlayRect display = CreateAutoDisplayRegion(candidate.Bounds, capture, screenBounds);
-                    if (_overlaySession.ApplyAutoDetectedRegion(capture, display))
+                    if (_overlaySession.ApplyAutoDetectedRegion(
+                        generation,
+                        expectedPrimaryPairId,
+                        expectedPrimaryCapture,
+                        capture,
+                        display))
                     {
                         DisposePairBuffers();
                         ApplyPairOverlay();
