@@ -344,7 +344,7 @@ namespace GI_Test
         {
             LiveOverlaySession session = CreateSessionWithPairs(1);
 
-            session.StartRecognition(hasCaptureRegion: true);
+            session.StartRecognition();
             session.HideSubtitles();
             session.NoteLanguagePackLoadStarted("CHS");
             session.Beat(

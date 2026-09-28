@@ -17,12 +17,12 @@ namespace GI_Test
         }
 
         [TestMethod]
-        public void StartRecognition_WithCapture_AppendsGlobalRunningRow()
+        public void StartRecognition_WithoutConfiguredCapture_AppendsGlobalRunningRow()
         {
             DateTime now = new DateTime(2026, 1, 1, 12, 0, 0, DateTimeKind.Utc);
             LiveOverlaySession session = CreateSession(() => now);
 
-            session.StartRecognition(hasCaptureRegion: true);
+            session.StartRecognition();
 
             Assert.AreEqual(1, session.ActivityLog.Count);
             ActivityLogRow row = session.ActivityLog[0];
@@ -38,7 +38,7 @@ namespace GI_Test
         {
             LiveOverlaySession session = CreateSession();
 
-            session.StartRecognition(hasCaptureRegion: false);
+            session.StartRecognition();
             session.CaptureRegionSelectionCancelled();
             session.PreviewCaptureRegion(hasCaptureRegion: false);
             session.Refresh(hasCaptureRegion: false, foundText: false);
@@ -48,7 +48,9 @@ namespace GI_Test
             Assert.AreEqual(OperatorJob.BoxCapture, session.ActivityLog[1].Job);
             Assert.AreEqual(OperatorJob.Preview, session.ActivityLog[2].Job);
             Assert.AreEqual(OperatorJob.Refresh, session.ActivityLog[3].Job);
-            foreach (ActivityLogRow row in session.ActivityLog)
+            Assert.AreEqual("Hint_RecognitionRunning", session.ActivityLog[0].ResultResourceKey);
+            Assert.IsNull(session.ActivityLog[0].PairOrdinal);
+            foreach (ActivityLogRow row in new[] { session.ActivityLog[1], session.ActivityLog[2], session.ActivityLog[3] })
             {
                 Assert.AreEqual("Hint_CaptureRegionMissing", row.ResultResourceKey);
                 Assert.IsNull(row.PairOrdinal);
@@ -122,7 +124,7 @@ namespace GI_Test
         public void SuccessfulPreview_ProducesNoRowAndLeavesExistingRows()
         {
             LiveOverlaySession session = CreateSession();
-            session.StartRecognition(hasCaptureRegion: true);
+            session.StartRecognition();
 
             session.PreviewCaptureRegion(hasCaptureRegion: true);
 
@@ -139,7 +141,7 @@ namespace GI_Test
             int notifications = 0;
             session.ActivityLogChanged += (sender, args) => notifications++;
 
-            session.StartRecognition(hasCaptureRegion: true);
+            session.StartRecognition();
             Assert.AreEqual(1, notifications);
             Assert.AreEqual(1, session.ActivityLog.Count);
 
@@ -155,7 +157,7 @@ namespace GI_Test
         public void WindowClosedStillRecords_RowsKeepAccumulatingOnTheSession()
         {
             LiveOverlaySession session = CreateSession();
-            session.StartRecognition(hasCaptureRegion: true);
+            session.StartRecognition();
             session.StopRecognition();
 
             Assert.AreEqual(2, session.ActivityLog.Count);

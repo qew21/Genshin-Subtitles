@@ -147,6 +147,7 @@ namespace GI_Test
             DateTime now = new DateTime(2026, 9, 7, 12, 0, 0, DateTimeKind.Utc);
             LiveOverlaySession session = CreateSession(1, () => now);
             OverlayRect band = new OverlayRect(40, 80, 400, 60);
+            session.StartRecognition();
 
             session.Beat(ExtraPathSample.DarkScreenCandidate(band, needsOcr: true));
             session.CompleteOcr(miss: false, content: "cutscene", header: "narrator");
@@ -160,9 +161,9 @@ namespace GI_Test
             Assert.AreEqual("cutscene", session.DarkScreenBody.Content, "A dark-screen match miss keeps the current subtitle.");
             Assert.AreEqual("narrator", session.DarkScreenBody.Header);
             Assert.IsTrue(session.DarkScreenBody.Visible);
-            Assert.AreEqual(2, session.ActivityLog.Count);
-            Assert.IsTrue(session.ActivityLog[1].MatchMiss);
-            Assert.AreEqual("partial", session.ActivityLog[1].OcrText);
+            Assert.AreEqual(3, session.ActivityLog.Count);
+            Assert.IsTrue(session.ActivityLog[2].MatchMiss);
+            Assert.AreEqual("partial", session.ActivityLog[2].OcrText);
         }
 
         private static LiveOverlaySession CreateSession(int pairCount, Func<DateTime> utcNow = null)

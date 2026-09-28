@@ -5733,7 +5733,7 @@ namespace GI_Subtitles.Views
                     }
                     else
                     {
-                        _overlaySession.StartRecognition(_overlaySession.HasValidCapture);
+                        _overlaySession.StartRecognition();
                         if (_overlaySession.RecognitionRunning)
                         {
                             UpdateOcrSamplingInterval();

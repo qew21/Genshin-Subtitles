@@ -43,7 +43,7 @@ namespace GI_Subtitles.Core.Overlay
 
         public object[] HintFormatArguments { get; private set; }
 
-        public void StartRecognition(bool hasCaptureRegion)
+        public void StartRecognition()
         {
             Tick();
             RecognitionRunning = true;

@@ -329,6 +329,7 @@ namespace GI_Test
         {
             DateTime now = new DateTime(2026, 3, 1, 12, 0, 0, DateTimeKind.Utc);
             LiveOverlaySession session = CreateSessionWithPairs(2, () => now);
+            session.StartRecognition();
             session.Beat(PairFrameSample.ChangedAndStable(), PairFrameSample.ChangedAndStable());
             session.CompleteOcr(miss: false, content: "a");
             now = now.AddMilliseconds(400);
@@ -345,6 +346,16 @@ namespace GI_Test
             Assert.AreEqual("b", session.PairBodies[1].Content);
 
             session.ShowSubtitles();
+            Assert.IsTrue(session.PairBodies[0].Visible);
+            Assert.IsTrue(session.PairBodies[1].Visible);
+
+            session.StopRecognition();
+            Assert.IsFalse(session.PairBodies[0].Visible);
+            Assert.IsFalse(session.PairBodies[1].Visible);
+            Assert.AreEqual("a", session.PairBodies[0].Content);
+            Assert.AreEqual("b", session.PairBodies[1].Content);
+
+            session.StartRecognition();
             Assert.IsTrue(session.PairBodies[0].Visible);
             Assert.IsTrue(session.PairBodies[1].Visible);
         }
