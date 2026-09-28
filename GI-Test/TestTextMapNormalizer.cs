@@ -47,7 +47,7 @@ namespace GI_Test
                 json,
                 path =>
                 {
-                    Assert.ThrowsException<InvalidDataException>(
+                    Assert.ThrowsExactly<InvalidDataException>(
                         () => TextMapNormalizer.NormalizeIdContentArrayFile(path));
                     Assert.AreEqual(json, File.ReadAllText(path));
                     Assert.IsFalse(File.Exists(path + ".normalized"));
