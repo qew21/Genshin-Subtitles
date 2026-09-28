@@ -238,7 +238,7 @@ namespace GI_Subtitles.Views
         private double Scale = GetDpiForSystem() / 96f;
         // Use an LRU cache to limit memory usage to 30 entries (mapping from image hash to OCR text)
         LRUCache<string, string> BitmapDict = new LRUCache<string, string>(30);
-        List<string> AudioList = new List<string>();
+        private readonly LRUCache<string, bool> AudioList = new LRUCache<string, bool>(4096);
         string InputLanguage = Config.Get<string>("Input");
         string OutputLanguage = Config.Get<string>("Output");
         string Game = Config.Get<string>("Game");
@@ -2739,11 +2739,6 @@ namespace GI_Subtitles.Views
                             data.SetImage(target);
                             setImageMs = setImageStopwatch?.Elapsed.TotalMilliseconds ?? 0;
                         }
-                        else
-                        {
-                            target?.Dispose();
-                        }
-
                         if (string.Equals(ocrGame, _overlaySession.AppliedGame, StringComparison.Ordinal))
                         {
                             Stopwatch applyStopwatch = debug ? Stopwatch.StartNew() : null;
@@ -2789,6 +2784,7 @@ namespace GI_Subtitles.Views
                 }
                 _isOcrRunning = false;
                 frameToProcess?.Dispose();
+                target?.Dispose();
 
                 if (recognitionStopwatch != null)
                 {
@@ -3081,7 +3077,7 @@ namespace GI_Subtitles.Views
                 return;
             }
 
-            if (!forceVoiceReplay && AudioList.Contains(key))
+            if (!forceVoiceReplay && AudioList.ContainsKey(key))
             {
                 _overlaySession.NoteVoicePlaybackEnded();
                 return;
@@ -3089,9 +3085,9 @@ namespace GI_Subtitles.Views
 
             string audioKey = VoiceContentHelper.CalculateMd5Hash(key);
             PlayMainAudio(audioKey, logActivity: true);
-            if (!AudioList.Contains(key))
+            if (!AudioList.ContainsKey(key))
             {
-                AudioList.Add(key);
+                AudioList[key] = true;
             }
         }
 

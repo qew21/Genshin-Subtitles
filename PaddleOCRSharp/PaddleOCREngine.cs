@@ -519,7 +519,20 @@ namespace PaddleOCRSharp
             if (bitmap == null)
                 throw new ArgumentException("Image must be a Bitmap", nameof(image));
 
-            return DetectTextFromMat(bitmap.ToMat());
+            return WithBitmapMat(bitmap, DetectTextFromMat);
+        }
+
+        internal static TResult WithBitmapMat<TResult>(Bitmap bitmap, Func<Mat, TResult> process)
+        {
+            if (bitmap == null)
+                throw new ArgumentNullException(nameof(bitmap));
+            if (process == null)
+                throw new ArgumentNullException(nameof(process));
+
+            using (Mat mat = bitmap.ToMat())
+            {
+                return process(mat);
+            }
         }
 
         /// <summary>

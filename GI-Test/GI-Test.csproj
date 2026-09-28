@@ -146,6 +146,7 @@
     <Compile Include="TestUpdateChecker.cs" />
     <Compile Include="TestContent.cs" />
     <Compile Include="TestVideo.cs" />
+    <Compile Include="TestMemoryResourceOwnership.cs" />
     <Compile Include="TestOCR.cs" />
     <Compile Include="TestDarkScreenSubtitleDetector.cs" />
     <Compile Include="TestLiveOverlaySessionOcrInterval.cs" />

@@ -2069,21 +2069,23 @@ namespace GI_Subtitles.Views
                     Thread.Sleep(1000);
                     Console.WriteLine("Sleeping ...");
                 }
-                DateTime dateTime = DateTime.Now;
-                Bitmap target;
-                if (bitmap == null)
+                if (bitmap != null)
                 {
-                    target = (Bitmap)Bitmap.FromFile(testFile);
+                    OCRResult ocrResult = engine.DetectText(bitmap);
+                    string ocrText = ocrResult.Text;
+                    string res = Matcher.FindClosestMatch(ocrText, out string key);
+                    report = $"OCR: {ocrText}\nMatch: {key}\nTranslate: {res}";
                 }
                 else
                 {
-                    target = bitmap;
+                    using (Bitmap target = (Bitmap)Bitmap.FromFile(testFile))
+                    {
+                        OCRResult ocrResult = engine.DetectText(target);
+                        string ocrText = ocrResult.Text;
+                        string res = Matcher.FindClosestMatch(ocrText, out string key);
+                        report = $"OCR: {ocrText}\nMatch: {key}\nTranslate: {res}";
+                    }
                 }
-                OCRResult ocrResult = engine.DetectText(target);
-                string ocrText = ocrResult.Text;
-                dateTime = DateTime.Now;
-                string res = Matcher.FindClosestMatch(ocrText, out string key);
-                report = $"OCR: {ocrText}\nMatch: {key}\nTranslate: {res}";
             }
             catch (Exception ex)
             {
@@ -2094,23 +2096,42 @@ namespace GI_Subtitles.Views
 
         public void SetImage(Bitmap bitmap)
         {
+            if (bitmap == null)
+            {
+                throw new ArgumentNullException(nameof(bitmap));
+            }
+
+            BitmapImage bitmapImage;
             using (MemoryStream ms = new MemoryStream())
             {
-                this.bitmap = bitmap;
                 bitmap.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
                 ms.Position = 0;
 
-                BitmapImage bitmapImage = new BitmapImage();
+                bitmapImage = new BitmapImage();
                 bitmapImage.BeginInit();
                 bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
                 bitmapImage.UriSource = null;
                 bitmapImage.StreamSource = ms;
                 bitmapImage.EndInit();
                 bitmapImage.Freeze(); // Freeze, so it can be used in multiple threads
-
-                // Set the Source property of the Image control
-                Capture.Source = bitmapImage;
             }
+
+            Bitmap replacement = (Bitmap)bitmap.Clone();
+            ReplaceStoredBitmap(ref this.bitmap, replacement);
+
+            // Set the Source property of the Image control
+            Capture.Source = bitmapImage;
+        }
+
+        internal static void ReplaceStoredBitmap(ref Bitmap current, Bitmap replacement)
+        {
+            if (ReferenceEquals(current, replacement))
+            {
+                return;
+            }
+
+            current?.Dispose();
+            current = replacement;
         }
 
         private void RegionButton_Click(object sender, RoutedEventArgs e)
@@ -2487,6 +2508,8 @@ namespace GI_Subtitles.Views
             {
 
             }
+            bitmap?.Dispose();
+            bitmap = null;
             this.Close();
         }
 
