@@ -945,6 +945,12 @@
                                   Content="{DynamicResource Config_LogDenoise}"
                                   ToolTip="{DynamicResource Config_LogDenoise_Tooltip}"
                                   Margin="0,0,0,6"/>
+                        <CheckBox x:Name="DebugSamplingOverlayCheckBox"
+                                  Checked="DebugSamplingOverlayCheckBox_Changed"
+                                  Unchecked="DebugSamplingOverlayCheckBox_Changed"
+                                  Content="{DynamicResource Config_DebugSamplingOverlay}"
+                                  ToolTip="{DynamicResource Config_DebugSamplingOverlay_Tooltip}"
+                                  Margin="0,0,0,6"/>
                         </StackPanel>
                     </Border>
 

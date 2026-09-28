@@ -175,6 +175,9 @@ namespace GI_Subtitles.Views
             _version = version;
             _mainWindow = mainWindow;
             _overlaySession = overlaySession;
+            _mainWindow.DebugSamplingOverlayEnabledChanged += MainWindow_DebugSamplingOverlayEnabledChanged;
+            Closed += (sender, args) =>
+                _mainWindow.DebugSamplingOverlayEnabledChanged -= MainWindow_DebugSamplingOverlayEnabledChanged;
             _pairSettings = new RegionPairSettings(overlaySession);
             _overlaySession.AdjustChanged += (sender, args) =>
             {
@@ -277,6 +280,7 @@ namespace GI_Subtitles.Views
             AutoStartCheckBox.IsChecked = Config.Get("AutoStart", false);
             PlayVoiceCheckBox.IsChecked = Config.Get("PlayVoice", true);
             LogDenoiseCheckBox.IsChecked = Config.Get("LogDenoise", true);
+            DebugSamplingOverlayCheckBox.IsChecked = _mainWindow.DebugSamplingOverlayEnabled;
             BindOcrIntervalSettings();
             BindSubtitleIdleTimeoutSettings();
             RefreshAppliedLayoutUi();
@@ -1215,6 +1219,7 @@ namespace GI_Subtitles.Views
 
         public async Task CheckDataAsync(bool renew = false)
         {
+            Stopwatch loadStopwatch = Stopwatch.StartNew();
             await _dataLoadLock.WaitAsync();
             try
             {
@@ -1275,6 +1280,12 @@ namespace GI_Subtitles.Views
                         {
                             contentDict = loaded.Content;
                             Matcher = loaded.Matcher;
+                            if (Config.Get<bool>("Debug", false))
+                            {
+                                Logger.Log.Info(
+                                    $"[Matcher readiness] assigned game={game}, entries={contentDict.Count}, " +
+                                    $"fromCache={loaded.LoadedFromMatcherCache}, elapsedMs={loadStopwatch.Elapsed.TotalMilliseconds:F1}");
+                            }
                             if (string.IsNullOrEmpty(outputLanguage2))
                             {
                                 Status.Content = $"Loaded {contentDict.Count} key-values，{inputLanguage} -> {outputLanguage}";
@@ -1312,6 +1323,12 @@ namespace GI_Subtitles.Views
             }
             finally
             {
+                if (Config.Get<bool>("Debug", false))
+                {
+                    Logger.Log.Info(
+                        $"[Matcher readiness] CheckDataAsync finished elapsedMs={loadStopwatch.Elapsed.TotalMilliseconds:F1}, " +
+                        $"ready={Matcher != null}, entries={contentDict?.Count ?? 0}");
+                }
                 _dataLoadLock.Release();
             }
         }
@@ -2536,6 +2553,40 @@ namespace GI_Subtitles.Views
 
             Config.Set("LogDenoise", LogDenoiseCheckBox.IsChecked == true);
             LogDenoiseChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        private void DebugSamplingOverlayCheckBox_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_mainWindow != null)
+            {
+                _mainWindow.SetDebugSamplingOverlayEnabled(DebugSamplingOverlayCheckBox.IsChecked == true);
+            }
+        }
+
+        private void MainWindow_DebugSamplingOverlayEnabledChanged(object sender, EventArgs e)
+        {
+            if (DebugSamplingOverlayCheckBox == null)
+            {
+                return;
+            }
+
+            Action updateCheckBox = () =>
+            {
+                bool enabled = _mainWindow.DebugSamplingOverlayEnabled;
+                if (DebugSamplingOverlayCheckBox.IsChecked != enabled)
+                {
+                    DebugSamplingOverlayCheckBox.IsChecked = enabled;
+                }
+            };
+
+            if (Dispatcher.CheckAccess())
+            {
+                updateCheckBox();
+            }
+            else
+            {
+                Dispatcher.BeginInvoke(updateCheckBox);
+            }
         }
 
         private void TestVoice_Click(object sender, RoutedEventArgs e)

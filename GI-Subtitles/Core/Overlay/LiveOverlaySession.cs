@@ -167,7 +167,8 @@ namespace GI_Subtitles.Core.Overlay
             get
             {
                 OverlayRect display = ResolveDarkScreenDisplay();
-                bool visible = SubtitlesVisible
+                bool visible = RecognitionRunning
+                    && SubtitlesVisible
                     && display.IsValid
                     && !string.IsNullOrEmpty(_darkScreenContent);
                 return new ExtraPathBody(
@@ -224,7 +225,8 @@ namespace GI_Subtitles.Core.Overlay
             get
             {
                 OverlayRect display = ResolveEchoDisplay();
-                bool visible = SubtitlesVisible
+                bool visible = RecognitionRunning
+                    && SubtitlesVisible
                     && display.IsValid
                     && !string.IsNullOrEmpty(_echoContent);
                 return new ExtraPathBody(
@@ -263,7 +265,10 @@ namespace GI_Subtitles.Core.Overlay
                 {
                     OverlayRect display = _pairs[i].Display;
                     string content = _contents[i];
-                    bool visible = SubtitlesVisible && display.IsValid && !string.IsNullOrEmpty(content);
+                    bool visible = RecognitionRunning
+                        && SubtitlesVisible
+                        && display.IsValid
+                        && !string.IsNullOrEmpty(content);
                     bodies[i] = new PairSubtitleBody(
                         i,
                         display,

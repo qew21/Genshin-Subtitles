@@ -146,6 +146,10 @@
     <sys:String x:Key="Config_PlayVoice" xmlns:sys="clr-namespace:System;assembly=mscorlib">支線音声を有効にする</sys:String>
     <sys:String x:Key="Config_LogDenoise" xmlns:sys="clr-namespace:System;assembly=mscorlib">活動ログで重複認識行を非表示</sys:String>
     <sys:String x:Key="Config_LogDenoise_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">オフにすると、活動ログウィンドウにすべての実行が表示され、重複認識行は薄い表示で印が付きます。ログの表示だけが変わり、記録は削除されず、字幕と音声にも影響しません。</sys:String>
+    <sys:String x:Key="Config_DebugSamplingOverlay" xmlns:sys="clr-namespace:System;assembly=mscorlib">認識デバッグパネルを表示</sys:String>
+    <sys:String x:Key="Config_DebugSamplingOverlay_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">認識中にサンプリングとスキップ理由、プロセスの CPU とメモリを表示します。認識を一時停止すると非表示になります。</sys:String>
+    <sys:String x:Key="Debug_ProcessResources" xmlns:sys="clr-namespace:System;assembly=mscorlib">プロセス CPU {0:F1}%（全体比）  メモリ {1:F0} MB</sys:String>
+    <sys:String x:Key="Debug_ProcessResourcesUnavailable" xmlns:sys="clr-namespace:System;assembly=mscorlib">プロセス CPU / メモリを取得できません</sys:String>
     <sys:String x:Key="Config_RecognizeDarkScreenSubtitles" xmlns:sys="clr-namespace:System;assembly=mscorlib">暗転字幕を認識</sys:String>
     <sys:String x:Key="Config_RecognizeDarkScreenSubtitles_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">暗転カットシーンの中央字幕帯を検出し、翻訳を表示します。領域ペアではありません。</sys:String>
     <sys:String x:Key="Config_RecognizeDialogueOptions" xmlns:sys="clr-namespace:System;assembly=mscorlib">会話選択肢を認識</sys:String>
