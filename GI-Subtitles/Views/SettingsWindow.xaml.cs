@@ -1054,7 +1054,7 @@ namespace GI_Subtitles.Views
                 textBox.Text = string.Format(CultureInfo.CurrentUICulture, labelFormat, mappedLanguage);
                 textBox.ToolTip = toolTip;
                 textBox.Cursor = System.Windows.Input.Cursors.Arrow;
-                textBox.Foreground = (Brush)FindResource("TextSecondaryBrush");
+                textBox.Foreground = (System.Windows.Media.Brush)FindResource("TextSecondaryBrush");
                 textBox.TextDecorations = null;
                 return;
             }
@@ -1062,7 +1062,7 @@ namespace GI_Subtitles.Views
             textBox.Text = url ?? string.Empty;
             textBox.ToolTip = "Click to copy URL";
             textBox.Cursor = System.Windows.Input.Cursors.Hand;
-            textBox.Foreground = (Brush)FindResource("AccentBrush");
+            textBox.Foreground = (System.Windows.Media.Brush)FindResource("AccentBrush");
             textBox.TextDecorations = TextDecorations.Underline;
             textBox.MouseLeftButtonUp += UrlTextBox_MouseLeftButtonUp;
         }

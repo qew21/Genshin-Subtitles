@@ -7,7 +7,7 @@ using OpenCvSharp;
 namespace GI_Subtitles.Core.Screen
 {
     /// <summary>
-    /// Finds a coarse, lower-center text cluster in a game-window frame. The
+    /// Finds a coarse, lower-center text cluster in a screen crop. The
     /// result is only a proposal; OCR remains responsible for confirming text.
     /// </summary>
     internal static class SubtitleTextRegionDetector
@@ -152,9 +152,8 @@ namespace GI_Subtitles.Core.Screen
                         {
                             TextRow previous = group[group.Count - 1];
                             int verticalGap = row.Bounds.Top - previous.Bounds.Bottom;
-                            int maxGap = Math.Max(
-                                (int)Math.Round(mask.Rows * 0.055),
-                                Math.Max(previous.MedianHeight, row.MedianHeight) * 2);
+                            int textHeight = Math.Max(previous.MedianHeight, row.MedianHeight);
+                            int maxGap = Math.Max(4, (int)Math.Round(textHeight * 2.5));
                             if (verticalGap > maxGap || Math.Abs(row.CenterX - previous.CenterX) > mask.Cols * 0.24)
                             {
                                 break;

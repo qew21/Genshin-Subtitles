@@ -47,16 +47,6 @@
   <PropertyGroup>
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
-  <PropertyGroup>
-    <WgcWindowsSdkRoot Condition=" '$(WindowsSdkDir)' != '' ">$(WindowsSdkDir)</WgcWindowsSdkRoot>
-    <WgcWindowsSdkRoot Condition=" '$(WgcWindowsSdkRoot)' == '' ">C:\Program Files (x86)\Windows Kits\10\</WgcWindowsSdkRoot>
-    <WgcWindowsSdkVersion Condition=" '$(WindowsSDKVersion)' != '' ">$(WindowsSDKVersion)</WgcWindowsSdkVersion>
-    <WgcWindowsSdkVersion Condition=" '$(WgcWindowsSdkVersion)' == '' ">10.0.18362.0</WgcWindowsSdkVersion>
-  </PropertyGroup>
-  <ItemGroup>
-    <_WgcFoundationContract Include="$(WgcWindowsSdkRoot)References\$(WgcWindowsSdkVersion)\Windows.Foundation.FoundationContract\*\Windows.Foundation.FoundationContract.winmd" />
-    <_WgcUniversalApiContract Include="$(WgcWindowsSdkRoot)References\$(WgcWindowsSdkVersion)\Windows.Foundation.UniversalApiContract\*\Windows.Foundation.UniversalApiContract.winmd" />
-  </ItemGroup>
   <ItemGroup>
     <Reference Include="Emgu.CV.UI, Version=4.1.0.3408, Culture=neutral, PublicKeyToken=7281126722ab4438, processorArchitecture=MSIL">
       <HintPath>..\packages\EMGU.CV.4.1.0.3408\lib\net35\Emgu.CV.UI.dll</HintPath>
@@ -64,8 +54,8 @@
     <Reference Include="Emgu.CV.World, Version=4.1.0.3408, Culture=neutral, PublicKeyToken=7281126722ab4438, processorArchitecture=MSIL">
       <HintPath>..\packages\EMGU.CV.4.1.0.3408\lib\net35\Emgu.CV.World.dll</HintPath>
     </Reference>
-    <Reference Include="log4net, Version=2.0.17.0, Culture=neutral, PublicKeyToken=669e0ddf0bb1aa2a, processorArchitecture=MSIL">
-      <HintPath>..\packages\log4net.2.0.17\lib\net45\log4net.dll</HintPath>
+    <Reference Include="log4net, Version=3.4.0.0, Culture=neutral, PublicKeyToken=669e0ddf0bb1aa2a, processorArchitecture=MSIL">
+      <HintPath>..\packages\log4net.3.4.0\lib\net462\log4net.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.ML.OnnxRuntime, Version=1.24.1.0, Culture=neutral, PublicKeyToken=f27f157f0a5b7bb6, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.ML.OnnxRuntime.Managed.1.24.1\lib\netstandard2.0\Microsoft.ML.OnnxRuntime.dll</HintPath>
@@ -95,26 +85,6 @@
     <Reference Include="System.Configuration" />
     <Reference Include="System.Data" />
     <Reference Include="System.Drawing" />
-    <Reference Include="System.Runtime.WindowsRuntime" />
-    <Reference Include="Windows.Foundation.FoundationContract">
-      <HintPath>@(_WgcFoundationContract->'%(FullPath)')</HintPath>
-      <IsWinMDFile>true</IsWinMDFile>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="Windows.Foundation.UniversalApiContract">
-      <HintPath>@(_WgcUniversalApiContract->'%(FullPath)')</HintPath>
-      <IsWinMDFile>true</IsWinMDFile>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="SharpDX, Version=4.2.0.0, Culture=neutral, PublicKeyToken=b4dcf0f35e5521f1, processorArchitecture=MSIL">
-      <HintPath>..\packages\SharpDX.4.2.0\lib\net45\SharpDX.dll</HintPath>
-    </Reference>
-    <Reference Include="SharpDX.Direct3D11, Version=4.2.0.0, Culture=neutral, PublicKeyToken=b4dcf0f35e5521f1, processorArchitecture=MSIL">
-      <HintPath>..\packages\SharpDX.Direct3D11.4.2.0\lib\net45\SharpDX.Direct3D11.dll</HintPath>
-    </Reference>
-    <Reference Include="SharpDX.DXGI, Version=4.2.0.0, Culture=neutral, PublicKeyToken=b4dcf0f35e5521f1, processorArchitecture=MSIL">
-      <HintPath>..\packages\SharpDX.DXGI.4.2.0\lib\net45\SharpDX.DXGI.dll</HintPath>
-    </Reference>
     <Reference Include="System.Drawing.Common, Version=8.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
       <HintPath>..\packages\System.Drawing.Common.8.0.11\lib\net462\System.Drawing.Common.dll</HintPath>
     </Reference>
@@ -204,8 +174,6 @@
     <Compile Include="Services\Translation\OptimizedMatcherCache.cs" />
     <Compile Include="Services\Translation\MatchDataLoader.cs" />
     <Compile Include="Core\Screen\ScreenInfo.cs" />
-    <Compile Include="Core\Screen\GameWindowLocator.cs" />
-    <Compile Include="Core\Screen\GameWindowCaptureSource.cs" />
     <Compile Include="Core\Screen\SubtitleTextRegionDetector.cs" />
     <Compile Include="Views\RegionPairSettings.cs" />
     <Compile Include="Views\Font.xaml.cs">

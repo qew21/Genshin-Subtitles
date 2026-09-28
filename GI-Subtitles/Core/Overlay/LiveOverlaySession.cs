@@ -513,6 +513,26 @@ namespace GI_Subtitles.Core.Overlay
 
         public void SetDisplay(int pairIndex, OverlayRect display)
         {
+            SetDisplayCore(pairIndex, display, persist: true);
+        }
+
+        public void PreviewDisplay(int pairIndex, OverlayRect display)
+        {
+            SetDisplayCore(pairIndex, display, persist: false);
+        }
+
+        public void CommitDisplay(int pairIndex)
+        {
+            if (pairIndex < 0 || pairIndex >= _pairs.Count)
+            {
+                return;
+            }
+
+            PersistPairs();
+        }
+
+        private void SetDisplayCore(int pairIndex, OverlayRect display, bool persist)
+        {
             if (pairIndex < 0 || pairIndex >= _pairs.Count)
             {
                 return;
@@ -522,7 +542,10 @@ namespace GI_Subtitles.Core.Overlay
             RegionPair current = _pairs[pairIndex];
             _pairs[pairIndex] = new RegionPair(current.Id, current.Capture, nextDisplay);
             RegionAdjustTrace.DisplaySet(OverlayAdjustTarget.Pair, current.Id, nextDisplay);
-            PersistPairs();
+            if (persist)
+            {
+                PersistPairs();
+            }
             if (ArmedPairId == current.Id)
             {
                 if (!nextDisplay.IsValid)
@@ -893,14 +916,11 @@ namespace GI_Subtitles.Core.Overlay
                 return false;
             }
 
-            int deltaX = current.Capture.IsValid
-                ? capture.X + capture.Width / 2 - (current.Capture.X + current.Capture.Width / 2)
-                : 0;
-            int deltaY = current.Capture.IsValid
-                ? capture.Y + capture.Height / 2 - (current.Capture.Y + current.Capture.Height / 2)
-                : 0;
+            // The capture rectangle tracks where the game's subtitle appears;
+            // the display rectangle is the user's chosen overlay location.
+            // Repairing the capture region must not move the translated subtitle.
             OverlayRect display = current.Display.IsValid
-                ? current.Display.Offset(deltaX, deltaY)
+                ? current.Display
                 : (defaultDisplay ?? OverlayRect.Invalid);
             _pairs[pairIndex] = new RegionPair(current.Id, capture, display);
             if (pairIndex < _pairGenerations.Count)
