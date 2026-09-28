@@ -139,7 +139,12 @@ namespace GI_Subtitles.Views
         private bool _dragHandleFinishing;
         private int _dragHandlePairIndex = -1;
         private OverlayRect _dragHandleStartRect = OverlayRect.Invalid;
+        private OverlayRect _dragHandlePreviewRect = OverlayRect.Invalid;
+        private double _dragHandleDisplayScale = 1.0;
         private System.Windows.Point _dragHandleStartMouse;
+        private readonly TranslateTransform _dragHandleRenderTransform = new TranslateTransform();
+        private readonly TranslateTransform _subtitleDragRenderTransform = new TranslateTransform();
+        private readonly TranslateTransform _headerDragRenderTransform = new TranslateTransform();
         private OverlayRect _dragStartRect = OverlayRect.Invalid;
         private System.Windows.Point _dragStartMouse;
         private int _dragPairIndex = -1;
@@ -465,6 +470,9 @@ namespace GI_Subtitles.Views
             _genshinVoiceFileResolver = new LocalVoiceFileResolver(dataDir, "Genshin");
             Task.Run(() => CleanupOldAudioTempFiles());
             InitializeComponent();
+            DragButton.RenderTransform = _dragHandleRenderTransform;
+            SubtitleText.RenderTransform = _subtitleDragRenderTransform;
+            HeaderPanel.RenderTransform = _headerDragRenderTransform;
             if (debug)
             {
                 Dispatcher.Hooks.OperationStarted += OnDispatcherOperationStarted;
@@ -1997,7 +2005,8 @@ namespace GI_Subtitles.Views
                     FontWeight = FontWeights.Bold,
                     Background = System.Windows.Media.Brushes.Transparent,
                     Visibility = Visibility.Collapsed,
-                    IsHitTestVisible = false
+                    IsHitTestVisible = false,
+                    RenderTransform = new TranslateTransform()
                 };
                 block.SetResourceReference(
                     System.Windows.Controls.TextBlock.FontFamilyProperty,
@@ -5089,6 +5098,8 @@ namespace GI_Subtitles.Views
                 return;
             }
 
+            _dragHandleRenderTransform.X = 0;
+            _dragHandleRenderTransform.Y = 0;
             double displayScale = GetDisplayScale(display);
             System.Windows.Point canvasPoint = DisplayToCanvas(display, displayScale);
             double displayWidth = display.Width / displayScale;
@@ -5112,13 +5123,18 @@ namespace GI_Subtitles.Views
 
             _dragHandlePairIndex = pairIndex;
             _dragHandleStartRect = pairs[pairIndex].Display;
+            _dragHandlePreviewRect = _dragHandleStartRect;
+            _dragHandleDisplayScale = GetDisplayScale(_dragHandleStartRect);
             _dragHandleStartMouse = e.GetPosition(OverlayCanvas);
             _dragHandleDragging = true;
+            ResetDragVisualTransforms(pairIndex);
             if (!DragButton.CaptureMouse())
             {
                 _dragHandleDragging = false;
                 _dragHandlePairIndex = -1;
                 _dragHandleStartRect = OverlayRect.Invalid;
+                _dragHandlePreviewRect = OverlayRect.Invalid;
+                _dragHandleDisplayScale = 1.0;
                 return;
             }
 
@@ -5134,7 +5150,7 @@ namespace GI_Subtitles.Views
             }
 
             System.Windows.Point current = e.GetPosition(OverlayCanvas);
-            double displayScale = GetDisplayScale(_dragHandleStartRect);
+            double displayScale = _dragHandleDisplayScale;
             int x = (int)Math.Round(_dragHandleStartRect.X +
                 (current.X - _dragHandleStartMouse.X) * displayScale);
             int y = (int)Math.Round(_dragHandleStartRect.Y +
@@ -5148,30 +5164,65 @@ namespace GI_Subtitles.Views
                 y,
                 _dragHandleStartRect.Width,
                 _dragHandleStartRect.Height);
-            _overlaySession.PreviewDisplay(_dragHandlePairIndex, moved);
+            _dragHandlePreviewRect = moved;
             ApplyDraggedDisplayVisual(_dragHandlePairIndex, moved);
-            PositionDragHandle(moved);
             e.Handled = true;
         }
 
         private void ApplyDraggedDisplayVisual(int pairIndex, OverlayRect display)
         {
-            double displayScale = GetDisplayScale(display);
-            System.Windows.Point canvasPoint = DisplayToCanvas(display, displayScale);
+            if (!_dragHandleStartRect.IsValid || _dragHandleDisplayScale <= 0)
+            {
+                return;
+            }
+
+            double deltaX = (display.X - _dragHandleStartRect.X) / _dragHandleDisplayScale;
+            double deltaY = (display.Y - _dragHandleStartRect.Y) / _dragHandleDisplayScale;
+            _dragHandleRenderTransform.X = deltaX;
+            _dragHandleRenderTransform.Y = deltaY;
             if (pairIndex == 0)
             {
-                Canvas.SetLeft(SubtitleText, canvasPoint.X);
-                Canvas.SetTop(SubtitleText, canvasPoint.Y);
-                Canvas.SetLeft(HeaderPanel, canvasPoint.X);
-                Canvas.SetTop(HeaderPanel, canvasPoint.Y);
+                _subtitleDragRenderTransform.X = deltaX;
+                _subtitleDragRenderTransform.Y = deltaY;
+                _headerDragRenderTransform.X = deltaX;
+                _headerDragRenderTransform.Y = deltaY;
                 return;
             }
 
             int extraIndex = pairIndex - 1;
             if (extraIndex >= 0 && extraIndex < _extraPairBodies.Count)
             {
-                Canvas.SetLeft(_extraPairBodies[extraIndex], canvasPoint.X);
-                Canvas.SetTop(_extraPairBodies[extraIndex], canvasPoint.Y);
+                TranslateTransform transform = _extraPairBodies[extraIndex].RenderTransform as TranslateTransform;
+                if (transform != null)
+                {
+                    transform.X = deltaX;
+                    transform.Y = deltaY;
+                }
+            }
+        }
+
+        private void ResetDragVisualTransforms(int pairIndex)
+        {
+            _dragHandleRenderTransform.X = 0;
+            _dragHandleRenderTransform.Y = 0;
+            if (pairIndex == 0)
+            {
+                _subtitleDragRenderTransform.X = 0;
+                _subtitleDragRenderTransform.Y = 0;
+                _headerDragRenderTransform.X = 0;
+                _headerDragRenderTransform.Y = 0;
+                return;
+            }
+
+            int extraIndex = pairIndex - 1;
+            if (extraIndex >= 0 && extraIndex < _extraPairBodies.Count)
+            {
+                TranslateTransform transform = _extraPairBodies[extraIndex].RenderTransform as TranslateTransform;
+                if (transform != null)
+                {
+                    transform.X = 0;
+                    transform.Y = 0;
+                }
             }
         }
 
@@ -5203,15 +5254,21 @@ namespace GI_Subtitles.Views
 
             _dragHandleFinishing = true;
             int pairIndex = _dragHandlePairIndex;
+            OverlayRect finalDisplay = commit ? _dragHandlePreviewRect : _dragHandleStartRect;
+            if (commit && pairIndex >= 0 && finalDisplay != null && finalDisplay.IsValid)
+            {
+                _overlaySession.SetDisplay(pairIndex, finalDisplay);
+            }
+
+            ResetDragVisualTransforms(pairIndex);
             _dragHandleDragging = false;
             _dragHandlePairIndex = -1;
             _dragHandleStartRect = OverlayRect.Invalid;
-            if (commit)
-            {
-                _overlaySession.CommitDisplay(pairIndex);
-            }
+            _dragHandlePreviewRect = OverlayRect.Invalid;
+            _dragHandleDisplayScale = 1.0;
             DragButton.ReleaseMouseCapture();
             _dragHandleFinishing = false;
+            ApplyPairOverlay();
             data?.RefreshPairPage();
             UpdateDragHandle();
         }
