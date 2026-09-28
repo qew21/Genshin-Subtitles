@@ -145,6 +145,8 @@ namespace GI_Subtitles.Views
         private readonly TranslateTransform _dragHandleRenderTransform = new TranslateTransform();
         private readonly TranslateTransform _subtitleDragRenderTransform = new TranslateTransform();
         private readonly TranslateTransform _headerDragRenderTransform = new TranslateTransform();
+        private readonly TranslateTransform _headerPositionRenderTransform = new TranslateTransform(0, -20);
+        private readonly TransformGroup _headerRenderTransformGroup = new TransformGroup();
         private OverlayRect _dragStartRect = OverlayRect.Invalid;
         private System.Windows.Point _dragStartMouse;
         private int _dragPairIndex = -1;
@@ -472,7 +474,10 @@ namespace GI_Subtitles.Views
             InitializeComponent();
             DragButton.RenderTransform = _dragHandleRenderTransform;
             SubtitleText.RenderTransform = _subtitleDragRenderTransform;
-            HeaderPanel.RenderTransform = _headerDragRenderTransform;
+            _headerRenderTransformGroup.Children.Add(_headerPositionRenderTransform);
+            _headerRenderTransformGroup.Children.Add(_headerDragRenderTransform);
+            HeaderPanel.RenderTransform = _headerRenderTransformGroup;
+            HeaderPanel.SizeChanged += HeaderPanel_SizeChanged;
             if (debug)
             {
                 Dispatcher.Hooks.OperationStarted += OnDispatcherOperationStarted;
@@ -3039,42 +3044,27 @@ namespace GI_Subtitles.Views
         /// </summary>
         private void UpdateHeaderPosition()
         {
-            // Wait for layout to complete before calculating to ensure ActualHeight can be obtained
-            Dispatcher.BeginInvoke(new Action(() =>
+            if (HeaderPanel == null || HeaderPanel.Visibility != Visibility.Visible)
             {
-                try
-                {
-                    if (HeaderPanel.Visibility != Visibility.Visible)
-                        return;
+                return;
+            }
 
-                    // Force layout update to get accurate ActualHeight
-                    SubtitleText.UpdateLayout();
+            double headerHeight = HeaderPanel.ActualHeight;
+            if (headerHeight <= 0)
+            {
+                headerHeight = HeaderText.FontSize;
+            }
 
-                    // Get the actual height of the content (considering multiple lines)
-                    double contentHeight = SubtitleText.ActualHeight;
-                    if (contentHeight <= 0)
-                    {
-                        // If ActualHeight has not been calculated, use the font size as an estimate for a single line height
-                        int fontSize = Config.Get<int>("Size");
-                        contentHeight = fontSize;
-                    }
+            double targetOffset = -(headerHeight + 4);
+            if (Math.Abs(_headerPositionRenderTransform.Y - targetOffset) > 0.1)
+            {
+                _headerPositionRenderTransform.Y = targetOffset;
+            }
+        }
 
-                    // Get the actual height of the header
-                    HeaderPanel.UpdateLayout();
-                    double headerHeight = HeaderPanel.ActualHeight;
-                    if (headerHeight <= 0)
-                    {
-                        headerHeight = 14; // Header font size is 14
-                    }
-
-                    var transform = (System.Windows.Media.TranslateTransform)HeaderPanel.RenderTransform;
-                    transform.Y = -(headerHeight + 4);
-                }
-                catch (Exception ex)
-                {
-                    Logger.Log.Error($"Error updating header position: {ex}");
-                }
-            }), System.Windows.Threading.DispatcherPriority.Loaded);
+        private void HeaderPanel_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            UpdateHeaderPosition();
         }
 
 

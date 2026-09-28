@@ -70,9 +70,6 @@
               HorizontalAlignment="Stretch"
               VerticalAlignment="Top"
               IsHitTestVisible="False">
-            <Grid.RenderTransform>
-                <TranslateTransform Y="-20"/>
-            </Grid.RenderTransform>
             <TextBlock x:Name="HeaderText"
                        TextWrapping="Wrap"
                        FontFamily="{DynamicResource SubtitleFontFamily}"
