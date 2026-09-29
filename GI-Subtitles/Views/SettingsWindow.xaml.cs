@@ -299,6 +299,34 @@ namespace GI_Subtitles.Views
             }
         }
 
+        public void OpenSettings()
+        {
+            Action open = () =>
+            {
+                if (IsVisible)
+                {
+                    if (WindowState == System.Windows.WindowState.Minimized)
+                    {
+                        WindowState = System.Windows.WindowState.Normal;
+                    }
+
+                    Activate();
+                    return;
+                }
+
+                ShowDialog();
+            };
+
+            if (Dispatcher.CheckAccess())
+            {
+                open();
+            }
+            else
+            {
+                Dispatcher.Invoke(open);
+            }
+        }
+
         private void BindOcrIntervalSettings()
         {
             if (OcrIntervalTextBox == null)

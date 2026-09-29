@@ -93,8 +93,7 @@ namespace GI_Subtitles.Views
         private int _samplingTicksSkippedOcrBusy;
         private int _samplingTicksSkippedSamplerBusy;
         private const int DebugSamplingOverlayEntryLimit = 8;
-        private const double DebugSamplingLineHeight = 16;
-        private const int DebugSamplingLowerLines = 3;
+        private const double DebugSamplingBottomMargin = 8;
         private readonly List<string> _debugSamplingOverlayEntries = new List<string>();
         private readonly Dictionary<DispatcherOperation, long> _dispatcherOperationStartTicks =
             new Dictionary<DispatcherOperation, long>();
@@ -140,8 +139,8 @@ namespace GI_Subtitles.Views
         private int _dragHandlePairIndex = -1;
         private OverlayRect _dragHandleStartRect = OverlayRect.Invalid;
         private OverlayRect _dragHandlePreviewRect = OverlayRect.Invalid;
-        private double _dragHandleDisplayScale = 1.0;
-        private System.Windows.Point _dragHandleStartMouse;
+        private int _dragHandleContentBottomOffset;
+        private System.Windows.Point _dragHandleStartMouseScreen;
         private readonly TranslateTransform _dragHandleRenderTransform = new TranslateTransform();
         private readonly TranslateTransform _subtitleDragRenderTransform = new TranslateTransform();
         private readonly TranslateTransform _headerDragRenderTransform = new TranslateTransform();
@@ -646,8 +645,7 @@ namespace GI_Subtitles.Views
         {
             return Math.Max(
                 0,
-                OverlayCanvas.ActualHeight - DebugSamplingPanel.Height - 12 +
-                DebugSamplingLineHeight * DebugSamplingLowerLines);
+                OverlayCanvas.ActualHeight - DebugSamplingPanel.Height - DebugSamplingBottomMargin);
         }
 
         private void UpdateDebugSamplingResourceUsage()
@@ -746,7 +744,7 @@ namespace GI_Subtitles.Views
 
                 if (!data.IsVisible)
                 {
-                    data.ShowDialog();
+                    data.OpenSettings();
                     settingsOpenedAtStartup = true;
                 }
             }
@@ -771,7 +769,7 @@ namespace GI_Subtitles.Views
                                     data.Title = $"[Language pack update]{originalTitle}";
                                     if (!data.IsVisible)
                                     {
-                                        data.ShowDialog();
+                                        data.OpenSettings();
                                     }
                                     data.Title = originalTitle;
                                 });
@@ -5157,17 +5155,19 @@ namespace GI_Subtitles.Views
             _dragHandlePairIndex = pairIndex;
             _dragHandleStartRect = pairs[pairIndex].Display;
             _dragHandlePreviewRect = _dragHandleStartRect;
-            _dragHandleDisplayScale = GetDisplayScale(_dragHandleStartRect);
-            _dragHandleStartMouse = e.GetPosition(OverlayCanvas);
+            System.Windows.Point startMouse = e.GetPosition(OverlayCanvas);
             _dragHandleDragging = true;
             ResetDragVisualTransforms(pairIndex);
+            _dragHandleStartMouseScreen = OverlayCanvas.PointToScreen(startMouse);
+            _dragHandleContentBottomOffset = GetDragContentBottomOffset(pairIndex, _dragHandleStartRect);
             if (!DragButton.CaptureMouse())
             {
                 _dragHandleDragging = false;
                 _dragHandlePairIndex = -1;
                 _dragHandleStartRect = OverlayRect.Invalid;
                 _dragHandlePreviewRect = OverlayRect.Invalid;
-                _dragHandleDisplayScale = 1.0;
+                _dragHandleContentBottomOffset = 0;
+                _dragHandleStartMouseScreen = new System.Windows.Point();
                 return;
             }
 
@@ -5183,14 +5183,15 @@ namespace GI_Subtitles.Views
             }
 
             System.Windows.Point current = e.GetPosition(OverlayCanvas);
-            double displayScale = _dragHandleDisplayScale;
+            System.Windows.Point currentScreen = OverlayCanvas.PointToScreen(current);
             int x = (int)Math.Round(_dragHandleStartRect.X +
-                (current.X - _dragHandleStartMouse.X) * displayScale);
+                currentScreen.X - _dragHandleStartMouseScreen.X);
             int y = (int)Math.Round(_dragHandleStartRect.Y +
-                (current.Y - _dragHandleStartMouse.Y) * displayScale);
+                currentScreen.Y - _dragHandleStartMouseScreen.Y);
             System.Drawing.Rectangle virtualBounds = System.Windows.Forms.SystemInformation.VirtualScreen;
             x = Math.Max(virtualBounds.Left, Math.Min(x, virtualBounds.Right - _dragHandleStartRect.Width));
-            y = Math.Max(virtualBounds.Top, Math.Min(y, virtualBounds.Bottom - _dragHandleStartRect.Height));
+            int maxY = virtualBounds.Bottom - Math.Max(1, _dragHandleContentBottomOffset);
+            y = Math.Max(virtualBounds.Top, Math.Min(y, maxY));
 
             var moved = new OverlayRect(
                 x,
@@ -5204,13 +5205,17 @@ namespace GI_Subtitles.Views
 
         private void ApplyDraggedDisplayVisual(int pairIndex, OverlayRect display)
         {
-            if (!_dragHandleStartRect.IsValid || _dragHandleDisplayScale <= 0)
+            if (!_dragHandleStartRect.IsValid || OverlayCanvas == null)
             {
                 return;
             }
 
-            double deltaX = (display.X - _dragHandleStartRect.X) / _dragHandleDisplayScale;
-            double deltaY = (display.Y - _dragHandleStartRect.Y) / _dragHandleDisplayScale;
+            System.Windows.Point startCanvas = OverlayCanvas.PointFromScreen(
+                new System.Windows.Point(_dragHandleStartRect.X, _dragHandleStartRect.Y));
+            System.Windows.Point movedCanvas = OverlayCanvas.PointFromScreen(
+                new System.Windows.Point(display.X, display.Y));
+            double deltaX = movedCanvas.X - startCanvas.X;
+            double deltaY = movedCanvas.Y - startCanvas.Y;
             _dragHandleRenderTransform.X = deltaX;
             _dragHandleRenderTransform.Y = deltaY;
             if (pairIndex == 0)
@@ -5232,6 +5237,61 @@ namespace GI_Subtitles.Views
                     transform.Y = deltaY;
                 }
             }
+        }
+
+        private int GetDragContentBottomOffset(int pairIndex, OverlayRect display)
+        {
+            FrameworkElement contentElement = null;
+            System.Windows.Rect contentBounds = System.Windows.Rect.Empty;
+
+            if (pairIndex == 0)
+            {
+                contentElement = SubtitleText;
+                SubtitleText.UpdateLayout();
+                string text = SubtitleText.Text ?? string.Empty;
+                int lastCharacter = text.Length - 1;
+                while (lastCharacter >= 0 && (text[lastCharacter] == '\r' || text[lastCharacter] == '\n'))
+                {
+                    lastCharacter--;
+                }
+
+                if (lastCharacter >= 0)
+                {
+                    contentBounds = SubtitleText.GetRectFromCharacterIndex(lastCharacter, true);
+                }
+            }
+            else
+            {
+                int extraIndex = pairIndex - 1;
+                if (extraIndex >= 0 && extraIndex < _extraPairBodies.Count)
+                {
+                    System.Windows.Controls.TextBlock block = _extraPairBodies[extraIndex];
+                    contentElement = block;
+                    block.UpdateLayout();
+                    if (!string.IsNullOrEmpty(block.Text))
+                    {
+                        contentBounds = block.ContentEnd.GetCharacterRect(
+                            System.Windows.Documents.LogicalDirection.Backward);
+                    }
+                }
+            }
+
+            if (contentElement != null && !contentBounds.IsEmpty)
+            {
+                System.Windows.Point elementOrigin = contentElement.PointToScreen(new System.Windows.Point(0, 0));
+                System.Windows.Point contentBottom = contentElement.PointToScreen(
+                    new System.Windows.Point(0, contentBounds.Bottom));
+                double offset = contentBottom.Y - elementOrigin.Y;
+                if (offset > 0 && offset <= display.Height)
+                {
+                    return (int)Math.Ceiling(offset);
+                }
+            }
+
+            // Keep the whole configured display area visible when WPF has not
+            // produced measurable text geometry for this drag target.
+            Logger.Log.Warn("Could not measure subtitle text bounds during drag; keeping the full display area on screen.");
+            return display.Height;
         }
 
         private void ResetDragVisualTransforms(int pairIndex)
@@ -5298,7 +5358,8 @@ namespace GI_Subtitles.Views
             _dragHandlePairIndex = -1;
             _dragHandleStartRect = OverlayRect.Invalid;
             _dragHandlePreviewRect = OverlayRect.Invalid;
-            _dragHandleDisplayScale = 1.0;
+            _dragHandleContentBottomOffset = 0;
+            _dragHandleStartMouseScreen = new System.Windows.Point();
             DragButton.ReleaseMouseCapture();
             _dragHandleFinishing = false;
             ApplyPairOverlay();

@@ -79,7 +79,7 @@ namespace GI_Subtitles.Core.UI
             activityLogItem.Click += (sender, e) => _openActivityLog?.Invoke();
             settingItem.Click += (sender, e) =>
             {
-                data.ShowDialog();
+                data?.OpenSettings();
             };
             exitItem.Click += (sender, e) => { System.Windows.Application.Current.Shutdown(); };
             contextMenuStrip.Items.Add(versionItem);
@@ -281,7 +281,7 @@ namespace GI_Subtitles.Core.UI
 
         private void DateUpdate()
         {
-            data.ShowDialog();
+            data?.OpenSettings();
         }
 
         public bool ChooseRegion()
