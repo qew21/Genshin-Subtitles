@@ -24,10 +24,30 @@ namespace Screenshot
             set
             {
                 PromptLabel.Text = value ?? string.Empty;
-                PromptLabel.Visibility = string.IsNullOrWhiteSpace(value)
+                PromptPanel.Visibility = string.IsNullOrWhiteSpace(value)
                     ? Visibility.Collapsed
                     : Visibility.Visible;
             }
+        }
+
+        public string SkipButtonText
+        {
+            get { return SkipButton.Content as string; }
+            set
+            {
+                SkipButton.Content = value ?? string.Empty;
+                SkipButton.Visibility = string.IsNullOrWhiteSpace(value)
+                    ? Visibility.Collapsed
+                    : Visibility.Visible;
+            }
+        }
+
+        public bool WasSkipped { get; private set; }
+
+        private void SkipButton_Click(object sender, RoutedEventArgs e)
+        {
+            WasSkipped = true;
+            Close();
         }
 
         protected override void OnKeyDown(KeyEventArgs e)
@@ -40,6 +60,11 @@ namespace Screenshot
         protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
         {
             base.OnMouseLeftButtonDown(e);
+
+            if (SkipButton != null && SkipButton.IsMouseOver)
+            {
+                return;
+            }
 
             _selectionStartPos = e.GetPosition(this);
 

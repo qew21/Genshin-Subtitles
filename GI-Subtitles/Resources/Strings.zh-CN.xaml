@@ -61,7 +61,7 @@
     <sys:String x:Key="Help_Instructions" xmlns:sys="clr-namespace:System;assembly=mscorlib">使用步骤</sys:String>
     <sys:String x:Key="Help_Step1" xmlns:sys="clr-namespace:System;assembly=mscorlib">1. 使用流程：语言包管理界面下载对应文件，打开游戏选择对话区域，使用快捷键开始识别和展示。</sys:String>
     <sys:String x:Key="Help_Step2" xmlns:sys="clr-namespace:System;assembly=mscorlib">2. 可通过快捷键 Ctrl+Shift+S 启动/暂停；Ctrl+Shift+R 选择识别区域；Ctrl+Shift+H 隐藏字幕。若冲突，可在「快捷键」标签修改。</sys:String>
-    <sys:String x:Key="Help_Step3" xmlns:sys="clr-namespace:System;assembly=mscorlib">3. 在「区域对」页点击「调整区域」武装后，抓哪个框动哪个矩形：拖识别区框，下一拍起从新位置采样；拖显示区框，字幕实时跟随。预览全部与显示识别区热键会画出每个区域对的识别区（绿）和显示区（金）。建议游戏使用「无边框窗口」模式而非独占全屏。</sys:String>
+    <sys:String x:Key="Help_Step3" xmlns:sys="clr-namespace:System;assembly=mscorlib">3. 在「区域对」页点击「调整区域」武装后，抓哪个框动哪个矩形：拖框内移动位置，拖上、下、左、右边缘调整大小；拖识别区框，下一拍起从新位置采样；拖显示区框，字幕实时跟随。预览全部与显示识别区热键会画出每个区域对的识别区（绿）和显示区（金）。建议游戏使用「无边框窗口」模式而非独占全屏。</sys:String>
 
     <!-- Config Tab -->
     <sys:String x:Key="Tab_Config" xmlns:sys="clr-namespace:System;assembly=mscorlib">其他配置选项</sys:String>
@@ -84,6 +84,10 @@
     <sys:String x:Key="RegionPair_VoicePrimaryCurrent" xmlns:sys="clr-namespace:System;assembly=mscorlib">配音来源在「区域对」页指定，当前为区域对 {0}。</sys:String>
     <sys:String x:Key="RegionPair_VoicePrimaryNone" xmlns:sys="clr-namespace:System;assembly=mscorlib">配音来源在「区域对」页指定，当前未设置。</sys:String>
     <sys:String x:Key="RegionPair_BoxCaptureMask" xmlns:sys="clr-namespace:System;assembly=mscorlib">框选识别区（区域对 {0}）</sys:String>
+    <sys:String x:Key="RegionPair_SkipDisplayButton" xmlns:sys="clr-namespace:System;assembly=mscorlib">跳过展示区 {0}</sys:String>
+    <sys:String x:Key="RegionPair_DefaultDisplayFailure_Title" xmlns:sys="clr-namespace:System;assembly=mscorlib">无法设置展示区域</sys:String>
+    <sys:String x:Key="RegionPair_DefaultDisplayFailure_Message" xmlns:sys="clr-namespace:System;assembly=mscorlib">区域对 {0} 没有可沿用的展示区域，也无法计算旧版默认位置。请重新选择展示区域后再试。</sys:String>
+    <sys:String x:Key="Overlay_AdjustHint" xmlns:sys="clr-namespace:System;assembly=mscorlib">拖动框内可移动区域，拖动边缘可调整大小。</sys:String>
     <sys:String x:Key="RegionPair_BoxDisplayMask" xmlns:sys="clr-namespace:System;assembly=mscorlib">框选显示区（区域对 {0}）</sys:String>
     <sys:String x:Key="RegionPair_BoxCaptureTooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">框选此区域对的识别区</sys:String>
     <sys:String x:Key="RegionPair_BoxDisplayTooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">框选此区域对的显示区</sys:String>

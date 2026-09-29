@@ -236,6 +236,16 @@ namespace Screenshot
         /// </summary>
         public static Rect GetRegion(string prompt)
         {
+            bool skipped;
+            return GetRegion(prompt, null, out skipped);
+        }
+
+        /// <summary>
+        /// Get a selected region or let the user skip from the selection overlay.
+        /// </summary>
+        public static Rect GetRegion(string prompt, string skipButtonText, out bool wasSkipped)
+        {
+            wasSkipped = false;
             DebugLogger.Log("========== Start a new screenshot session ==========");
 
             var options = new ScreenshotOptions();
@@ -291,6 +301,7 @@ namespace Screenshot
                 ShowInTaskbar = false,
                 BorderThickness = new Thickness(0),
                 Prompt = prompt,
+                SkipButtonText = skipButtonText,
                 BackgroundImage =
                 {
                     Source = bitmap,
@@ -305,6 +316,13 @@ namespace Screenshot
             };
 
             window.ShowDialog();
+
+            if (window.WasSkipped)
+            {
+                wasSkipped = true;
+                DebugLogger.Log("User skipped the screenshot region");
+                return Rect.Empty;
+            }
 
             if (window.SelectedRegion == null)
             {

@@ -147,7 +147,8 @@ namespace GI_Subtitles.Views
         private readonly TranslateTransform _headerPositionRenderTransform = new TranslateTransform(0, -20);
         private readonly TransformGroup _headerRenderTransformGroup = new TransformGroup();
         private OverlayRect _dragStartRect = OverlayRect.Invalid;
-        private System.Windows.Point _dragStartMouse;
+        private System.Windows.Point _dragStartMouseScreen;
+        private RegionResizeEdges _dragResizeEdges;
         private int _dragPairIndex = -1;
         private OverlayAdjustTarget _dragTarget = OverlayAdjustTarget.None;
         private bool _dragIsCapture;
@@ -169,6 +170,17 @@ namespace GI_Subtitles.Views
         private const int DialogueOptionAnalysisMaxSide = 1920;
         private const int PreviewOutlineBoxZIndex = int.MaxValue - 2;
         private const int PreviewOutlineLabelZIndex = int.MaxValue - 1;
+
+        [Flags]
+        private enum RegionResizeEdges
+        {
+            None = 0,
+            Left = 1,
+            Top = 2,
+            Right = 4,
+            Bottom = 8
+        }
+
         string ocrText = "";
         private NotifyIcon notifyIcon;
         string lastHeader = null;
@@ -263,6 +275,8 @@ namespace GI_Subtitles.Views
         private double Scale = GetDpiForSystem() / 96f;
         // Use an LRU cache to limit memory usage to 30 entries (mapping from image hash to OCR text)
         LRUCache<string, string> BitmapDict = new LRUCache<string, string>(30);
+        // Subtitle-filtered and generic region OCR can produce different text for the same frame.
+        private readonly LRUCache<string, string> RegionBitmapDict = new LRUCache<string, string>(30);
         private readonly LRUCache<string, bool> AudioList = new LRUCache<string, bool>(4096);
         string InputLanguage = Config.Get<string>("Input");
         string OutputLanguage = Config.Get<string>("Output");
@@ -718,6 +732,7 @@ namespace GI_Subtitles.Views
             }
             data.InitializeKey(handle);
             notify.SetData(data);
+            notify.EnsurePairDisplayRegions();
             _activityLogWindow = new ActivityLogWindow(_overlaySession);
             notify.SetActivityLogOpener(ShowActivityLog);
             data.OpenActivityLogRequested += (sender, args) => ShowActivityLog();
@@ -3189,6 +3204,12 @@ namespace GI_Subtitles.Views
         {
             _isOcrRunning = true;
             string ocrGame = _overlaySession.AppliedGame;
+            // Only the primary subtitle area should discard text outside the subtitle layout.
+            bool useSubtitleTextFilter = !pairIndex.HasValue ||
+                pairIndex.Value == FindPrimaryPairIndex(_overlaySession.Pairs);
+            LRUCache<string, string> imageTextCache = useSubtitleTextFilter
+                ? BitmapDict
+                : RegionBitmapDict;
             long diagnosticId = ShouldCollectSamplingDiagnostics
                 ? Interlocked.Increment(ref _ocrDiagnosticSequence)
                 : 0;
@@ -3262,7 +3283,7 @@ namespace GI_Subtitles.Views
                         hashMs = hashStopwatch?.Elapsed.TotalMilliseconds ?? 0;
 
                         if (!forceRefresh &&
-                            BitmapDict.TryGetValue(bitStr, out string cachedOcrText) &&
+                            imageTextCache.TryGetValue(bitStr, out string cachedOcrText) &&
                             !string.IsNullOrWhiteSpace(cachedOcrText))
                         {
                             recognitionSource = "exact-image-cache";
@@ -3274,20 +3295,24 @@ namespace GI_Subtitles.Views
                             Stopwatch similarCacheStopwatch = debug ? Stopwatch.StartNew() : null;
                             string matchedImageHash = forceRefresh
                                 ? null
-                                : ImageProcessor.FindSimilarImageHash(bitStr, BitmapDict, maxDistance: distant);
+                                : ImageProcessor.FindSimilarImageHash(bitStr, imageTextCache, maxDistance: distant);
                             similarCacheMs = similarCacheStopwatch?.Elapsed.TotalMilliseconds ?? 0;
                             if (matchedImageHash != null)
                             {
                                 recognitionSource = "similar-image-cache";
-                                recognizedText = BitmapDict[matchedImageHash];
-                                BitmapDict[bitStr] = recognizedText; // LRU cache automatically manages size
+                                recognizedText = imageTextCache[matchedImageHash];
+                                imageTextCache[bitStr] = recognizedText; // LRU cache automatically manages size
                                 recognitionCompleted = true;
                             }
                             else
                             {
-                                recognitionSource = "paddle-ocr";
+                                recognitionSource = useSubtitleTextFilter
+                                    ? "paddle-ocr-subtitle-filter"
+                                    : "paddle-ocr-region";
                                 Stopwatch ocrStopwatch = debug ? Stopwatch.StartNew() : null;
-                                OCRResult ocrResult = data.engine.DetectSubtitleTextFromMat(frameToProcess);
+                                OCRResult ocrResult = useSubtitleTextFilter
+                                    ? data.engine.DetectSubtitleTextFromMat(frameToProcess)
+                                    : data.engine.DetectTextFromMat(frameToProcess);
                                 ocrMs = ocrStopwatch?.Elapsed.TotalMilliseconds ?? 0;
                                 detectedTextRegionCount = ocrResult?.DetectedTextRegionCount ?? 0;
                                 recognizedTextRegionCount = ocrResult?.RecognizedTextRegionCount ?? 0;
@@ -3308,7 +3333,7 @@ namespace GI_Subtitles.Views
 
                                 if (!string.IsNullOrWhiteSpace(recognizedText))
                                 {
-                                    BitmapDict[bitStr] = recognizedText;
+                                    imageTextCache[bitStr] = recognizedText;
                                 }
                             }
                         }
@@ -5455,6 +5480,9 @@ namespace GI_Subtitles.Views
                 Fill = takesMouse ? AdjustHitFill : null,
                 IsHitTestVisible = takesMouse,
                 Cursor = takesMouse ? System.Windows.Input.Cursors.SizeAll : System.Windows.Input.Cursors.Arrow,
+                ToolTip = takesMouse
+                    ? TryFindResource("Overlay_AdjustHint") as string ?? "Drag inside a frame to move it; drag an edge to resize it."
+                    : null,
                 Tag = outline
             };
             Canvas.SetLeft(box, canvasPoint.X);
@@ -5581,13 +5609,26 @@ namespace GI_Subtitles.Views
             _dragPairIndex = pairIndex;
             _dragIsCapture = dragCapture;
             _dragStartRect = start;
-            _dragStartMouse = e.GetPosition(OverlayCanvas);
+            _dragResizeEdges = GetResizeEdges(box, e.GetPosition(box));
+            _dragStartMouseScreen = OverlayCanvas.PointToScreen(e.GetPosition(OverlayCanvas));
+            box.Cursor = CursorForResizeEdges(_dragResizeEdges);
             box.CaptureMouse();
             e.Handled = true;
         }
 
         private void RegionAdjust_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
         {
+            var box = sender as System.Windows.Shapes.Rectangle;
+            if (!_regionDragging)
+            {
+                if (box != null)
+                {
+                    box.Cursor = CursorForResizeEdges(GetResizeEdges(box, e.GetPosition(box)));
+                }
+
+                return;
+            }
+
             AdjustMouseExit exit = AdjustMouseGuard.MoveExitReason(
                 _regionDragging,
                 e.LeftButton == MouseButtonState.Pressed,
@@ -5597,23 +5638,23 @@ namespace GI_Subtitles.Views
                 return;
             }
 
-            System.Windows.Point now = e.GetPosition(OverlayCanvas);
-            double deltaX = now.X - _dragStartMouse.X;
-            double deltaY = now.Y - _dragStartMouse.Y;
-            double dragScale = GetDisplayScale(_dragStartRect);
-            var moved = new OverlayRect(
-                (int)Math.Round(_dragStartRect.X + deltaX * dragScale),
-                (int)Math.Round(_dragStartRect.Y + deltaY * dragScale),
-                _dragStartRect.Width,
-                _dragStartRect.Height);
+            System.Windows.Point nowScreen = OverlayCanvas.PointToScreen(e.GetPosition(OverlayCanvas));
+            int deltaX = (int)Math.Round(nowScreen.X - _dragStartMouseScreen.X);
+            int deltaY = (int)Math.Round(nowScreen.Y - _dragStartMouseScreen.Y);
+            OverlayRect moved = _dragResizeEdges == RegionResizeEdges.None
+                ? MoveRegion(_dragStartRect, deltaX, deltaY)
+                : ResizeRegion(_dragStartRect, deltaX, deltaY, _dragResizeEdges);
             ApplyDraggedRegion(moved);
 
-            var box = sender as System.Windows.Shapes.Rectangle;
             if (box != null)
             {
-                System.Windows.Point canvasPoint = DisplayToCanvas(moved);
+                double displayScale = GetDisplayScale(moved);
+                System.Windows.Point canvasPoint = DisplayToCanvas(moved, displayScale);
                 Canvas.SetLeft(box, canvasPoint.X);
                 Canvas.SetTop(box, canvasPoint.Y);
+                box.Width = moved.Width / displayScale;
+                box.Height = moved.Height / displayScale;
+                box.Cursor = CursorForResizeEdges(_dragResizeEdges);
             }
 
             ApplyPairOverlay();
@@ -5635,10 +5676,117 @@ namespace GI_Subtitles.Views
             _dragPairIndex = -1;
             _dragTarget = OverlayAdjustTarget.None;
             _dragIsCapture = false;
+            _dragResizeEdges = RegionResizeEdges.None;
+            _dragStartRect = OverlayRect.Invalid;
+            _dragStartMouseScreen = new System.Windows.Point();
             ApplyOutlines();
             data?.RefreshPairPage();
             data?.RefreshExtraPathDisplayRows();
             e.Handled = true;
+        }
+
+        private static RegionResizeEdges GetResizeEdges(
+            System.Windows.Shapes.Rectangle box,
+            System.Windows.Point point)
+        {
+            if (box == null)
+            {
+                return RegionResizeEdges.None;
+            }
+
+            double horizontalTolerance = Math.Min(8, box.ActualWidth / 3);
+            double verticalTolerance = Math.Min(8, box.ActualHeight / 3);
+            RegionResizeEdges edges = RegionResizeEdges.None;
+            if (point.X <= horizontalTolerance)
+            {
+                edges |= RegionResizeEdges.Left;
+            }
+            else if (point.X >= box.ActualWidth - horizontalTolerance)
+            {
+                edges |= RegionResizeEdges.Right;
+            }
+
+            if (point.Y <= verticalTolerance)
+            {
+                edges |= RegionResizeEdges.Top;
+            }
+            else if (point.Y >= box.ActualHeight - verticalTolerance)
+            {
+                edges |= RegionResizeEdges.Bottom;
+            }
+
+            return edges;
+        }
+
+        private static System.Windows.Input.Cursor CursorForResizeEdges(RegionResizeEdges edges)
+        {
+            bool horizontal = (edges & (RegionResizeEdges.Left | RegionResizeEdges.Right)) != 0;
+            bool vertical = (edges & (RegionResizeEdges.Top | RegionResizeEdges.Bottom)) != 0;
+            if (horizontal && vertical)
+            {
+                bool sameDirection =
+                    ((edges & RegionResizeEdges.Left) != 0) ==
+                    ((edges & RegionResizeEdges.Top) != 0);
+                return sameDirection
+                    ? System.Windows.Input.Cursors.SizeNWSE
+                    : System.Windows.Input.Cursors.SizeNESW;
+            }
+
+            if (horizontal)
+            {
+                return System.Windows.Input.Cursors.SizeWE;
+            }
+
+            if (vertical)
+            {
+                return System.Windows.Input.Cursors.SizeNS;
+            }
+
+            return System.Windows.Input.Cursors.SizeAll;
+        }
+
+        private static OverlayRect MoveRegion(OverlayRect start, int deltaX, int deltaY)
+        {
+            System.Drawing.Rectangle virtualBounds = System.Windows.Forms.SystemInformation.VirtualScreen;
+            int maxX = Math.Max(virtualBounds.Left, virtualBounds.Right - start.Width);
+            int maxY = Math.Max(virtualBounds.Top, virtualBounds.Bottom - start.Height);
+            int x = Math.Max(virtualBounds.Left, Math.Min(start.X + deltaX, maxX));
+            int y = Math.Max(virtualBounds.Top, Math.Min(start.Y + deltaY, maxY));
+            return new OverlayRect(x, y, start.Width, start.Height);
+        }
+
+        private static OverlayRect ResizeRegion(
+            OverlayRect start,
+            int deltaX,
+            int deltaY,
+            RegionResizeEdges edges)
+        {
+            System.Drawing.Rectangle virtualBounds = System.Windows.Forms.SystemInformation.VirtualScreen;
+            int minWidth = Math.Min(12, start.Width);
+            int minHeight = Math.Min(12, start.Height);
+            int left = start.X;
+            int top = start.Y;
+            int right = start.X + start.Width;
+            int bottom = start.Y + start.Height;
+
+            if ((edges & RegionResizeEdges.Left) != 0)
+            {
+                left = Math.Max(virtualBounds.Left, Math.Min(start.X + deltaX, right - minWidth));
+            }
+            if ((edges & RegionResizeEdges.Right) != 0)
+            {
+                right = Math.Min(virtualBounds.Right, Math.Max(start.X + start.Width + deltaX, left + minWidth));
+            }
+            if ((edges & RegionResizeEdges.Top) != 0)
+            {
+                top = Math.Max(virtualBounds.Top, Math.Min(start.Y + deltaY, bottom - minHeight));
+            }
+            if ((edges & RegionResizeEdges.Bottom) != 0)
+            {
+                bottom = Math.Min(virtualBounds.Bottom, Math.Max(start.Y + start.Height + deltaY, top + minHeight));
+            }
+
+            return new OverlayRect(left, top, right - left, bottom - top);
         }
 
         private void ApplyDraggedRegion(OverlayRect moved)

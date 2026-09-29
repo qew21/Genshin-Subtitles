@@ -2,6 +2,7 @@ using GI_Subtitles.Properties;
 using Microsoft.Win32;
 using Screenshot;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
@@ -134,6 +135,49 @@ namespace GI_Subtitles.Core.UI
         public void SetSession(LiveOverlaySession session)
         {
             _overlaySession = session;
+        }
+
+        public void EnsurePairDisplayRegions()
+        {
+            if (_overlaySession == null)
+            {
+                return;
+            }
+
+            var failedOrdinals = new System.Collections.Generic.List<int>();
+            IReadOnlyList<RegionPair> pairs = _overlaySession.Pairs;
+            for (int i = 0; i < pairs.Count; i++)
+            {
+                RegionPair pair = pairs[i];
+                if (pair.Display.IsValid || !pair.Capture.IsValid)
+                {
+                    continue;
+                }
+
+                OverlayRect display = data?.PairSettings.GetReusableDisplay(pair.Id) ?? OverlayRect.Invalid;
+                if (!display.IsValid)
+                {
+                    display = CreateLegacyDefaultDisplayRegion(pair.Capture);
+                }
+
+                if (!display.IsValid)
+                {
+                    failedOrdinals.Add(i + 1);
+                    Logger.Log.Error(
+                        $"Could not create a default display region for region pair {i + 1}; " +
+                        $"capture={pair.Capture.ToCsv()}.");
+                    continue;
+                }
+
+                _overlaySession.SetDisplay(i, display);
+            }
+
+            if (failedOrdinals.Count > 0)
+            {
+                ShowDefaultDisplayFailure(string.Join(", ", failedOrdinals));
+            }
+
+            data?.RefreshPairPage();
         }
 
         public void SetActivityLogOpener(Action opener)
@@ -320,10 +364,30 @@ namespace GI_Subtitles.Core.UI
                 return false;
             }
 
-            OverlayRect display = PromptRect("RegionPair_BoxDisplayMask", "框选显示区（区域对 {0}）", ordinal);
-            if (!display.IsValid)
+            bool displaySkipped;
+            OverlayRect display = PromptDisplayRegionWithSkip(ordinal, out displaySkipped);
+            if (!displaySkipped && !display.IsValid)
             {
                 return false;
+            }
+
+            if (displaySkipped)
+            {
+                display = settings.GetDisplay(pairId);
+                if (!display.IsValid)
+                {
+                    display = settings.GetReusableDisplay(pairId);
+                }
+                if (!display.IsValid)
+                {
+                    display = CreateLegacyDefaultDisplayRegion(capture);
+                }
+
+                if (!display.IsValid)
+                {
+                    ShowDefaultDisplayFailure(ordinal.ToString());
+                    return false;
+                }
             }
 
             bool boxed = settings.TryBoxHotkeyPair(capture, display);
@@ -348,15 +412,44 @@ namespace GI_Subtitles.Core.UI
             }
 
             settings.SetAddCapture(capture);
-            OverlayRect display = PromptRect("RegionPair_BoxDisplayMask", "框选显示区（区域对 {0}）", ordinal);
-            if (!display.IsValid)
+            bool displaySkipped;
+            OverlayRect display = PromptDisplayRegionWithSkip(ordinal, out displaySkipped);
+            if (!displaySkipped && !display.IsValid)
             {
                 settings.AbortAdd();
                 return false;
             }
 
-            settings.SetAddDisplay(display);
-            return settings.TryCommitAdd();
+            if (display.IsValid)
+            {
+                settings.SetAddDisplay(display);
+            }
+
+            OverlayRect fallbackDisplay = OverlayRect.Invalid;
+            if (displaySkipped)
+            {
+                fallbackDisplay = settings.GetReusableDisplay();
+                if (!fallbackDisplay.IsValid)
+                {
+                    fallbackDisplay = CreateLegacyDefaultDisplayRegion(capture);
+                }
+
+                if (!fallbackDisplay.IsValid)
+                {
+                    ShowDefaultDisplayFailure(ordinal.ToString());
+                    settings.AbortAdd();
+                    return false;
+                }
+            }
+
+            bool committed = settings.TryCommitAdd(fallbackDisplay);
+            if (!committed && displaySkipped)
+            {
+                ShowDefaultDisplayFailure(ordinal.ToString());
+            }
+
+            data.RefreshPairPage();
+            return committed;
         }
 
         public bool BoxCapture(int pairId)
@@ -458,6 +551,131 @@ namespace GI_Subtitles.Core.UI
             }
 
             return OverlayRect.Invalid;
+        }
+
+        private OverlayRect PromptDisplayRegionWithSkip(int ordinal, out bool wasSkipped)
+        {
+            wasSkipped = false;
+            string promptFormat = GetLocalizedString("RegionPair_BoxDisplayMask", "框选展示区域（区域对 {0}）");
+            string skipFormat = GetLocalizedString("RegionPair_SkipDisplayButton", "跳过展示区 {0}");
+            string prompt = promptFormat;
+            string skipButtonText = skipFormat;
+            try
+            {
+                prompt = string.Format(promptFormat, ordinal);
+                skipButtonText = string.Format(skipFormat, ordinal);
+            }
+            catch (FormatException)
+            {
+                // Keep the resource text usable if a translation omits a format placeholder.
+            }
+
+            try
+            {
+                System.Windows.Rect rect = Screenshot.Screenshot.GetRegion(
+                    prompt,
+                    skipButtonText,
+                    out wasSkipped);
+                return ConvertRegionRect(rect);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                return OverlayRect.Invalid;
+            }
+        }
+
+        private static OverlayRect ConvertRegionRect(System.Windows.Rect rect)
+        {
+            if (rect.Width <= 0 || rect.Height <= 0)
+            {
+                return OverlayRect.Invalid;
+            }
+
+            return new OverlayRect(
+                Convert.ToInt32(rect.TopLeft.X),
+                Convert.ToInt32(rect.TopLeft.Y),
+                Convert.ToInt32(rect.Width),
+                Convert.ToInt32(rect.Height));
+        }
+
+        private OverlayRect CreateLegacyDefaultDisplayRegion(OverlayRect capture)
+        {
+            if (capture == null || !capture.IsValid)
+            {
+                return OverlayRect.Invalid;
+            }
+
+            var captureCenter = new System.Drawing.Point(
+                capture.X + capture.Width / 2,
+                capture.Y + capture.Height / 2);
+            System.Windows.Forms.Screen screen = System.Windows.Forms.Screen.FromPoint(captureCenter);
+            if (screen == null || screen.Bounds.Width <= 0 || screen.Bounds.Height <= 0)
+            {
+                Logger.Log.Error("Could not find a screen for the selected capture region.");
+                return OverlayRect.Invalid;
+            }
+
+            double scale = Views.MainWindow.GetScaleForScreen(screen);
+            if (double.IsNaN(scale) || double.IsInfinity(scale) || scale <= 0)
+            {
+                Logger.Log.Error($"Could not determine the display scale for screen {screen.DeviceName}.");
+                return OverlayRect.Invalid;
+            }
+
+            int width = Math.Min(
+                screen.Bounds.Width,
+                Math.Max(1, (int)Math.Round(capture.Width + 200 * scale)));
+            int fontSize = Math.Max(1, Config.Config.Get<int>("Size"));
+            int height = Math.Min(
+                screen.Bounds.Height,
+                Math.Max(1, (int)Math.Round(Math.Max(80, fontSize * 2.0 + 40) * scale)));
+            int x = screen.Bounds.Left + (screen.Bounds.Width - width) / 2 +
+                (int)Math.Round(Config.Config.GetPadHorizontal() * scale);
+            int y = capture.Y + (int)Math.Round(Config.Config.GetPad() * scale);
+            x = Math.Max(screen.Bounds.Left, Math.Min(x, screen.Bounds.Right - width));
+            y = Math.Max(screen.Bounds.Top, Math.Min(y, screen.Bounds.Bottom - height));
+
+            var display = new OverlayRect(x, y, width, height);
+            Logger.Log.Info(
+                $"Created legacy-default display region for capture={capture.ToCsv()}: " +
+                $"display={display.ToCsv()}, screen={screen.DeviceName}, scale={scale:F2}.");
+            return display;
+        }
+
+        private void ShowDefaultDisplayFailure(string ordinal)
+        {
+            string title = GetLocalizedString("RegionPair_DefaultDisplayFailure_Title", "无法设置展示区域");
+            string format = GetLocalizedString(
+                "RegionPair_DefaultDisplayFailure_Message",
+                "区域对 {0} 没有可沿用的展示区域，也无法计算旧版默认位置。请重新选择展示区域后再试。");
+            string message;
+            try
+            {
+                message = string.Format(format, ordinal);
+            }
+            catch (FormatException)
+            {
+                message = format;
+            }
+
+            if (data != null)
+            {
+                System.Windows.MessageBox.Show(
+                    data,
+                    message,
+                    title,
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Error);
+            }
+            else
+            {
+                System.Windows.MessageBox.Show(
+                    message,
+                    title,
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Error);
+            }
         }
 
         private ToolStripMenuItem CreateSizeItem(string code)
