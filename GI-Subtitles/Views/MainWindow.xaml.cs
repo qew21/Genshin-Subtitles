@@ -3353,7 +3353,11 @@ namespace GI_Subtitles.Views
                         else
                         {
                             Stopwatch similarCacheStopwatch = debug ? Stopwatch.StartNew() : null;
-                            string matchedImageHash = forceRefresh
+                            // Approximate hashes can alias a short dialogue line with
+                            // a visually similar blank frame. Keep fuzzy reuse for the
+                            // primary subtitle layout, but require exact matches for
+                            // generic region OCR.
+                            string matchedImageHash = forceRefresh || !useSubtitleTextFilter
                                 ? null
                                 : ImageProcessor.FindSimilarImageHash(bitStr, imageTextCache, maxDistance: distant);
                             similarCacheMs = similarCacheStopwatch?.Elapsed.TotalMilliseconds ?? 0;
@@ -3676,6 +3680,17 @@ namespace GI_Subtitles.Views
 
             if (!usable)
             {
+                bool clearedEmptySecondaryPair = recognitionCompleted &&
+                    string.IsNullOrWhiteSpace(recognizedText) &&
+                    pairIndex.Value != FindPrimaryPairIndex(_overlaySession.Pairs);
+                if (clearedEmptySecondaryPair)
+                {
+                    // A stable secondary-region frame produced no text. Clear its
+                    // old dialogue while preserving non-empty match misses, which
+                    // can be partial typewriter text.
+                    _overlaySession.ClearPairSubtitleContent(pairIndex.Value);
+                }
+
                 if (recognitionCompleted)
                 {
                     // An empty but completed OCR result is still the result for this
@@ -3689,6 +3704,10 @@ namespace GI_Subtitles.Views
                 }
                 _overlaySession.NoteOcrMiss();
                 _overlaySession.CompleteOcr(miss: true);
+                if (clearedEmptySecondaryPair)
+                {
+                    ApplyPairOverlay();
+                }
                 return;
             }
 
