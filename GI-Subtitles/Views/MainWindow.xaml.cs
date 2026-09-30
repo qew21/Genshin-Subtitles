@@ -617,11 +617,17 @@ namespace GI_Subtitles.Views
             UpdateDebugSamplingOverlayVisibility();
         }
 
+        private void DebugSamplingSettingsButton_Click(object sender, RoutedEventArgs e)
+        {
+            data?.OpenOtherSettings();
+        }
+
         private void UpdateDebugSamplingOverlayVisibility()
         {
             if (DebugSamplingPanel == null ||
                 DebugSamplingCloseButton == null ||
                 DebugSamplingMinimizeButton == null ||
+                DebugSamplingSettingsButton == null ||
                 OverlayCanvas == null)
             {
                 return;
@@ -644,6 +650,7 @@ namespace GI_Subtitles.Views
                     ? Visibility.Collapsed
                     : Visibility.Visible;
                 DebugSamplingMinimizeButton.Visibility = Visibility.Visible;
+                DebugSamplingSettingsButton.Visibility = Visibility.Visible;
                 PositionDebugSamplingControls();
                 if (!_debugSamplingStatsTimer.IsEnabled)
                 {
@@ -656,6 +663,7 @@ namespace GI_Subtitles.Views
                 DebugSamplingPanel.Visibility = Visibility.Collapsed;
                 DebugSamplingCloseButton.Visibility = Visibility.Collapsed;
                 DebugSamplingMinimizeButton.Visibility = Visibility.Collapsed;
+                DebugSamplingSettingsButton.Visibility = Visibility.Collapsed;
                 _debugSamplingStatsTimer.Stop();
                 if (_debugControlInteractive)
                 {
@@ -678,7 +686,8 @@ namespace GI_Subtitles.Views
             if (OverlayCanvas == null ||
                 DebugSamplingPanel == null ||
                 DebugSamplingCloseButton == null ||
-                DebugSamplingMinimizeButton == null)
+                DebugSamplingMinimizeButton == null ||
+                DebugSamplingSettingsButton == null)
             {
                 return;
             }
@@ -700,6 +709,13 @@ namespace GI_Subtitles.Views
                     Math.Max(
                         0,
                         OverlayCanvas.ActualHeight - DebugSamplingMinimizeButton.Height - DebugSamplingBottomMargin));
+                Canvas.SetLeft(
+                    DebugSamplingSettingsButton,
+                    DebugSamplingHorizontalMargin + DebugSamplingMinimizeButton.Width + 4);
+                Canvas.SetTop(
+                    DebugSamplingSettingsButton,
+                    Canvas.GetTop(DebugSamplingMinimizeButton) +
+                        (DebugSamplingMinimizeButton.Height - DebugSamplingSettingsButton.Height) / 2);
                 return;
             }
 
@@ -717,6 +733,10 @@ namespace GI_Subtitles.Views
             Canvas.SetTop(DebugSamplingCloseButton, panelTop + 3);
             Canvas.SetLeft(DebugSamplingMinimizeButton, closeLeft - DebugSamplingMinimizeButton.Width - 4);
             Canvas.SetTop(DebugSamplingMinimizeButton, panelTop + 3);
+            Canvas.SetLeft(
+                DebugSamplingSettingsButton,
+                Canvas.GetLeft(DebugSamplingMinimizeButton) - DebugSamplingSettingsButton.Width - 4);
+            Canvas.SetTop(DebugSamplingSettingsButton, panelTop + 3);
         }
 
         private void StartDebugSamplingResourceMonitoring()
@@ -757,11 +777,12 @@ namespace GI_Subtitles.Views
             }
 
             System.Drawing.Rectangle panelBounds;
-            var bounds = new List<System.Drawing.Rectangle>(2);
+            var bounds = new List<System.Drawing.Rectangle>(3);
             bool mappingSucceeded =
                 TryGetDebugCaptureBounds(DebugSamplingPanel, out panelBounds) &&
                 AddDebugCaptureBounds(DebugSamplingCloseButton, bounds) &&
-                AddDebugCaptureBounds(DebugSamplingMinimizeButton, bounds);
+                AddDebugCaptureBounds(DebugSamplingMinimizeButton, bounds) &&
+                AddDebugCaptureBounds(DebugSamplingSettingsButton, bounds);
             if (panelBounds.Width > 0 && panelBounds.Height > 0)
             {
                 bounds.Insert(0, panelBounds);
@@ -5801,7 +5822,8 @@ namespace GI_Subtitles.Views
         {
             bool hoveringDebugControl = _overlaySession.IsClickThrough && !_regionDragging &&
                 (IsCursorOverElement(DebugSamplingCloseButton) ||
-                 IsCursorOverElement(DebugSamplingMinimizeButton));
+                 IsCursorOverElement(DebugSamplingMinimizeButton) ||
+                 IsCursorOverElement(DebugSamplingSettingsButton));
             if (_debugControlInteractive != hoveringDebugControl)
             {
                 _debugControlInteractive = hoveringDebugControl;

@@ -92,6 +92,14 @@
                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Grid>
         </DataTemplate>
+        <DataTemplate x:Key="DebugSettingsGlyphTemplate">
+            <TextBlock Text="&#xE713;"
+                       FontFamily="Segoe MDL2 Assets"
+                       FontSize="12"
+                       Foreground="#FF9FD6A5"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"/>
+        </DataTemplate>
     </Window.Resources>
     <Canvas x:Name="OverlayCanvas" Background="Transparent" IsHitTestVisible="False">
         <Button x:Name="DragButton"
@@ -229,6 +237,23 @@
                 Click="DebugSamplingMinimizeButton_Click"
                 Template="{StaticResource DebugControlButtonTemplate}"
                 Panel.ZIndex="100002"/>
+        <Button x:Name="DebugSamplingSettingsButton"
+                Width="22" Height="22"
+                Content="Settings"
+                ContentTemplate="{StaticResource DebugSettingsGlyphTemplate}"
+                Foreground="White"
+                Background="#CC3A4656"
+                BorderBrush="Transparent"
+                BorderThickness="0"
+                Padding="0"
+                Cursor="Hand"
+                Visibility="Collapsed"
+                IsHitTestVisible="True"
+                Focusable="False"
+                ToolTip="{DynamicResource Debug_SettingsTooltip}"
+                Click="DebugSamplingSettingsButton_Click"
+                Template="{StaticResource DebugControlButtonTemplate}"
+                Panel.ZIndex="100001"/>
         <Button x:Name="DebugSamplingCloseButton"
                 Width="22" Height="22"
                 Content="Close"
@@ -244,6 +269,6 @@
                 Focusable="False"
                 Template="{StaticResource DebugControlButtonTemplate}"
                 Click="DebugSamplingCloseButton_Click"
-                Panel.ZIndex="100001"/>
+                Panel.ZIndex="100003"/>
     </Canvas>
 </Window>

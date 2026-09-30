@@ -87,6 +87,7 @@ namespace GI_Subtitles.Views
         private readonly RegionPairSettings _pairSettings;
         private readonly ObservableCollection<RegionPairCard> _pairCards = new ObservableCollection<RegionPairCard>();
         private bool _legacyRegion2ReviewAutoSelected;
+        private bool _openOtherSettingsOnNextShow;
         private OcrIntervalSettingsView _ocrIntervalView;
         private bool _ocrIntervalBinding;
         private SubtitleIdleTimeoutSettingsView _subtitleIdleTimeoutView;
@@ -295,7 +296,15 @@ namespace GI_Subtitles.Views
                 BindSubtitleIdleTimeoutSettings();
                 RefreshAppliedLayoutUi();
                 RefreshPairPage();
-                SelectRegionPairTabForLegacyReview();
+                if (_openOtherSettingsOnNextShow)
+                {
+                    _openOtherSettingsOnNextShow = false;
+                    SettingsTabs.SelectedItem = OtherSettingsTab;
+                }
+                else
+                {
+                    SelectRegionPairTabForLegacyReview();
+                }
             }
         }
 
@@ -315,6 +324,34 @@ namespace GI_Subtitles.Views
                 }
 
                 ShowDialog();
+            };
+
+            if (Dispatcher.CheckAccess())
+            {
+                open();
+            }
+            else
+            {
+                Dispatcher.Invoke(open);
+            }
+        }
+
+        public void OpenOtherSettings()
+        {
+            Action open = () =>
+            {
+                if (!IsVisible)
+                {
+                    _openOtherSettingsOnNextShow = true;
+                }
+
+                SettingsTabs.SelectedItem = OtherSettingsTab;
+                if (WindowState == System.Windows.WindowState.Minimized)
+                {
+                    WindowState = System.Windows.WindowState.Normal;
+                }
+
+                OpenSettings();
             };
 
             if (Dispatcher.CheckAccess())

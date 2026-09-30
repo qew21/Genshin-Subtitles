@@ -156,6 +156,7 @@
     <sys:String x:Key="Debug_ProcessResourcesUnavailable" xmlns:sys="clr-namespace:System;assembly=mscorlib">アプリ状態を取得できません</sys:String>
     <sys:String x:Key="Debug_MinimizeTooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">デバッグ領域を最小化</sys:String>
     <sys:String x:Key="Debug_RestoreTooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">デバッグ領域を展開</sys:String>
+    <sys:String x:Key="Debug_SettingsTooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">その他の設定を開く</sys:String>
     <sys:String x:Key="Config_RecognizeDarkScreenSubtitles" xmlns:sys="clr-namespace:System;assembly=mscorlib">暗転字幕を認識</sys:String>
     <sys:String x:Key="Config_RecognizeDarkScreenSubtitles_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">暗転カットシーンの中央字幕帯を検出し、翻訳を表示します。領域ペアではありません。</sys:String>
     <sys:String x:Key="Config_RecognizeDialogueOptions" xmlns:sys="clr-namespace:System;assembly=mscorlib">会話選択肢を認識</sys:String>

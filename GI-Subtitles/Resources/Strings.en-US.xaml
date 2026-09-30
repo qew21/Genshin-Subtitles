@@ -156,6 +156,7 @@
     <sys:String x:Key="Debug_ProcessResourcesUnavailable" xmlns:sys="clr-namespace:System;assembly=mscorlib">App status unavailable</sys:String>
     <sys:String x:Key="Debug_MinimizeTooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Minimize debug panel</sys:String>
     <sys:String x:Key="Debug_RestoreTooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Restore debug panel</sys:String>
+    <sys:String x:Key="Debug_SettingsTooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Open other settings</sys:String>
     <sys:String x:Key="Config_RecognizeDarkScreenSubtitles" xmlns:sys="clr-namespace:System;assembly=mscorlib">Recognize dark-screen subtitles</sys:String>
     <sys:String x:Key="Config_RecognizeDarkScreenSubtitles_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Detects the central subtitle band on a mostly-dark cutscene and shows the translation. This is not a region pair.</sys:String>
     <sys:String x:Key="Config_RecognizeDialogueOptions" xmlns:sys="clr-namespace:System;assembly=mscorlib">Recognize dialogue choices</sys:String>
