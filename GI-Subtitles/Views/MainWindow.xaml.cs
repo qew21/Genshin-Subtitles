@@ -133,7 +133,8 @@ namespace GI_Subtitles.Views
         private readonly List<UIElement> _outlineElements = new List<UIElement>();
         private bool _regionDragging;
         private bool _dragHandleInteractive;
-        private bool _debugCloseInteractive;
+        private bool _debugControlInteractive;
+        private bool _debugSamplingMinimized;
         private bool _dragHandleDragging;
         private bool _dragHandleFinishing;
         private int _dragHandlePairIndex = -1;
@@ -491,6 +492,13 @@ namespace GI_Subtitles.Views
             _headerRenderTransformGroup.Children.Add(_headerDragRenderTransform);
             HeaderPanel.RenderTransform = _headerRenderTransformGroup;
             HeaderPanel.SizeChanged += HeaderPanel_SizeChanged;
+            OverlayCanvas.SizeChanged += (s, e) =>
+            {
+                if (DebugSamplingMinimizeButton.Visibility == Visibility.Visible)
+                {
+                    PositionDebugSamplingControls();
+                }
+            };
             if (debug)
             {
                 Dispatcher.Hooks.OperationStarted += OnDispatcherOperationStarted;
@@ -506,7 +514,7 @@ namespace GI_Subtitles.Views
             _dragHandleTimer.Tick += (sender, args) =>
             {
                 UpdateDragHandle();
-                UpdateDebugCloseInteraction();
+                UpdateDebugControlInteraction();
             };
             _debugSamplingStatsTimer.Tick += (sender, args) => UpdateDebugSamplingResourceUsage();
             DragButton.PreviewMouseLeftButtonDown += DragHandle_MouseLeftButtonDown;
@@ -578,6 +586,7 @@ namespace GI_Subtitles.Views
             if (!enabled)
             {
                 _debugSamplingOverlayEntries.Clear();
+                _debugSamplingMinimized = false;
             }
 
             UpdateDebugSamplingOverlayVisibility();
@@ -589,15 +598,24 @@ namespace GI_Subtitles.Views
             SetDebugSamplingOverlayEnabled(false);
         }
 
+        private void DebugSamplingMinimizeButton_Click(object sender, RoutedEventArgs e)
+        {
+            _debugSamplingMinimized = !_debugSamplingMinimized;
+            UpdateDebugSamplingOverlayVisibility();
+        }
+
         private void UpdateDebugSamplingOverlayVisibility()
         {
-            if (DebugSamplingPanel == null || DebugSamplingCloseButton == null || OverlayCanvas == null)
+            if (DebugSamplingPanel == null ||
+                DebugSamplingCloseButton == null ||
+                DebugSamplingMinimizeButton == null ||
+                OverlayCanvas == null)
             {
                 return;
             }
 
             bool visible = _debugSamplingOverlayEnabled && _overlaySession.RecognitionRunning;
-            bool wasVisible = DebugSamplingPanel.Visibility == Visibility.Visible;
+            bool wasVisible = DebugSamplingMinimizeButton.Visibility == Visibility.Visible;
             if (visible)
             {
                 if (!wasVisible)
@@ -606,13 +624,14 @@ namespace GI_Subtitles.Views
                     DebugSamplingText.Text = string.Empty;
                 }
 
-                double top = GetDebugSamplingPanelTop();
-                Canvas.SetLeft(DebugSamplingPanel, 12);
-                Canvas.SetTop(DebugSamplingPanel, top);
-                Canvas.SetLeft(DebugSamplingCloseButton, 12 + DebugSamplingPanel.Width - DebugSamplingCloseButton.Width - 6);
-                Canvas.SetTop(DebugSamplingCloseButton, top + 3);
-                DebugSamplingPanel.Visibility = Visibility.Visible;
-                DebugSamplingCloseButton.Visibility = Visibility.Visible;
+                DebugSamplingPanel.Visibility = _debugSamplingMinimized
+                    ? Visibility.Collapsed
+                    : Visibility.Visible;
+                DebugSamplingCloseButton.Visibility = _debugSamplingMinimized
+                    ? Visibility.Collapsed
+                    : Visibility.Visible;
+                DebugSamplingMinimizeButton.Visibility = Visibility.Visible;
+                PositionDebugSamplingControls();
                 if (!_debugSamplingStatsTimer.IsEnabled)
                 {
                     StartDebugSamplingResourceMonitoring();
@@ -623,13 +642,59 @@ namespace GI_Subtitles.Views
             {
                 DebugSamplingPanel.Visibility = Visibility.Collapsed;
                 DebugSamplingCloseButton.Visibility = Visibility.Collapsed;
+                DebugSamplingMinimizeButton.Visibility = Visibility.Collapsed;
                 _debugSamplingStatsTimer.Stop();
-                if (_debugCloseInteractive)
+                if (_debugControlInteractive)
                 {
-                    _debugCloseInteractive = false;
+                    _debugControlInteractive = false;
                     ApplyOverlayHitMode();
                 }
             }
+        }
+
+        private void PositionDebugSamplingControls()
+        {
+            if (OverlayCanvas == null ||
+                DebugSamplingPanel == null ||
+                DebugSamplingCloseButton == null ||
+                DebugSamplingMinimizeButton == null)
+            {
+                return;
+            }
+
+            Canvas.SetLeft(DebugSamplingPanel, 12);
+            Canvas.SetTop(DebugSamplingPanel, GetDebugSamplingPanelTop());
+            if (_debugSamplingMinimized)
+            {
+                DebugSamplingMinimizeButton.Width = 36;
+                DebugSamplingMinimizeButton.Height = 36;
+                DebugSamplingMinimizeButton.Content = "Restore";
+                DebugSamplingMinimizeButton.ContentTemplate = TryFindResource("DebugRestoreGlyphTemplate") as DataTemplate;
+                DebugSamplingMinimizeButton.Template = TryFindResource("DebugRestoreButtonTemplate") as ControlTemplate;
+                DebugSamplingMinimizeButton.ToolTip = TryFindResource("Debug_RestoreTooltip") as string
+                    ?? "Restore debug panel";
+                Canvas.SetLeft(DebugSamplingMinimizeButton, 12);
+                Canvas.SetTop(
+                    DebugSamplingMinimizeButton,
+                    Math.Max(
+                        0,
+                        OverlayCanvas.ActualHeight - DebugSamplingMinimizeButton.Height - DebugSamplingBottomMargin));
+                return;
+            }
+
+            DebugSamplingMinimizeButton.Width = 22;
+            DebugSamplingMinimizeButton.Height = 22;
+            DebugSamplingMinimizeButton.Content = "Minimize";
+            DebugSamplingMinimizeButton.ContentTemplate = TryFindResource("DebugMinimizeGlyphTemplate") as DataTemplate;
+            DebugSamplingMinimizeButton.Template = TryFindResource("DebugControlButtonTemplate") as ControlTemplate;
+            DebugSamplingMinimizeButton.ToolTip = TryFindResource("Debug_MinimizeTooltip") as string
+                ?? "Minimize debug panel";
+            double panelTop = GetDebugSamplingPanelTop();
+            double closeLeft = 12 + DebugSamplingPanel.Width - DebugSamplingCloseButton.Width - 6;
+            Canvas.SetLeft(DebugSamplingCloseButton, closeLeft);
+            Canvas.SetTop(DebugSamplingCloseButton, panelTop + 3);
+            Canvas.SetLeft(DebugSamplingMinimizeButton, closeLeft - DebugSamplingMinimizeButton.Width - 4);
+            Canvas.SetTop(DebugSamplingMinimizeButton, panelTop + 3);
         }
 
         private void StartDebugSamplingResourceMonitoring()
@@ -1403,7 +1468,6 @@ namespace GI_Subtitles.Views
         {
             if (!IsDebugSamplingOverlayActive ||
                 DebugSamplingPanel == null ||
-                DebugSamplingPanel.Visibility != Visibility.Visible ||
                 DebugSamplingText == null ||
                 OverlayCanvas == null)
             {
@@ -1419,11 +1483,7 @@ namespace GI_Subtitles.Views
 
             DebugSamplingText.Text = string.Join(Environment.NewLine, _debugSamplingOverlayEntries);
             DebugSamplingScrollViewer?.ScrollToEnd();
-            Canvas.SetLeft(DebugSamplingPanel, 12);
-            double top = GetDebugSamplingPanelTop();
-            Canvas.SetTop(DebugSamplingPanel, top);
-            Canvas.SetLeft(DebugSamplingCloseButton, 12 + DebugSamplingPanel.Width - DebugSamplingCloseButton.Width - 6);
-            Canvas.SetTop(DebugSamplingCloseButton, top + 3);
+            PositionDebugSamplingControls();
         }
 
         private static void DisposeSamplingRequests(IEnumerable<PairSamplingRequest> requests)
@@ -1588,7 +1648,7 @@ namespace GI_Subtitles.Views
             }
 
             int exStyle = GetWindowLong(hwnd, GwlExStyle);
-            if (_overlaySession.IsClickThrough && !_dragHandleInteractive && !_debugCloseInteractive)
+            if (_overlaySession.IsClickThrough && !_dragHandleInteractive && !_debugControlInteractive)
             {
                 int newStyle = exStyle | WsExTransparent | WsExLayered | WsExToolWindow | WsExNoActivate;
                 // The style change is hoisted out of the HitModeApplied
@@ -5114,36 +5174,41 @@ namespace GI_Subtitles.Views
             }
         }
 
-        private void UpdateDebugCloseInteraction()
+        private void UpdateDebugControlInteraction()
         {
-            bool hoveringCloseButton = false;
-            if (DebugSamplingCloseButton != null &&
-                DebugSamplingCloseButton.Visibility == Visibility.Visible &&
-                _overlaySession.IsClickThrough &&
-                !_regionDragging)
+            bool hoveringDebugControl = _overlaySession.IsClickThrough && !_regionDragging &&
+                (IsCursorOverElement(DebugSamplingCloseButton) ||
+                 IsCursorOverElement(DebugSamplingMinimizeButton));
+            if (_debugControlInteractive != hoveringDebugControl)
             {
-                try
-                {
-                    System.Windows.Point topLeft = DebugSamplingCloseButton.PointToScreen(new System.Windows.Point(0, 0));
-                    System.Windows.Point bottomRight = DebugSamplingCloseButton.PointToScreen(
-                        new System.Windows.Point(DebugSamplingCloseButton.ActualWidth, DebugSamplingCloseButton.ActualHeight));
-                    var bounds = System.Drawing.Rectangle.FromLTRB(
-                        (int)Math.Floor(Math.Min(topLeft.X, bottomRight.X)),
-                        (int)Math.Floor(Math.Min(topLeft.Y, bottomRight.Y)),
-                        (int)Math.Ceiling(Math.Max(topLeft.X, bottomRight.X)),
-                        (int)Math.Ceiling(Math.Max(topLeft.Y, bottomRight.Y)));
-                    hoveringCloseButton = bounds.Contains(System.Windows.Forms.Cursor.Position);
-                }
-                catch (InvalidOperationException)
-                {
-                    hoveringCloseButton = false;
-                }
+                _debugControlInteractive = hoveringDebugControl;
+                ApplyOverlayHitMode();
+            }
+        }
+
+        private static bool IsCursorOverElement(FrameworkElement element)
+        {
+            if (element == null || element.Visibility != Visibility.Visible ||
+                element.ActualWidth <= 0 || element.ActualHeight <= 0)
+            {
+                return false;
             }
 
-            if (_debugCloseInteractive != hoveringCloseButton)
+            try
             {
-                _debugCloseInteractive = hoveringCloseButton;
-                ApplyOverlayHitMode();
+                System.Windows.Point topLeft = element.PointToScreen(new System.Windows.Point(0, 0));
+                System.Windows.Point bottomRight = element.PointToScreen(
+                    new System.Windows.Point(element.ActualWidth, element.ActualHeight));
+                var bounds = System.Drawing.Rectangle.FromLTRB(
+                    (int)Math.Floor(Math.Min(topLeft.X, bottomRight.X)),
+                    (int)Math.Floor(Math.Min(topLeft.Y, bottomRight.Y)),
+                    (int)Math.Ceiling(Math.Max(topLeft.X, bottomRight.X)),
+                    (int)Math.Ceiling(Math.Max(topLeft.Y, bottomRight.Y)));
+                return bounds.Contains(System.Windows.Forms.Cursor.Position);
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
             }
         }
 

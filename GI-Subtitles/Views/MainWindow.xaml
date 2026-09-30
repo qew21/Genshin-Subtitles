@@ -14,6 +14,85 @@
         ShowActivated="False"
         Focusable="False"
         IsHitTestVisible="False">
+    <Window.Resources>
+        <ControlTemplate x:Key="DebugControlButtonTemplate" TargetType="{x:Type Button}">
+            <Border x:Name="ButtonChrome"
+                    CornerRadius="3"
+                    Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}">
+                <ContentPresenter HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"
+                                  RecognizesAccessKey="True"/>
+            </Border>
+            <ControlTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter TargetName="ButtonChrome" Property="Background" Value="#CC59697B"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter TargetName="ButtonChrome" Property="Opacity" Value="0.72"/>
+                </Trigger>
+            </ControlTemplate.Triggers>
+        </ControlTemplate>
+        <ControlTemplate x:Key="DebugRestoreButtonTemplate" TargetType="{x:Type Button}">
+            <Border x:Name="ButtonChrome"
+                    CornerRadius="18"
+                    Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}">
+                <ContentPresenter HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"
+                                  RecognizesAccessKey="True"/>
+            </Border>
+            <ControlTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter TargetName="ButtonChrome" Property="Background" Value="#CC59697B"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter TargetName="ButtonChrome" Property="Opacity" Value="0.72"/>
+                </Trigger>
+            </ControlTemplate.Triggers>
+        </ControlTemplate>
+        <DataTemplate x:Key="DebugMinimizeGlyphTemplate">
+            <Grid Width="12" Height="12">
+                <Rectangle Width="9" Height="1.5" Fill="White"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Grid>
+        </DataTemplate>
+        <DataTemplate x:Key="DebugCloseGlyphTemplate">
+            <Grid Width="12" Height="12">
+                <Rectangle Width="11" Height="1.5" Fill="White"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           RenderTransformOrigin="0.5,0.5">
+                    <Rectangle.RenderTransform>
+                        <RotateTransform Angle="45"/>
+                    </Rectangle.RenderTransform>
+                </Rectangle>
+                <Rectangle Width="11" Height="1.5" Fill="White"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           RenderTransformOrigin="0.5,0.5">
+                    <Rectangle.RenderTransform>
+                        <RotateTransform Angle="-45"/>
+                    </Rectangle.RenderTransform>
+                </Rectangle>
+            </Grid>
+        </DataTemplate>
+        <DataTemplate x:Key="DebugRestoreGlyphTemplate">
+            <Grid Width="12" Height="12">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="4"/>
+                    <RowDefinition Height="4"/>
+                    <RowDefinition Height="4"/>
+                </Grid.RowDefinitions>
+                <Rectangle Grid.Row="0" Width="10" Height="1.4" Fill="White"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <Rectangle Grid.Row="1" Width="7" Height="1.4" Fill="White"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <Rectangle Grid.Row="2" Width="10" Height="1.4" Fill="White"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Grid>
+        </DataTemplate>
+    </Window.Resources>
     <Canvas x:Name="OverlayCanvas" Background="Transparent" IsHitTestVisible="False">
         <Button x:Name="DragButton"
                 Width="20" Height="20"
@@ -133,18 +212,37 @@
                 </ScrollViewer>
             </Grid>
         </Border>
-        <Button x:Name="DebugSamplingCloseButton"
+        <Button x:Name="DebugSamplingMinimizeButton"
                 Width="22" Height="22"
-                Content="×"
-                FontSize="17"
-                FontWeight="Bold"
+                Content="Minimize"
+                ContentTemplate="{StaticResource DebugMinimizeGlyphTemplate}"
                 Foreground="White"
                 Background="#CC3A4656"
+                BorderBrush="Transparent"
                 BorderThickness="0"
+                Padding="0"
                 Cursor="Hand"
                 Visibility="Collapsed"
                 IsHitTestVisible="True"
                 Focusable="False"
+                ToolTip="{DynamicResource Debug_MinimizeTooltip}"
+                Click="DebugSamplingMinimizeButton_Click"
+                Template="{StaticResource DebugControlButtonTemplate}"
+                Panel.ZIndex="100002"/>
+        <Button x:Name="DebugSamplingCloseButton"
+                Width="22" Height="22"
+                Content="Close"
+                ContentTemplate="{StaticResource DebugCloseGlyphTemplate}"
+                Foreground="White"
+                Background="#CC3A4656"
+                BorderBrush="Transparent"
+                BorderThickness="0"
+                Padding="0"
+                Cursor="Hand"
+                Visibility="Collapsed"
+                IsHitTestVisible="True"
+                Focusable="False"
+                Template="{StaticResource DebugControlButtonTemplate}"
                 Click="DebugSamplingCloseButton_Click"
                 Panel.ZIndex="100001"/>
     </Canvas>
