@@ -3831,9 +3831,9 @@ namespace GI_Subtitles.Views
         {
             _isOcrRunning = true;
             string ocrGame = _overlaySession.AppliedGame;
-            // Only the primary subtitle area should discard text outside the subtitle layout.
-            bool useSubtitleTextFilter = !pairIndex.HasValue ||
-                pairIndex.Value == FindPrimaryPairIndex(_overlaySession.Pairs);
+            // Per-pair OCR already has an explicitly configured capture area.
+            // Keep all text inside it; filter only requests without a pair region.
+            bool useSubtitleTextFilter = !pairIndex.HasValue;
             LRUCache<string, string> imageTextCache = useSubtitleTextFilter
                 ? BitmapDict
                 : RegionBitmapDict;
