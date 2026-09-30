@@ -2201,6 +2201,16 @@ namespace GI_Subtitles.Views
                         g.CopyFromScreen(screen.Bounds.Location, System.Drawing.Point.Empty, screen.Bounds.Size);
                     }
 
+                    try
+                    {
+                        _mainWindow?.FilterDebugOverlayFromCapture(bitmap, screen.Bounds);
+                    }
+                    catch (InvalidOperationException ex)
+                    {
+                        Logger.Log.Warn($"Skipping OCR for screen {screen.DeviceName} because debug overlay masking is unavailable: {ex.Message}");
+                        continue;
+                    }
+
                     // Now save the bitmap, which contains the screenshot
                     bitmap.Save($"{idx}.png", System.Drawing.Imaging.ImageFormat.Png);
                     if (bitmap == null)

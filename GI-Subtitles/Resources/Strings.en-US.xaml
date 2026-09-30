@@ -152,8 +152,8 @@
     <sys:String x:Key="Config_LogDenoise_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">When off, the activity log window shows every run, with repeated recognition rows dimmed and marked. This only changes what the log shows — no rows are removed, and subtitles and voice are unaffected.</sys:String>
     <sys:String x:Key="Config_DebugSamplingOverlay" xmlns:sys="clr-namespace:System;assembly=mscorlib">Show recognition debug panel</sys:String>
     <sys:String x:Key="Config_DebugSamplingOverlay_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Shows sampling and skipped-frame reasons, plus process CPU and memory while recognition is running. It hides when recognition is paused.</sys:String>
-    <sys:String x:Key="Debug_ProcessResources" xmlns:sys="clr-namespace:System;assembly=mscorlib">Process CPU {0:F1}% (of total)  Memory {1:F0} MB</sys:String>
-    <sys:String x:Key="Debug_ProcessResourcesUnavailable" xmlns:sys="clr-namespace:System;assembly=mscorlib">Process CPU / memory unavailable</sys:String>
+    <sys:String x:Key="Debug_ProcessResources" xmlns:sys="clr-namespace:System;assembly=mscorlib">App use {0:F1}% · Memory {1:F0} MB</sys:String>
+    <sys:String x:Key="Debug_ProcessResourcesUnavailable" xmlns:sys="clr-namespace:System;assembly=mscorlib">App status unavailable</sys:String>
     <sys:String x:Key="Debug_MinimizeTooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Minimize debug panel</sys:String>
     <sys:String x:Key="Debug_RestoreTooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Restore debug panel</sys:String>
     <sys:String x:Key="Config_RecognizeDarkScreenSubtitles" xmlns:sys="clr-namespace:System;assembly=mscorlib">Recognize dark-screen subtitles</sys:String>

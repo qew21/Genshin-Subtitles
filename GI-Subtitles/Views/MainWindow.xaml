@@ -55,20 +55,20 @@
         </ControlTemplate>
         <DataTemplate x:Key="DebugMinimizeGlyphTemplate">
             <Grid Width="12" Height="12">
-                <Rectangle Width="9" Height="1.5" Fill="White"
+                <Rectangle Width="9" Height="1.5" Fill="#FF9FD6A5"
                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Grid>
         </DataTemplate>
         <DataTemplate x:Key="DebugCloseGlyphTemplate">
             <Grid Width="12" Height="12">
-                <Rectangle Width="11" Height="1.5" Fill="White"
+                <Rectangle Width="11" Height="1.5" Fill="#FF9FD6A5"
                            HorizontalAlignment="Center" VerticalAlignment="Center"
                            RenderTransformOrigin="0.5,0.5">
                     <Rectangle.RenderTransform>
                         <RotateTransform Angle="45"/>
                     </Rectangle.RenderTransform>
                 </Rectangle>
-                <Rectangle Width="11" Height="1.5" Fill="White"
+                <Rectangle Width="11" Height="1.5" Fill="#FF9FD6A5"
                            HorizontalAlignment="Center" VerticalAlignment="Center"
                            RenderTransformOrigin="0.5,0.5">
                     <Rectangle.RenderTransform>
@@ -84,11 +84,11 @@
                     <RowDefinition Height="4"/>
                     <RowDefinition Height="4"/>
                 </Grid.RowDefinitions>
-                <Rectangle Grid.Row="0" Width="10" Height="1.4" Fill="White"
+                <Rectangle Grid.Row="0" Width="10" Height="1.4" Fill="#FF9FD6A5"
                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                <Rectangle Grid.Row="1" Width="7" Height="1.4" Fill="White"
+                <Rectangle Grid.Row="1" Width="7" Height="1.4" Fill="#FF9FD6A5"
                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                <Rectangle Grid.Row="2" Width="10" Height="1.4" Fill="White"
+                <Rectangle Grid.Row="2" Width="10" Height="1.4" Fill="#FF9FD6A5"
                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Grid>
         </DataTemplate>
@@ -175,11 +175,11 @@
         </Grid>
 
         <Border x:Name="DebugSamplingPanel"
-                Width="760"
+                Width="350"
                 Height="158"
                 Padding="8"
                 Background="#80202733"
-                BorderBrush="#CC69D7F5"
+                BorderBrush="#CC9BA5A7"
                 BorderThickness="1"
                 CornerRadius="4"
                 Visibility="Collapsed"
@@ -192,9 +192,9 @@
                 </Grid.RowDefinitions>
                 <TextBlock x:Name="DebugResourceText"
                            Grid.Row="0"
-                           Foreground="#FF8DE8FF"
+                           Foreground="#FF9FD6A5"
                            FontFamily="Consolas"
-                           FontSize="13"
+                           FontSize="12"
                            FontWeight="Bold"
                            Margin="0,0,28,5"
                            Text="CPU -- | Memory --"/>
@@ -204,10 +204,10 @@
                               HorizontalScrollBarVisibility="Disabled"
                               IsHitTestVisible="False">
                     <TextBlock x:Name="DebugSamplingText"
-                               Foreground="#FFF4F7FB"
+                               Foreground="#FF9FD6A5"
                                FontFamily="Consolas"
-                               FontSize="13"
-                               TextWrapping="Wrap"
+                               FontSize="12"
+                               TextWrapping="NoWrap"
                                VerticalAlignment="Top"/>
                 </ScrollViewer>
             </Grid>

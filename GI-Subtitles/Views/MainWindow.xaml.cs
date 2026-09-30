@@ -93,7 +93,15 @@ namespace GI_Subtitles.Views
         private int _samplingTicksSkippedOcrBusy;
         private int _samplingTicksSkippedSamplerBusy;
         private const int DebugSamplingOverlayEntryLimit = 8;
-        private const double DebugSamplingBottomMargin = 8;
+        private const int DebugSamplingMaxLineCells = 46;
+        private const long DebugOverlayMaxFilterPixels = 220000;
+        private const long DebugOverlayMaxFastFilterPixels = 400000;
+        private const double DebugSamplingHorizontalMargin = 8;
+        private const double DebugSamplingBottomMargin = 5;
+        private const double DebugSamplingPanelWidth = 350;
+        private static int _debugOverlayFilteringDisabled;
+        private static int _debugOverlayFilterWarningLogged;
+        private static int _debugOverlayFilterSlowWarningLogged;
         private readonly List<string> _debugSamplingOverlayEntries = new List<string>();
         private readonly Dictionary<DispatcherOperation, long> _dispatcherOperationStartTicks =
             new Dictionary<DispatcherOperation, long>();
@@ -127,6 +135,10 @@ namespace GI_Subtitles.Views
         {
             Interval = TimeSpan.FromSeconds(1)
         };
+        private readonly object _debugCaptureMaskSync = new object();
+        private System.Drawing.Rectangle[] _debugCaptureMaskBounds = new System.Drawing.Rectangle[0];
+        private System.Drawing.Rectangle _debugCapturePanelBounds = System.Drawing.Rectangle.Empty;
+        private bool _debugCaptureMaskUnavailable;
         private Process _debugSamplingProcess;
         private TimeSpan _lastDebugSamplingProcessCpuTime;
         private long _lastDebugSamplingCpuTimestamp;
@@ -497,6 +509,7 @@ namespace GI_Subtitles.Views
                 if (DebugSamplingMinimizeButton.Visibility == Visibility.Visible)
                 {
                     PositionDebugSamplingControls();
+                    UpdateDebugCaptureMaskBounds();
                 }
             };
             if (debug)
@@ -650,6 +663,14 @@ namespace GI_Subtitles.Views
                     ApplyOverlayHitMode();
                 }
             }
+
+            UpdateDebugCaptureMaskBounds();
+            if (visible)
+            {
+                Dispatcher.BeginInvoke(
+                    DispatcherPriority.Loaded,
+                    new Action(UpdateDebugCaptureMaskBounds));
+            }
         }
 
         private void PositionDebugSamplingControls()
@@ -662,7 +683,7 @@ namespace GI_Subtitles.Views
                 return;
             }
 
-            Canvas.SetLeft(DebugSamplingPanel, 12);
+            Canvas.SetLeft(DebugSamplingPanel, DebugSamplingHorizontalMargin);
             Canvas.SetTop(DebugSamplingPanel, GetDebugSamplingPanelTop());
             if (_debugSamplingMinimized)
             {
@@ -673,7 +694,7 @@ namespace GI_Subtitles.Views
                 DebugSamplingMinimizeButton.Template = TryFindResource("DebugRestoreButtonTemplate") as ControlTemplate;
                 DebugSamplingMinimizeButton.ToolTip = TryFindResource("Debug_RestoreTooltip") as string
                     ?? "Restore debug panel";
-                Canvas.SetLeft(DebugSamplingMinimizeButton, 12);
+                Canvas.SetLeft(DebugSamplingMinimizeButton, DebugSamplingHorizontalMargin);
                 Canvas.SetTop(
                     DebugSamplingMinimizeButton,
                     Math.Max(
@@ -690,7 +711,8 @@ namespace GI_Subtitles.Views
             DebugSamplingMinimizeButton.ToolTip = TryFindResource("Debug_MinimizeTooltip") as string
                 ?? "Minimize debug panel";
             double panelTop = GetDebugSamplingPanelTop();
-            double closeLeft = 12 + DebugSamplingPanel.Width - DebugSamplingCloseButton.Width - 6;
+            double closeLeft = DebugSamplingHorizontalMargin + DebugSamplingPanelWidth -
+                DebugSamplingCloseButton.Width - 6;
             Canvas.SetLeft(DebugSamplingCloseButton, closeLeft);
             Canvas.SetTop(DebugSamplingCloseButton, panelTop + 3);
             Canvas.SetLeft(DebugSamplingMinimizeButton, closeLeft - DebugSamplingMinimizeButton.Width - 4);
@@ -725,6 +747,487 @@ namespace GI_Subtitles.Views
             return Math.Max(
                 0,
                 OverlayCanvas.ActualHeight - DebugSamplingPanel.Height - DebugSamplingBottomMargin);
+        }
+
+        private void UpdateDebugCaptureMaskBounds()
+        {
+            if (OverlayCanvas == null)
+            {
+                return;
+            }
+
+            System.Drawing.Rectangle panelBounds;
+            var bounds = new List<System.Drawing.Rectangle>(2);
+            bool mappingSucceeded =
+                TryGetDebugCaptureBounds(DebugSamplingPanel, out panelBounds) &&
+                AddDebugCaptureBounds(DebugSamplingCloseButton, bounds) &&
+                AddDebugCaptureBounds(DebugSamplingMinimizeButton, bounds);
+            if (panelBounds.Width > 0 && panelBounds.Height > 0)
+            {
+                bounds.Insert(0, panelBounds);
+            }
+
+            lock (_debugCaptureMaskSync)
+            {
+                _debugCaptureMaskBounds = bounds.ToArray();
+                _debugCapturePanelBounds = panelBounds;
+                _debugCaptureMaskUnavailable = !mappingSucceeded;
+            }
+        }
+
+        private static bool AddDebugCaptureBounds(
+            FrameworkElement element,
+            List<System.Drawing.Rectangle> bounds)
+        {
+            System.Drawing.Rectangle screenBounds;
+            if (!TryGetDebugCaptureBounds(element, out screenBounds))
+            {
+                return false;
+            }
+
+            if (screenBounds.Width > 0 && screenBounds.Height > 0)
+            {
+                bounds.Add(screenBounds);
+            }
+            return true;
+        }
+
+        private static bool TryGetDebugCaptureBounds(
+            FrameworkElement element,
+            out System.Drawing.Rectangle screenBounds)
+        {
+            screenBounds = System.Drawing.Rectangle.Empty;
+            if (element == null || element.Visibility != Visibility.Visible)
+            {
+                return true;
+            }
+
+            if (element.ActualWidth <= 0 || element.ActualHeight <= 0)
+            {
+                Logger.Log.Warn("Debug overlay is visible but its bounds are not ready; OCR sampling will be skipped until layout completes.");
+                return false;
+            }
+
+            try
+            {
+                System.Windows.Point topLeft = element.PointToScreen(new System.Windows.Point(0, 0));
+                System.Windows.Point bottomRight = element.PointToScreen(
+                    new System.Windows.Point(element.ActualWidth, element.ActualHeight));
+                screenBounds = System.Drawing.Rectangle.FromLTRB(
+                    (int)Math.Floor(Math.Min(topLeft.X, bottomRight.X)),
+                    (int)Math.Floor(Math.Min(topLeft.Y, bottomRight.Y)),
+                    (int)Math.Ceiling(Math.Max(topLeft.X, bottomRight.X)),
+                    (int)Math.Ceiling(Math.Max(topLeft.Y, bottomRight.Y)));
+                if (screenBounds.Width > 0 && screenBounds.Height > 0)
+                {
+                    return true;
+                }
+
+                Logger.Log.Warn("Debug overlay has empty screen bounds; OCR sampling will be skipped until layout completes.");
+                return false;
+            }
+            catch (InvalidOperationException ex)
+            {
+                Logger.Log.Warn($"Could not map debug overlay bounds to the desktop for OCR masking: {ex.Message}");
+                return false;
+            }
+        }
+
+        internal void FilterDebugOverlayFromCapture(
+            Bitmap bitmap,
+            System.Drawing.Rectangle captureBounds)
+        {
+            if (bitmap == null || captureBounds.Width <= 0 || captureBounds.Height <= 0)
+            {
+                return;
+            }
+
+            System.Drawing.Rectangle[] masks;
+            System.Drawing.Rectangle panelBounds;
+            bool maskUnavailable;
+            lock (_debugCaptureMaskSync)
+            {
+                masks = (System.Drawing.Rectangle[])_debugCaptureMaskBounds.Clone();
+                panelBounds = _debugCapturePanelBounds;
+                maskUnavailable = _debugCaptureMaskUnavailable;
+            }
+
+            if (maskUnavailable)
+            {
+                // Fail closed during layout or coordinate-mapping transitions so
+                // visible debug text can never leak into OCR.
+                throw new InvalidOperationException(
+                    "Debug overlay bounds are unavailable; skipping this OCR capture to avoid reading debug text.");
+            }
+
+            if (masks.Length == 0)
+            {
+                return;
+            }
+
+            double scaleX = bitmap.Width / (double)captureBounds.Width;
+            double scaleY = bitmap.Height / (double)captureBounds.Height;
+            var destinationMasks = new List<System.Drawing.Rectangle>(masks.Length);
+            var destinationControls = new List<System.Drawing.Rectangle>(masks.Length);
+            foreach (System.Drawing.Rectangle screenMask in masks)
+            {
+                System.Drawing.Rectangle intersection = System.Drawing.Rectangle.Intersect(
+                    captureBounds,
+                    screenMask);
+                if (intersection.Width <= 0 || intersection.Height <= 0)
+                {
+                    continue;
+                }
+
+                int left = (int)Math.Floor((intersection.Left - captureBounds.Left) * scaleX);
+                int top = (int)Math.Floor((intersection.Top - captureBounds.Top) * scaleY);
+                int right = (int)Math.Ceiling((intersection.Right - captureBounds.Left) * scaleX);
+                int bottom = (int)Math.Ceiling((intersection.Bottom - captureBounds.Top) * scaleY);
+                var destinationMask = System.Drawing.Rectangle.FromLTRB(
+                    Math.Max(0, left),
+                    Math.Max(0, top),
+                    Math.Min(bitmap.Width, right),
+                    Math.Min(bitmap.Height, bottom));
+                if (destinationMask.Width > 0 && destinationMask.Height > 0)
+                {
+                    destinationMasks.Add(destinationMask);
+                    if (panelBounds.Width <= 0 || panelBounds.Height <= 0 ||
+                        screenMask != panelBounds)
+                    {
+                        destinationControls.Add(destinationMask);
+                    }
+                }
+            }
+
+            System.Drawing.Rectangle destinationPanel = System.Drawing.Rectangle.Empty;
+            if (panelBounds.Width > 0 && panelBounds.Height > 0)
+            {
+                System.Drawing.Rectangle intersection = System.Drawing.Rectangle.Intersect(
+                    captureBounds,
+                    panelBounds);
+                if (intersection.Width > 0 && intersection.Height > 0)
+                {
+                    int left = (int)Math.Floor((intersection.Left - captureBounds.Left) * scaleX);
+                    int top = (int)Math.Floor((intersection.Top - captureBounds.Top) * scaleY);
+                    int right = (int)Math.Ceiling((intersection.Right - captureBounds.Left) * scaleX);
+                    int bottom = (int)Math.Ceiling((intersection.Bottom - captureBounds.Top) * scaleY);
+                    destinationPanel = System.Drawing.Rectangle.FromLTRB(
+                        Math.Max(0, left),
+                        Math.Max(0, top),
+                        Math.Min(bitmap.Width, right),
+                        Math.Min(bitmap.Height, bottom));
+                }
+            }
+
+            if (destinationMasks.Count == 0 && destinationPanel.IsEmpty)
+            {
+                return;
+            }
+
+            FilterDebugOverlayPixels(
+                bitmap,
+                destinationMasks,
+                destinationControls,
+                destinationPanel,
+                panelBounds.Width > 0
+                    ? panelBounds.Width / DebugSamplingPanelWidth * scaleX
+                    : 1.0);
+        }
+
+        private static void FilterDebugOverlayPixels(
+            Bitmap bitmap,
+            List<System.Drawing.Rectangle> colorKeyBounds,
+            List<System.Drawing.Rectangle> controlBounds,
+            System.Drawing.Rectangle panelBounds,
+            double panelScale)
+        {
+            if (Interlocked.CompareExchange(ref _debugOverlayFilteringDisabled, 0, 0) != 0)
+            {
+                return;
+            }
+
+            System.Drawing.Imaging.PixelFormat format = bitmap.PixelFormat;
+            int bytesPerPixel;
+            if (format == System.Drawing.Imaging.PixelFormat.Format24bppRgb)
+            {
+                bytesPerPixel = 3;
+            }
+            else if (format == System.Drawing.Imaging.PixelFormat.Format32bppArgb ||
+                     format == System.Drawing.Imaging.PixelFormat.Format32bppRgb ||
+                     format == System.Drawing.Imaging.PixelFormat.Format32bppPArgb)
+            {
+                bytesPerPixel = 4;
+            }
+            else
+            {
+                throw new InvalidOperationException(
+                    $"Unsupported screenshot pixel format for debug color filtering: {format}.");
+            }
+
+            var fullBounds = new System.Drawing.Rectangle(0, 0, bitmap.Width, bitmap.Height);
+            System.Drawing.Rectangle scanBounds = System.Drawing.Rectangle.Empty;
+            foreach (System.Drawing.Rectangle bounds in colorKeyBounds)
+            {
+                scanBounds = scanBounds.IsEmpty
+                    ? bounds
+                    : System.Drawing.Rectangle.Union(scanBounds, bounds);
+            }
+            scanBounds = System.Drawing.Rectangle.Intersect(fullBounds, scanBounds);
+            if (scanBounds.IsEmpty)
+            {
+                return;
+            }
+
+            long scanPixels = (long)scanBounds.Width * scanBounds.Height;
+            if (scanPixels > DebugOverlayMaxFilterPixels)
+            {
+                if (scanPixels > DebugOverlayMaxFastFilterPixels)
+                {
+                    if (Interlocked.Exchange(ref _debugOverlayFilterWarningLogged, 1) == 0)
+                    {
+                        Logger.Log.Warn(
+                            $"Debug overlay filtering skipped to protect capture speed: " +
+                            $"{scanBounds.Width}x{scanBounds.Height} pixels exceeds the " +
+                            $"{DebugOverlayMaxFastFilterPixels}-pixel limit.");
+                    }
+                    return;
+                }
+
+                long fastStarted = Stopwatch.GetTimestamp();
+                FilterDebugOverlayPixelsFast(
+                    bitmap,
+                    format,
+                    bytesPerPixel,
+                    colorKeyBounds,
+                    panelBounds,
+                    scanBounds);
+                DisableDebugOverlayFilteringIfSlow(fastStarted);
+                return;
+            }
+
+            long started = Stopwatch.GetTimestamp();
+            System.Drawing.Imaging.BitmapData data = bitmap.LockBits(
+                fullBounds,
+                System.Drawing.Imaging.ImageLockMode.ReadWrite,
+                format);
+            try
+            {
+                // SetWindowDisplayAffinity may already have removed the overlay
+                // from a capture. Only adjust the panel background when its
+                // reserved color key proves the overlay pixels are present.
+                bool overlayPixelsPresent = false;
+                bool panelPixelsPresent = false;
+                bool panelCoversScan = !panelBounds.IsEmpty && panelBounds.Contains(scanBounds);
+                unsafe
+                {
+                    byte* firstPixel = (byte*)data.Scan0;
+                    for (int y = scanBounds.Top; y < scanBounds.Bottom && !overlayPixelsPresent; y++)
+                    {
+                        byte* row = firstPixel + y * data.Stride;
+                        for (int x = scanBounds.Left; x < scanBounds.Right; x++)
+                        {
+                            if (!panelCoversScan && !IsInsideAnyBounds(x, y, colorKeyBounds))
+                            {
+                                continue;
+                            }
+
+                            int pixel = x * bytesPerPixel;
+                            if (IsDebugColorKeyPixel(row, pixel))
+                            {
+                                overlayPixelsPresent = true;
+                                panelPixelsPresent = panelBounds.Contains(x, y);
+                                break;
+                            }
+                        }
+                    }
+
+                    if (overlayPixelsPresent)
+                    {
+                        double panelRadius = 4.0 * panelScale;
+                        double panelBorder = Math.Max(1.0, panelScale);
+                        double panelFillRadius = Math.Max(0, panelRadius - panelBorder);
+                        for (int y = scanBounds.Top; y < scanBounds.Bottom; y++)
+                        {
+                            byte* row = firstPixel + y * data.Stride;
+                            bool rowTouchesPanel = panelBounds.Top <= y && y < panelBounds.Bottom;
+
+                            for (int x = scanBounds.Left; x < scanBounds.Right; x++)
+                            {
+                                bool isDebugPixel = panelCoversScan || IsInsideAnyBounds(x, y, colorKeyBounds);
+                                bool insideControl = IsInsideAnyBounds(x, y, controlBounds);
+                                bool restorePanel = panelPixelsPresent && !insideControl && rowTouchesPanel &&
+                                    IsInsideDebugPanelFill(x, y, panelBounds, panelBorder, panelFillRadius);
+                                if (!isDebugPixel && !restorePanel)
+                                {
+                                    continue;
+                                }
+
+                                int pixel = x * bytesPerPixel;
+                                if (isDebugPixel && IsDebugColorKeyPixel(row, pixel))
+                                {
+                                    row[pixel] = 0;
+                                    row[pixel + 1] = 0;
+                                    row[pixel + 2] = 0;
+                                    if (bytesPerPixel == 4)
+                                    {
+                                        row[pixel + 3] = 255;
+                                    }
+                                    continue;
+                                }
+
+                                // Reconstruct pixels under the translucent panel so white
+                                // subtitles keep their original brightness for the binary gate.
+                                if (restorePanel)
+                                {
+                                    row[pixel] = RestorePanelChannel(row[pixel], 51);
+                                    row[pixel + 1] = RestorePanelChannel(row[pixel + 1], 39);
+                                    row[pixel + 2] = RestorePanelChannel(row[pixel + 2], 32);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                bitmap.UnlockBits(data);
+            }
+
+            DisableDebugOverlayFilteringIfSlow(started);
+        }
+
+        private static unsafe void FilterDebugOverlayPixelsFast(
+            Bitmap bitmap,
+            System.Drawing.Imaging.PixelFormat format,
+            int bytesPerPixel,
+            List<System.Drawing.Rectangle> colorKeyBounds,
+            System.Drawing.Rectangle panelBounds,
+            System.Drawing.Rectangle scanBounds)
+        {
+            var fullBounds = new System.Drawing.Rectangle(0, 0, bitmap.Width, bitmap.Height);
+            System.Drawing.Imaging.BitmapData data = bitmap.LockBits(
+                fullBounds,
+                System.Drawing.Imaging.ImageLockMode.ReadWrite,
+                format);
+            try
+            {
+                byte* firstPixel = (byte*)data.Scan0;
+                bool panelCoversScan = !panelBounds.IsEmpty && panelBounds.Contains(scanBounds);
+
+                for (int y = scanBounds.Top; y < scanBounds.Bottom; y++)
+                {
+                    byte* row = firstPixel + y * data.Stride;
+                    for (int x = scanBounds.Left; x < scanBounds.Right; x++)
+                    {
+                        if (!panelCoversScan && !IsInsideAnyBounds(x, y, colorKeyBounds))
+                        {
+                            continue;
+                        }
+
+                        int pixel = x * bytesPerPixel;
+                        if (IsDebugColorKeyPixel(row, pixel))
+                        {
+                            row[pixel] = 0;
+                            row[pixel + 1] = 0;
+                            row[pixel + 2] = 0;
+                            if (bytesPerPixel == 4)
+                            {
+                                row[pixel + 3] = 255;
+                            }
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                bitmap.UnlockBits(data);
+            }
+        }
+
+        private static void DisableDebugOverlayFilteringIfSlow(long started)
+        {
+            double elapsedMs = (Stopwatch.GetTimestamp() - started) * 1000.0 / Stopwatch.Frequency;
+            if (elapsedMs >= 10.0)
+            {
+                Interlocked.Exchange(ref _debugOverlayFilteringDisabled, 1);
+                if (Interlocked.Exchange(ref _debugOverlayFilterSlowWarningLogged, 1) == 0)
+                {
+                    Logger.Log.Warn(
+                        $"Debug overlay filtering took {elapsedMs:F1} ms; filtering is disabled for later captures.");
+                }
+            }
+        }
+
+        private static bool IsInsideAnyBounds(
+            int x,
+            int y,
+            List<System.Drawing.Rectangle> bounds)
+        {
+            for (int i = 0; i < bounds.Count; i++)
+            {
+                if (bounds[i].Contains(x, y))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private static unsafe bool IsDebugColorKeyPixel(byte* row, int pixel)
+        {
+            byte blue = row[pixel];
+            byte green = row[pixel + 1];
+            byte red = row[pixel + 2];
+            return green >= red + 20 && green >= blue + 20 &&
+                red >= 100 && blue >= 100 && green >= 130;
+        }
+
+        private static bool IsInsideDebugPanelFill(
+            int x,
+            int y,
+            System.Drawing.Rectangle bounds,
+            double border,
+            double radius)
+        {
+            if (bounds.IsEmpty)
+            {
+                return false;
+            }
+
+            double left = bounds.Left + border;
+            double top = bounds.Top + border;
+            double right = bounds.Right - border;
+            double bottom = bounds.Bottom - border;
+            double px = x + 0.5;
+            double py = y + 0.5;
+            if (px < left || px >= right || py < top || py >= bottom)
+            {
+                return false;
+            }
+
+            double cornerRadius = Math.Min(radius, Math.Min((right - left) / 2, (bottom - top) / 2));
+            bool leftCorner = px < left + cornerRadius;
+            bool rightCorner = px >= right - cornerRadius;
+            bool topCorner = py < top + cornerRadius;
+            bool bottomCorner = py >= bottom - cornerRadius;
+            if ((!leftCorner && !rightCorner) || (!topCorner && !bottomCorner))
+            {
+                return true;
+            }
+
+            double cornerX = leftCorner ? left + cornerRadius : rightCorner ? right - cornerRadius : px;
+            double cornerY = topCorner ? top + cornerRadius : bottomCorner ? bottom - cornerRadius : py;
+            double dx = px - cornerX;
+            double dy = py - cornerY;
+            return dx * dx + dy * dy <= cornerRadius * cornerRadius;
+        }
+
+        private static byte RestorePanelChannel(byte composited, int panelChannel)
+        {
+            const int alpha = 128;
+            int restored = (composited * 255 - panelChannel * alpha + (255 - alpha) / 2) /
+                (255 - alpha);
+            return (byte)Math.Max(0, Math.Min(255, restored));
         }
 
         private void UpdateDebugSamplingResourceUsage()
@@ -916,8 +1419,10 @@ namespace GI_Subtitles.Views
                 if (ShouldCollectSamplingDiagnostics)
                 {
                     int skipped = Interlocked.Increment(ref _samplingTicksSkippedMenu);
-                    AddDebugSamplingOverlayEntry(
-                        $"定时器跳过：托盘菜单打开，累计 {skipped} 次；距上次采样 {GetSamplingGapForDisplay()}。");
+                    if (skipped == 1)
+                    {
+                        AddDebugSamplingOverlayEntry("托盘菜单打开，暂时停止读取画面");
+                    }
                 }
                 return;
             }
@@ -926,10 +1431,8 @@ namespace GI_Subtitles.Views
             {
                 if (ShouldCollectSamplingDiagnostics)
                 {
-                    int skipped = Interlocked.Increment(ref _samplingTicksSkippedOcrBusy);
-                    AddDebugSamplingOverlayEntry(
-                        $"定时器跳过：OCR 正在处理 slot={_overlaySession.BusyOcrSlot?.ToString() ?? "none"}，" +
-                        $"累计 {skipped} 次；距上次采样 {GetSamplingGapForDisplay()}。");
+                    Interlocked.Increment(ref _samplingTicksSkippedOcrBusy);
+                    AddDebugSamplingOverlayEntry("正在识别文字，稍后继续读取");
                 }
                 return;
             }
@@ -938,9 +1441,8 @@ namespace GI_Subtitles.Views
             {
                 if (ShouldCollectSamplingDiagnostics)
                 {
-                    int skipped = Interlocked.Increment(ref _samplingTicksSkippedSamplerBusy);
-                    AddDebugSamplingOverlayEntry(
-                        $"定时器跳过：上一轮采样尚未结束，累计 {skipped} 次；距上次采样 {GetSamplingGapForDisplay()}。");
+                    Interlocked.Increment(ref _samplingTicksSkippedSamplerBusy);
+                    AddDebugSamplingOverlayEntry("正在读取画面，稍后继续");
                 }
                 return;
             }
@@ -1260,7 +1762,7 @@ namespace GI_Subtitles.Views
                     if (ShouldCollectSamplingDiagnostics)
                     {
                         AddDebugSamplingOverlayEntry(
-                            $"采样 #{diagnosticId} 失败：{failure.GetType().Name}。");
+                            "画面读取失败，请查看日志");
                     }
                     return;
                 }
@@ -1271,7 +1773,7 @@ namespace GI_Subtitles.Views
                     if (ShouldCollectSamplingDiagnostics)
                     {
                         AddDebugSamplingOverlayEntry(
-                            $"采样 #{diagnosticId} 已完成但结果丢弃：识别已暂停或游戏配置已变化。");
+                            "识别设置已变化，忽略旧结果");
                     }
                     return;
                 }
@@ -1343,7 +1845,7 @@ namespace GI_Subtitles.Views
                 {
                     if (ShouldCollectSamplingDiagnostics)
                     {
-                        AddDebugSamplingOutcome(diagnosticId, batch);
+                        AddDebugSamplingOutcome(batch);
                     }
 
                     if (debug)
@@ -1390,28 +1892,20 @@ namespace GI_Subtitles.Views
             }
         }
 
-        private void AddDebugSamplingOutcome(long diagnosticId, SamplingBatchResult batch)
+        private void AddDebugSamplingOutcome(SamplingBatchResult batch)
         {
             bool ocrPending = _overlaySession.BusyOcrSlot.HasValue || _overlaySession.OcrQueue.Count > 0;
             string frameDecisions = batch.PairFrameDecisions.Count == 0
-                ? "没有有效帧结果"
+                ? "暂时没有可读取的画面"
                 : string.Join("；", batch.PairFrameDecisions.Select(FormatFrameDecisionForOverlay));
 
             if (ocrPending)
             {
-                string pendingState = _overlaySession.BusyOcrSlot.HasValue
-                    ? $"处理中 slot={_overlaySession.BusyOcrSlot.Value}"
-                    : $"队列中 {_overlaySession.OcrQueue.Count} 项";
-                AddDebugSamplingOverlayEntry(
-                    $"采样 #{diagnosticId}：{frameDecisions}；OCR {pendingState}。");
+                AddDebugSamplingOverlayEntry("画面有变化，正在识别文字");
                 return;
             }
 
-            string sinceOcr = _lastOcrStartedUtc == DateTime.MinValue
-                ? "尚未启动"
-                : $"{(DateTime.UtcNow - _lastOcrStartedUtc).TotalSeconds:F1}s 前";
-            AddDebugSamplingOverlayEntry(
-                $"采样 #{diagnosticId}：未提交 OCR（{frameDecisions}）；上次 OCR {sinceOcr}。");
+            AddDebugSamplingOverlayEntry(frameDecisions);
         }
 
         private static string FormatFrameDecisionForOverlay(string value)
@@ -1419,49 +1913,48 @@ namespace GI_Subtitles.Views
             int separator = value?.IndexOf(':') ?? -1;
             if (separator < 0)
             {
-                return value ?? "未知帧状态";
+                return "画面状态暂不可用";
             }
 
-            string pair = value.Substring(0, separator);
+            string source = value.Substring(0, separator);
+            int pairIndex = -1;
+            if (source.StartsWith("pair", StringComparison.Ordinal))
+            {
+                int.TryParse(source.Substring(4), out pairIndex);
+            }
+            string region = pairIndex >= 0 ? $"区域{pairIndex + 1}" : "画面";
             string decision = value.Substring(separator + 1);
             string description;
             if (decision == "queue-ocr")
             {
-                description = "变化稳定，准备 OCR";
+                description = "发现新文字";
             }
             else if (decision == "wait-stable")
             {
-                description = "画面仍在变化，等待稳定";
+                description = "画面变化中";
             }
             else if (decision == "unchanged")
             {
-                description = "画面变化未达阈值";
+                description = "没有新内容";
             }
             else if (decision == "clear-empty")
             {
-                description = "采样区域为空";
+                description = "内容已清除";
             }
             else if (decision == "no-frame")
             {
-                description = "未采到帧";
+                description = "暂时无法读取";
             }
             else if (decision.StartsWith("capture-error", StringComparison.Ordinal))
             {
-                description = "采集或预处理失败";
+                description = "读取失败";
             }
             else
             {
-                description = decision;
+                description = "状态暂不可用";
             }
 
-            return $"{pair} {description}";
-        }
-
-        private string GetSamplingGapForDisplay()
-        {
-            return _lastSamplingStartedUtc == DateTime.MinValue
-                ? "尚未采样"
-                : $"{(DateTime.UtcNow - _lastSamplingStartedUtc).TotalSeconds:F1}s";
+            return $"{region}{description}";
         }
 
         private void AddDebugSamplingOverlayEntry(string message)
@@ -1474,8 +1967,26 @@ namespace GI_Subtitles.Views
                 return;
             }
 
-            _debugSamplingOverlayEntries.Add(
-                $"{DateTime.Now:HH:mm:ss.fff}  {message}");
+            string entry = FitDebugSamplingLine($"{DateTime.Now:HH:mm:ss}  {message}");
+            if (_debugSamplingOverlayEntries.Count > 0)
+            {
+                string latest = _debugSamplingOverlayEntries[_debugSamplingOverlayEntries.Count - 1];
+                const int timestampAndSpacingLength = 10;
+                if (latest.Length >= timestampAndSpacingLength && entry.Length >= timestampAndSpacingLength &&
+                    string.Equals(
+                        latest.Substring(timestampAndSpacingLength),
+                        entry.Substring(timestampAndSpacingLength),
+                        StringComparison.Ordinal))
+                {
+                    _debugSamplingOverlayEntries[_debugSamplingOverlayEntries.Count - 1] = entry;
+                    DebugSamplingText.Text = string.Join(Environment.NewLine, _debugSamplingOverlayEntries);
+                    DebugSamplingScrollViewer?.ScrollToEnd();
+                    PositionDebugSamplingControls();
+                    return;
+                }
+            }
+
+            _debugSamplingOverlayEntries.Add(entry);
             while (_debugSamplingOverlayEntries.Count > DebugSamplingOverlayEntryLimit)
             {
                 _debugSamplingOverlayEntries.RemoveAt(0);
@@ -1484,6 +1995,55 @@ namespace GI_Subtitles.Views
             DebugSamplingText.Text = string.Join(Environment.NewLine, _debugSamplingOverlayEntries);
             DebugSamplingScrollViewer?.ScrollToEnd();
             PositionDebugSamplingControls();
+        }
+
+        private static string FitDebugSamplingLine(string line)
+        {
+            line = (line ?? string.Empty).Replace('\r', ' ').Replace('\n', ' ');
+            int maxCells = DebugSamplingMaxLineCells - 4; // Keep at least two full-width characters free.
+            if (GetDebugSamplingDisplayCells(line) <= maxCells)
+            {
+                return line;
+            }
+
+            const string ellipsis = "…";
+            int contentLimit = maxCells - 2;
+            int cells = 0;
+            int length = 0;
+            while (length < line.Length)
+            {
+                int charCells = IsWideDebugSamplingCharacter(line[length]) ? 2 : 1;
+                if (cells + charCells > contentLimit)
+                {
+                    break;
+                }
+
+                cells += charCells;
+                length++;
+            }
+
+            return line.Substring(0, length).TrimEnd() + ellipsis;
+        }
+
+        private static int GetDebugSamplingDisplayCells(string value)
+        {
+            int cells = 0;
+            foreach (char character in value)
+            {
+                cells += IsWideDebugSamplingCharacter(character) ? 2 : 1;
+            }
+            return cells;
+        }
+
+        private static bool IsWideDebugSamplingCharacter(char character)
+        {
+            return (character >= '\u2E80' && character <= '\u9FFF') ||
+                (character >= '\uAC00' && character <= '\uD7AF') ||
+                (character >= '\uF900' && character <= '\uFAFF') ||
+                (character >= '\uFE30' && character <= '\uFE6F') ||
+                (character >= '\uFF01' && character <= '\uFF60') ||
+                (character >= '\uFFE0' && character <= '\uFFE6') ||
+                char.IsSurrogate(character);
         }
 
         private static void DisposeSamplingRequests(IEnumerable<PairSamplingRequest> requests)
@@ -1592,6 +2152,13 @@ namespace GI_Subtitles.Views
         {
             SizeOverlayToVirtualScreen();
             ApplyPairOverlay();
+            UpdateDebugCaptureMaskBounds();
+            if (DebugSamplingMinimizeButton?.Visibility == Visibility.Visible)
+            {
+                Dispatcher.BeginInvoke(
+                    DispatcherPriority.Loaded,
+                    new Action(UpdateDebugCaptureMaskBounds));
+            }
         }
 
         private void SizeOverlayToVirtualScreen()
@@ -3288,8 +3855,10 @@ namespace GI_Subtitles.Views
                         $"busySlot={_overlaySession.BusyOcrSlot?.ToString() ?? "none"}, " +
                         $"queueCount={_overlaySession.OcrQueue.Count}, matcherReady={data?.Matcher != null}");
                 }
-                AddDebugSamplingOverlayEntry(
-                    $"OCR #{diagnosticId} 开始：{sourceKind}，来源采样 #{sourceSampleId}。");
+                string startMessage = pairIndex.HasValue
+                    ? $"开始识别区域{pairIndex.Value + 1}"
+                    : "开始识别画面文字";
+                AddDebugSamplingOverlayEntry(startMessage);
             }
             if (debug && pairIndex.HasValue)
             {
@@ -3440,8 +4009,9 @@ namespace GI_Subtitles.Views
                     double workerElapsedMs =
                         (workerCompletedTimestamp - ocrStartedTimestamp) * 1000.0 / Stopwatch.Frequency;
                     AddDebugSamplingOverlayEntry(
-                        $"OCR #{diagnosticId} 线程完成：{workerElapsedMs:F0}ms，" +
-                        $"识别到 {recognizedText?.Length ?? 0} 字符。");
+                        string.IsNullOrWhiteSpace(recognizedText)
+                            ? $"没有读到文字 · {workerElapsedMs / 1000.0:F1}秒"
+                            : $"已读到文字 · {workerElapsedMs / 1000.0:F1}秒");
                     if (debug)
                     {
                         double workerToContinuationMs =
@@ -3507,12 +4077,12 @@ namespace GI_Subtitles.Views
 
                         if (ShouldCollectSamplingDiagnostics)
                         {
-                            double fromPixelChangeToUiMs = firstPixelChangeTicks == 0
-                                ? -1
-                                : (Stopwatch.GetTimestamp() - firstPixelChangeTicks) * 1000.0 / Stopwatch.Frequency;
-                            AddDebugSamplingOverlayEntry(
-                                $"OCR #{diagnosticId} 已回到界面：应用={applyCompleted}，匹配={subtitleMatched}，" +
-                                $"首个变化到显示 {fromPixelChangeToUiMs:F0}ms。");
+                            string resultMessage = !applyCompleted
+                                ? "识别完成，字幕没有更新"
+                                : subtitleMatched
+                                    ? "字幕已更新"
+                                    : "没有找到对应字幕";
+                            AddDebugSamplingOverlayEntry(resultMessage);
                         }
                     }
                 });
@@ -4629,7 +5199,17 @@ namespace GI_Subtitles.Views
             }
 
             // Capture the configured desktop region directly; no window discovery or HWND capture is used.
-            return CaptureDesktopRectangle(bounds);
+            Bitmap bitmap = CaptureDesktopRectangle(bounds);
+            try
+            {
+                FilterDebugOverlayFromCapture(bitmap, bounds);
+                return bitmap;
+            }
+            catch
+            {
+                bitmap.Dispose();
+                throw;
+            }
         }
 
         private static Bitmap CaptureDesktopRectangle(System.Drawing.Rectangle bounds)
@@ -4729,7 +5309,16 @@ namespace GI_Subtitles.Views
 
             if (captureFailure == null)
             {
-                return bitmap;
+                try
+                {
+                    FilterDebugOverlayFromCapture(bitmap, bounds);
+                    return bitmap;
+                }
+                catch
+                {
+                    bitmap.Dispose();
+                    throw;
+                }
             }
 
             bitmap.Dispose();
@@ -5144,37 +5733,52 @@ namespace GI_Subtitles.Views
                 _overlaySession.IsClickThrough &&
                 !_regionDragging;
             OverlayRect display = OverlayRect.Invalid;
-            int primaryPairIndex = -1;
+            int hoveredPairIndex = -1;
             if (canShow)
             {
                 IReadOnlyList<RegionPair> pairs = _overlaySession.Pairs;
-                primaryPairIndex = FindPrimaryPairIndex(pairs);
                 IReadOnlyList<PairSubtitleBody> bodies = _overlaySession.PairBodies;
-                if (primaryPairIndex >= 0 &&
-                    primaryPairIndex < pairs.Count &&
-                    primaryPairIndex < bodies.Count &&
-                    bodies[primaryPairIndex].Visible)
-                {
-                    display = bodies[primaryPairIndex].Display;
-                }
-                else
-                {
-                    canShow = false;
-                }
-            }
-
-            bool hoveringDisplay = false;
-            if (canShow && display != null && display.IsValid)
-            {
                 System.Drawing.Point cursor = System.Windows.Forms.Cursor.Position;
-                var displayBounds = new System.Drawing.Rectangle(
-                    display.X,
-                    display.Y,
-                    display.Width,
-                    display.Height);
-                hoveringDisplay = displayBounds.Contains(cursor);
+                int highestRecognitionOrder = int.MinValue;
+                bool selectedBodyVisible = false;
+                int pairCount = Math.Min(pairs.Count, bodies.Count);
+                for (int i = 0; i < pairCount; i++)
+                {
+                    OverlayRect candidate = bodies[i].Display;
+                    if (candidate == null || !candidate.IsValid)
+                    {
+                        continue;
+                    }
+
+                    var candidateBounds = new System.Drawing.Rectangle(
+                        candidate.X,
+                        candidate.Y,
+                        candidate.Width,
+                        candidate.Height);
+                    if (candidateBounds.Contains(cursor) &&
+                        (hoveredPairIndex < 0 ||
+                         (bodies[i].Visible && !selectedBodyVisible) ||
+                         (bodies[i].Visible == selectedBodyVisible &&
+                          bodies[i].RecognitionOrder >= highestRecognitionOrder)))
+                    {
+                        hoveredPairIndex = i;
+                        highestRecognitionOrder = bodies[i].RecognitionOrder;
+                        selectedBodyVisible = bodies[i].Visible;
+                        display = candidate;
+                    }
+                }
             }
 
+            bool hoveringDragButton = canShow && IsCursorOverElement(DragButton);
+            if (hoveredPairIndex < 0 && hoveringDragButton &&
+                _dragHandlePairIndex >= 0 && _dragHandlePairIndex < _overlaySession.Pairs.Count)
+            {
+                hoveredPairIndex = _dragHandlePairIndex;
+                display = _overlaySession.Pairs[hoveredPairIndex].Display;
+            }
+
+            bool hoveringDisplay = hoveredPairIndex >= 0 && display != null && display.IsValid;
+            _dragHandlePairIndex = hoveringDisplay ? hoveredPairIndex : -1;
             if (hoveringDisplay)
             {
                 PositionDragHandle(display);
@@ -5255,8 +5859,10 @@ namespace GI_Subtitles.Views
             }
 
             IReadOnlyList<RegionPair> pairs = _overlaySession.Pairs;
-            int pairIndex = FindPrimaryPairIndex(pairs);
-            if (pairIndex < 0 || pairIndex >= pairs.Count || !pairs[pairIndex].Display.IsValid)
+            IReadOnlyList<PairSubtitleBody> bodies = _overlaySession.PairBodies;
+            int pairIndex = _dragHandlePairIndex;
+            if (pairIndex < 0 || pairIndex >= pairs.Count || pairIndex >= bodies.Count ||
+                !pairs[pairIndex].Display.IsValid || !bodies[pairIndex].Display.IsValid)
             {
                 return;
             }
@@ -5350,6 +5956,12 @@ namespace GI_Subtitles.Views
 
         private int GetDragContentBottomOffset(int pairIndex, OverlayRect display)
         {
+            IReadOnlyList<PairSubtitleBody> bodies = _overlaySession.PairBodies;
+            if (pairIndex < 0 || pairIndex >= bodies.Count || !bodies[pairIndex].Visible)
+            {
+                return display.Height;
+            }
+
             FrameworkElement contentElement = null;
             System.Windows.Rect contentBounds = System.Windows.Rect.Empty;
 
@@ -5459,6 +6071,7 @@ namespace GI_Subtitles.Views
             OverlayRect finalDisplay = commit ? _dragHandlePreviewRect : _dragHandleStartRect;
             if (commit && pairIndex >= 0 && finalDisplay != null && finalDisplay.IsValid)
             {
+                // SetDisplay persists the pair layout when the drag is released.
                 _overlaySession.SetDisplay(pairIndex, finalDisplay);
             }
 
