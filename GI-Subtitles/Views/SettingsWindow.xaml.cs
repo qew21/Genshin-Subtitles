@@ -2555,7 +2555,9 @@ namespace GI_Subtitles.Views
 
         private void AutoStartCheckBox_Checked(object sender, RoutedEventArgs e)
         {
-            Config.Set("AutoStart", AutoStartCheckBox.IsChecked == true);
+            bool enabled = AutoStartCheckBox.IsChecked == true;
+            Config.Set("AutoStart", enabled);
+            notifyIcon?.SetAutoStart(enabled);
         }
 
         private void UrlTextBox_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
@@ -2611,7 +2613,12 @@ namespace GI_Subtitles.Views
             {
                 return;
             }
-            Config.Set("PlayVoice", PlayVoiceCheckBox.IsChecked == true);
+            bool enabled = PlayVoiceCheckBox.IsChecked == true;
+            Config.Set("PlayVoice", enabled);
+            if (!enabled)
+            {
+                _mainWindow?.StopAudio();
+            }
             if (string.IsNullOrEmpty(Config.Get<string>("Server")))
             {
                 Config.Set("Server", "https://mp3.2langs.com/download");

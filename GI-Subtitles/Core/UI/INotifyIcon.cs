@@ -773,8 +773,9 @@ namespace GI_Subtitles.Core.UI
             }
         }
 
-        private void SetAutoStart(bool autoStart)
+        public void SetAutoStart(bool autoStart)
         {
+            AutoStart = autoStart;
             string appPath = System.Reflection.Assembly.GetExecutingAssembly().Location;
             RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", true);
 

@@ -178,7 +178,7 @@ namespace GI_Subtitles.Views
         private static readonly SolidColorBrush DialogueOptionOutlineBrush = CreateFrozenBrush(0xA8, 0x5C, 0xE6);
         private static readonly SolidColorBrush AdjustHitFill = CreateFrozenBrush(1, 255, 255, 255);
         private readonly bool _performanceDiagnostics = Config.Get("PerformanceDiagnostics", false);
-        private bool _debugSamplingOverlayEnabled = Config.Get("DebugSamplingOverlayEnabled", false);
+        private bool _debugSamplingOverlayEnabled = Config.Get("DebugSamplingOverlayEnabled", true);
         private const int DarkScreenAnalysisMaxSide = 960;
         private const int DialogueOptionAnalysisMaxSide = 1920;
         private const int PreviewOutlineBoxZIndex = int.MaxValue - 2;
