@@ -831,6 +831,11 @@ namespace GI_Subtitles.Core.Overlay
             return _pairs[pairIndex].Display;
         }
 
+        public void ClearPairSubtitleContent(int pairIndex)
+        {
+            ClearPairSubtitleBody(pairIndex);
+        }
+
         public void Beat(params PairFrameSample[] samples)
         {
             Beat(ExtraPathSample.None, samples);

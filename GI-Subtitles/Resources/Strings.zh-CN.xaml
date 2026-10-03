@@ -61,7 +61,7 @@
     <sys:String x:Key="Help_Instructions" xmlns:sys="clr-namespace:System;assembly=mscorlib">使用步骤</sys:String>
     <sys:String x:Key="Help_Step1" xmlns:sys="clr-namespace:System;assembly=mscorlib">1. 使用流程：语言包管理界面下载对应文件，打开游戏选择对话区域，使用快捷键开始识别和展示。</sys:String>
     <sys:String x:Key="Help_Step2" xmlns:sys="clr-namespace:System;assembly=mscorlib">2. 可通过快捷键 Ctrl+Shift+S 启动/暂停；Ctrl+Shift+R 选择识别区域；Ctrl+Shift+H 隐藏字幕。若冲突，可在「快捷键」标签修改。</sys:String>
-    <sys:String x:Key="Help_Step3" xmlns:sys="clr-namespace:System;assembly=mscorlib">3. 在「区域对」页点击「调整区域」武装后，抓哪个框动哪个矩形：拖识别区框，下一拍起从新位置采样；拖显示区框，字幕实时跟随。预览全部与显示识别区热键会画出每个区域对的识别区（绿）和显示区（金）。建议游戏使用「无边框窗口」模式而非独占全屏。</sys:String>
+    <sys:String x:Key="Help_Step3" xmlns:sys="clr-namespace:System;assembly=mscorlib">3. 在「区域对」页点击「调整区域」武装后，抓哪个框动哪个矩形：拖框内移动位置，拖上、下、左、右边缘调整大小；拖识别区框，下一拍起从新位置采样；拖显示区框，字幕实时跟随。预览全部与显示识别区热键会画出每个区域对的识别区（绿）和显示区（金）。建议游戏使用「无边框窗口」模式而非独占全屏。</sys:String>
 
     <!-- Config Tab -->
     <sys:String x:Key="Tab_Config" xmlns:sys="clr-namespace:System;assembly=mscorlib">其他配置选项</sys:String>
@@ -84,6 +84,10 @@
     <sys:String x:Key="RegionPair_VoicePrimaryCurrent" xmlns:sys="clr-namespace:System;assembly=mscorlib">配音来源在「区域对」页指定，当前为区域对 {0}。</sys:String>
     <sys:String x:Key="RegionPair_VoicePrimaryNone" xmlns:sys="clr-namespace:System;assembly=mscorlib">配音来源在「区域对」页指定，当前未设置。</sys:String>
     <sys:String x:Key="RegionPair_BoxCaptureMask" xmlns:sys="clr-namespace:System;assembly=mscorlib">框选识别区（区域对 {0}）</sys:String>
+    <sys:String x:Key="RegionPair_SkipDisplayButton" xmlns:sys="clr-namespace:System;assembly=mscorlib">跳过展示区 {0}</sys:String>
+    <sys:String x:Key="RegionPair_DefaultDisplayFailure_Title" xmlns:sys="clr-namespace:System;assembly=mscorlib">无法设置展示区域</sys:String>
+    <sys:String x:Key="RegionPair_DefaultDisplayFailure_Message" xmlns:sys="clr-namespace:System;assembly=mscorlib">区域对 {0} 没有可沿用的展示区域，也无法计算旧版默认位置。请重新选择展示区域后再试。</sys:String>
+    <sys:String x:Key="Overlay_AdjustHint" xmlns:sys="clr-namespace:System;assembly=mscorlib">拖动框内可移动区域，拖动边缘可调整大小。</sys:String>
     <sys:String x:Key="RegionPair_BoxDisplayMask" xmlns:sys="clr-namespace:System;assembly=mscorlib">框选显示区（区域对 {0}）</sys:String>
     <sys:String x:Key="RegionPair_BoxCaptureTooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">框选此区域对的识别区</sys:String>
     <sys:String x:Key="RegionPair_BoxDisplayTooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">框选此区域对的显示区</sys:String>
@@ -156,8 +160,11 @@
     <sys:String x:Key="Config_LogDenoise_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">关闭后活动日志窗口显示每一次运行，重复识别行以弱化样式标出。只影响日志窗口的显示，不删除任何记录，也不影响字幕与配音。</sys:String>
     <sys:String x:Key="Config_DebugSamplingOverlay" xmlns:sys="clr-namespace:System;assembly=mscorlib">显示识别调试面板</sys:String>
     <sys:String x:Key="Config_DebugSamplingOverlay_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">识别运行时显示采样与跳帧原因、进程 CPU 和内存；暂停识别时自动隐藏。</sys:String>
-    <sys:String x:Key="Debug_ProcessResources" xmlns:sys="clr-namespace:System;assembly=mscorlib">进程 CPU {0:F1}%（占总 CPU）  内存 {1:F0} MB</sys:String>
-    <sys:String x:Key="Debug_ProcessResourcesUnavailable" xmlns:sys="clr-namespace:System;assembly=mscorlib">进程 CPU / 内存不可用</sys:String>
+    <sys:String x:Key="Debug_ProcessResources" xmlns:sys="clr-namespace:System;assembly=mscorlib">程序占用 {0:F1}% · 内存 {1:F0} MB</sys:String>
+    <sys:String x:Key="Debug_ProcessResourcesUnavailable" xmlns:sys="clr-namespace:System;assembly=mscorlib">程序状态暂不可用</sys:String>
+    <sys:String x:Key="Debug_MinimizeTooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">最小化调试区域</sys:String>
+    <sys:String x:Key="Debug_RestoreTooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">展开调试区域</sys:String>
+    <sys:String x:Key="Debug_SettingsTooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">打开其他设置</sys:String>
     <sys:String x:Key="Config_RecognizeDarkScreenSubtitles" xmlns:sys="clr-namespace:System;assembly=mscorlib">识别暗屏字幕</sys:String>
     <sys:String x:Key="Config_RecognizeDarkScreenSubtitles_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">在暗屏过场中自动检测中央字幕带并显示翻译。不是区域对，也不占用对话选项的识别。</sys:String>
     <sys:String x:Key="Config_RecognizeDialogueOptions" xmlns:sys="clr-namespace:System;assembly=mscorlib">识别对话选项</sys:String>

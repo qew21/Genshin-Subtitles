@@ -92,19 +92,34 @@ namespace GI_Subtitles.Views
             _addDisplay = OverlayRect.Invalid;
         }
 
-        public bool TryCommitAdd()
+        public bool TryCommitAdd(OverlayRect fallbackDisplay = null)
         {
             if (!_session.AddInProgress)
             {
                 return false;
             }
 
-            if (!_addCapture.IsValid || !_addDisplay.IsValid)
+            if (!_addCapture.IsValid)
             {
                 AbortAdd();
                 return false;
             }
 
+            if (!_addDisplay.IsValid)
+            {
+                OverlayRect reusableDisplay = GetReusableDisplay();
+                _addDisplay = reusableDisplay.IsValid
+                    ? reusableDisplay
+                    : CopyRect(fallbackDisplay);
+            }
+
+            if (!_addDisplay.IsValid)
+            {
+                AbortAdd();
+                return false;
+            }
+
+            _session.SetAddDisplay(_addDisplay);
             bool committed = _session.TryCommitAdd();
             if (committed && _session.Pairs.Count > 0)
             {
@@ -116,6 +131,39 @@ namespace GI_Subtitles.Views
             }
 
             return committed;
+        }
+
+        public OverlayRect GetDisplay(int pairId)
+        {
+            int index = IndexOf(pairId);
+            return index < 0 ? OverlayRect.Invalid : CopyRect(_session.Pairs[index].Display);
+        }
+
+        public OverlayRect GetReusableDisplay(int excludePairId = 0)
+        {
+            int selectedIndex = IndexOf(_selectedPairId);
+            if (selectedIndex >= 0 && _session.Pairs[selectedIndex].Id != excludePairId &&
+                _session.Pairs[selectedIndex].Display.IsValid)
+            {
+                return CopyRect(_session.Pairs[selectedIndex].Display);
+            }
+
+            int primaryIndex = IndexOf(_session.VoicePrimaryId);
+            if (primaryIndex >= 0 && _session.Pairs[primaryIndex].Id != excludePairId &&
+                _session.Pairs[primaryIndex].Display.IsValid)
+            {
+                return CopyRect(_session.Pairs[primaryIndex].Display);
+            }
+
+            for (int i = _session.Pairs.Count - 1; i >= 0; i--)
+            {
+                if (_session.Pairs[i].Id != excludePairId && _session.Pairs[i].Display.IsValid)
+                {
+                    return CopyRect(_session.Pairs[i].Display);
+                }
+            }
+
+            return OverlayRect.Invalid;
         }
 
         public bool TrySetCapture(int pairId, OverlayRect capture)
@@ -250,6 +298,13 @@ namespace GI_Subtitles.Views
             }
 
             return -1;
+        }
+
+        private static OverlayRect CopyRect(OverlayRect rect)
+        {
+            return rect == null || !rect.IsValid
+                ? OverlayRect.Invalid
+                : new OverlayRect(rect.X, rect.Y, rect.Width, rect.Height);
         }
     }
 

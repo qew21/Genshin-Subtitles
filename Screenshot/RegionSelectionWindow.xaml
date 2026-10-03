@@ -8,17 +8,40 @@
 
   <Canvas>
     <Image Name="BackgroundImage" Opacity="0.5" />
-    <TextBlock Name="PromptLabel"
-               Canvas.Left="32" Canvas.Top="32"
-               FontSize="28"
-               FontWeight="SemiBold"
-               Foreground="White"
-               IsHitTestVisible="False"
-               Visibility="Collapsed">
-      <TextBlock.Effect>
-        <DropShadowEffect Color="Black" BlurRadius="8" ShadowDepth="0" Opacity="0.9"/>
-      </TextBlock.Effect>
-    </TextBlock>
+    <Border Name="PromptPanel"
+            Canvas.Left="32" Canvas.Top="32"
+            Padding="14,10"
+            Background="#D9111724"
+            BorderBrush="#66FFFFFF"
+            BorderThickness="1"
+            CornerRadius="8"
+            Visibility="Collapsed">
+      <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+        <TextBlock Name="PromptLabel"
+                   FontSize="24"
+                   FontWeight="SemiBold"
+                   Foreground="White"
+                   VerticalAlignment="Center"
+                   IsHitTestVisible="False">
+          <TextBlock.Effect>
+            <DropShadowEffect Color="Black" BlurRadius="8" ShadowDepth="0" Opacity="0.9"/>
+          </TextBlock.Effect>
+        </TextBlock>
+        <Button Name="SkipButton"
+                Margin="18,0,0,0"
+                Padding="14,7"
+                FontSize="16"
+                FontWeight="SemiBold"
+                Foreground="#FF1F2937"
+                Background="#FFFFD166"
+                BorderBrush="#FFFFB938"
+                BorderThickness="1"
+                Cursor="Hand"
+                Focusable="False"
+                Visibility="Collapsed"
+                Click="SkipButton_Click" />
+      </StackPanel>
+    </Border>
     <Border Name="SelectionBorder" Width="0" Height="0" ClipToBounds="True">
       <Grid>
         <Canvas>

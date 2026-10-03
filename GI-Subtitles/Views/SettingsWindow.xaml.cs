@@ -87,6 +87,7 @@ namespace GI_Subtitles.Views
         private readonly RegionPairSettings _pairSettings;
         private readonly ObservableCollection<RegionPairCard> _pairCards = new ObservableCollection<RegionPairCard>();
         private bool _legacyRegion2ReviewAutoSelected;
+        private bool _openOtherSettingsOnNextShow;
         private OcrIntervalSettingsView _ocrIntervalView;
         private bool _ocrIntervalBinding;
         private SubtitleIdleTimeoutSettingsView _subtitleIdleTimeoutView;
@@ -295,7 +296,71 @@ namespace GI_Subtitles.Views
                 BindSubtitleIdleTimeoutSettings();
                 RefreshAppliedLayoutUi();
                 RefreshPairPage();
-                SelectRegionPairTabForLegacyReview();
+                if (_openOtherSettingsOnNextShow)
+                {
+                    _openOtherSettingsOnNextShow = false;
+                    SettingsTabs.SelectedItem = OtherSettingsTab;
+                }
+                else
+                {
+                    SelectRegionPairTabForLegacyReview();
+                }
+            }
+        }
+
+        public void OpenSettings()
+        {
+            Action open = () =>
+            {
+                if (IsVisible)
+                {
+                    if (WindowState == System.Windows.WindowState.Minimized)
+                    {
+                        WindowState = System.Windows.WindowState.Normal;
+                    }
+
+                    Activate();
+                    return;
+                }
+
+                ShowDialog();
+            };
+
+            if (Dispatcher.CheckAccess())
+            {
+                open();
+            }
+            else
+            {
+                Dispatcher.Invoke(open);
+            }
+        }
+
+        public void OpenOtherSettings()
+        {
+            Action open = () =>
+            {
+                if (!IsVisible)
+                {
+                    _openOtherSettingsOnNextShow = true;
+                }
+
+                SettingsTabs.SelectedItem = OtherSettingsTab;
+                if (WindowState == System.Windows.WindowState.Minimized)
+                {
+                    WindowState = System.Windows.WindowState.Normal;
+                }
+
+                OpenSettings();
+            };
+
+            if (Dispatcher.CheckAccess())
+            {
+                open();
+            }
+            else
+            {
+                Dispatcher.Invoke(open);
             }
         }
 
@@ -2173,6 +2238,16 @@ namespace GI_Subtitles.Views
                         g.CopyFromScreen(screen.Bounds.Location, System.Drawing.Point.Empty, screen.Bounds.Size);
                     }
 
+                    try
+                    {
+                        _mainWindow?.FilterDebugOverlayFromCapture(bitmap, screen.Bounds);
+                    }
+                    catch (InvalidOperationException ex)
+                    {
+                        Logger.Log.Warn($"Skipping OCR for screen {screen.DeviceName} because debug overlay masking is unavailable: {ex.Message}");
+                        continue;
+                    }
+
                     // Now save the bitmap, which contains the screenshot
                     bitmap.Save($"{idx}.png", System.Drawing.Imaging.ImageFormat.Png);
                     if (bitmap == null)
@@ -2480,7 +2555,9 @@ namespace GI_Subtitles.Views
 
         private void AutoStartCheckBox_Checked(object sender, RoutedEventArgs e)
         {
-            Config.Set("AutoStart", AutoStartCheckBox.IsChecked == true);
+            bool enabled = AutoStartCheckBox.IsChecked == true;
+            Config.Set("AutoStart", enabled);
+            notifyIcon?.SetAutoStart(enabled);
         }
 
         private void UrlTextBox_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
@@ -2536,7 +2613,12 @@ namespace GI_Subtitles.Views
             {
                 return;
             }
-            Config.Set("PlayVoice", PlayVoiceCheckBox.IsChecked == true);
+            bool enabled = PlayVoiceCheckBox.IsChecked == true;
+            Config.Set("PlayVoice", enabled);
+            if (!enabled)
+            {
+                _mainWindow?.StopAudio();
+            }
             if (string.IsNullOrEmpty(Config.Get<string>("Server")))
             {
                 Config.Set("Server", "https://mp3.2langs.com/download");
