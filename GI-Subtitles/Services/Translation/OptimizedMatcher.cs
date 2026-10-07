@@ -16,6 +16,7 @@ namespace GI_Subtitles.Services.Translation
         private readonly Dictionary<long, List<int>> _ngramIndex;
         private readonly int[] _shortKeysIndices;
         private readonly Dictionary<string, string> ContentDict;
+        private const int MaxPrefixMatchLengthFactor = 2;
 
         public bool Loaded = false;
         public bool isEng = false;
@@ -215,6 +216,14 @@ namespace GI_Subtitles.Services.Translation
                 // Optimized Logic for Subtitles (Prefix Matching)
                 if (keyLen >= inputLen)
                 {
+                    // OCR often sees only the first few characters while text is
+                    // being typed, but a tiny fragment must not match an entire
+                    // unrelated sentence just because it is a prefix.
+                    if (keyLen > inputLen * MaxPrefixMatchLengthFactor)
+                    {
+                        continue;
+                    }
+
                     // 1. FAST PATH: String StartsWith check
                     // If the Key starts EXACTLY with the Input (after normalization), distance is 0.
                     // This is O(1) compared to Levenshtein and covers 80% of perfect OCR cases.
@@ -229,8 +238,7 @@ namespace GI_Subtitles.Services.Translation
                     else
                     {
                         // 2. Fallback: Levenshtein on Prefix
-                        // Only compare the relevant slice.
-                        // BUG FIX: Do NOT prune based on total length difference here.
+                        // Only compare the relevant slice after the length guard above.
                         ReadOnlySpan<char> keySpan = entry.NormalizedKey.AsSpan().Slice(0, inputLen);
                         currentDistance = CalculateLevenshteinDistance(normInput.AsSpan(), keySpan, globalBestDistance);
                     }
@@ -251,12 +259,16 @@ namespace GI_Subtitles.Services.Translation
                     }
                 }
 
-                if (currentDistance < globalBestDistance)
+                bool betterDistance = currentDistance < globalBestDistance;
+                bool equallyGoodButShorter = currentDistance == globalBestDistance &&
+                    (bestIndex < 0 || keyLen < _entries[bestIndex].Length);
+                if (betterDistance || equallyGoodButShorter)
                 {
                     globalBestDistance = currentDistance;
                     bestIndex = id;
-                    // Perfect match found, exit immediately
-                    if (currentDistance == 0) break;
+                    // An exact normalized key is the shortest possible perfect
+                    // match, so no later prefix candidate can be more specific.
+                    if (currentDistance == 0 && keyLen == inputLen) break;
                 }
             }
 

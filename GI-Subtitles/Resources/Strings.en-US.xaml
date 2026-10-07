@@ -54,7 +54,7 @@
     <sys:String x:Key="Help_Instructions" xmlns:sys="clr-namespace:System;assembly=mscorlib">Usage Instructions</sys:String>
     <sys:String x:Key="Help_Step1" xmlns:sys="clr-namespace:System;assembly=mscorlib">1. Workflow: In the Language Pack Manager, download the required files, then in-game select the dialogue area and use the hotkey to start recognition and display.</sys:String>
     <sys:String x:Key="Help_Step2" xmlns:sys="clr-namespace:System;assembly=mscorlib">2. You can use Ctrl+Shift+S to start/pause, Ctrl+Shift+R to select the recognition area, and Ctrl+Shift+H to hide subtitles. If there is a conflict, you can modify them in the "Hotkeys" tab.</sys:String>
-    <sys:String x:Key="Help_Step3" xmlns:sys="clr-namespace:System;assembly=mscorlib">3. On the Region pairs page, click Adjust region to arm, then grab whichever frame you want to move: dragging the capture frame re-samples from the new spot on the next beat; dragging the display frame moves the subtitle live. Preview all and the show-regions hotkey outline each region pair's capture (green) and display (gold). Use borderless windowed mode rather than exclusive fullscreen.</sys:String>
+    <sys:String x:Key="Help_Step3" xmlns:sys="clr-namespace:System;assembly=mscorlib">3. On the Region pairs page, click Adjust region to arm. Drag inside a frame to move it, or drag its top, bottom, left, or right edge to resize it. Moving the capture frame changes where the next sample is taken; moving the display frame moves the subtitle live. Preview all and the show-regions hotkey outline each pair's capture (green) and display (gold). Use borderless windowed mode rather than exclusive fullscreen.</sys:String>
 
     <sys:String x:Key="Tab_Config" xmlns:sys="clr-namespace:System;assembly=mscorlib">Other Settings</sys:String>
     <sys:String x:Key="Tab_RegionPairs" xmlns:sys="clr-namespace:System;assembly=mscorlib">Region pairs</sys:String>
@@ -76,6 +76,10 @@
     <sys:String x:Key="RegionPair_VoicePrimaryCurrent" xmlns:sys="clr-namespace:System;assembly=mscorlib">The voice source is set on the Region pairs page; current source: region pair {0}.</sys:String>
     <sys:String x:Key="RegionPair_VoicePrimaryNone" xmlns:sys="clr-namespace:System;assembly=mscorlib">The voice source is set on the Region pairs page; none is currently set.</sys:String>
     <sys:String x:Key="RegionPair_BoxCaptureMask" xmlns:sys="clr-namespace:System;assembly=mscorlib">Box capture region (region pair {0})</sys:String>
+    <sys:String x:Key="RegionPair_SkipDisplayButton" xmlns:sys="clr-namespace:System;assembly=mscorlib">Skip display {0}</sys:String>
+    <sys:String x:Key="RegionPair_DefaultDisplayFailure_Title" xmlns:sys="clr-namespace:System;assembly=mscorlib">Could not set display region</sys:String>
+    <sys:String x:Key="RegionPair_DefaultDisplayFailure_Message" xmlns:sys="clr-namespace:System;assembly=mscorlib">Region pair {0} has no existing display region to reuse, and the legacy default position could not be calculated. Please box a display region and try again.</sys:String>
+    <sys:String x:Key="Overlay_AdjustHint" xmlns:sys="clr-namespace:System;assembly=mscorlib">Drag inside a frame to move it; drag an edge to resize it.</sys:String>
     <sys:String x:Key="RegionPair_BoxDisplayMask" xmlns:sys="clr-namespace:System;assembly=mscorlib">Box display region (region pair {0})</sys:String>
     <sys:String x:Key="RegionPair_BoxCaptureTooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Box this region pair's capture region</sys:String>
     <sys:String x:Key="RegionPair_BoxDisplayTooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Box this region pair's display region</sys:String>
@@ -148,8 +152,11 @@
     <sys:String x:Key="Config_LogDenoise_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">When off, the activity log window shows every run, with repeated recognition rows dimmed and marked. This only changes what the log shows — no rows are removed, and subtitles and voice are unaffected.</sys:String>
     <sys:String x:Key="Config_DebugSamplingOverlay" xmlns:sys="clr-namespace:System;assembly=mscorlib">Show recognition debug panel</sys:String>
     <sys:String x:Key="Config_DebugSamplingOverlay_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Shows sampling and skipped-frame reasons, plus process CPU and memory while recognition is running. It hides when recognition is paused.</sys:String>
-    <sys:String x:Key="Debug_ProcessResources" xmlns:sys="clr-namespace:System;assembly=mscorlib">Process CPU {0:F1}% (of total)  Memory {1:F0} MB</sys:String>
-    <sys:String x:Key="Debug_ProcessResourcesUnavailable" xmlns:sys="clr-namespace:System;assembly=mscorlib">Process CPU / memory unavailable</sys:String>
+    <sys:String x:Key="Debug_ProcessResources" xmlns:sys="clr-namespace:System;assembly=mscorlib">App use {0:F1}% · Memory {1:F0} MB</sys:String>
+    <sys:String x:Key="Debug_ProcessResourcesUnavailable" xmlns:sys="clr-namespace:System;assembly=mscorlib">App status unavailable</sys:String>
+    <sys:String x:Key="Debug_MinimizeTooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Minimize debug panel</sys:String>
+    <sys:String x:Key="Debug_RestoreTooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Restore debug panel</sys:String>
+    <sys:String x:Key="Debug_SettingsTooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Open other settings</sys:String>
     <sys:String x:Key="Config_RecognizeDarkScreenSubtitles" xmlns:sys="clr-namespace:System;assembly=mscorlib">Recognize dark-screen subtitles</sys:String>
     <sys:String x:Key="Config_RecognizeDarkScreenSubtitles_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Detects the central subtitle band on a mostly-dark cutscene and shows the translation. This is not a region pair.</sys:String>
     <sys:String x:Key="Config_RecognizeDialogueOptions" xmlns:sys="clr-namespace:System;assembly=mscorlib">Recognize dialogue choices</sys:String>

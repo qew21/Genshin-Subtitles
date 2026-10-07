@@ -9,6 +9,7 @@
   "Token": "ENGI",
   "AutoStart": false,
   "PlayVoice": false,
+  "DebugSamplingOverlayEnabled": true,
   "Debug": false,
   "Update": "https://2langs.com/data/update.json",
   "Font": "Arial"

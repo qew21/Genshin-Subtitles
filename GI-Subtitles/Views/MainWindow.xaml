@@ -14,6 +14,93 @@
         ShowActivated="False"
         Focusable="False"
         IsHitTestVisible="False">
+    <Window.Resources>
+        <ControlTemplate x:Key="DebugControlButtonTemplate" TargetType="{x:Type Button}">
+            <Border x:Name="ButtonChrome"
+                    CornerRadius="3"
+                    Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}">
+                <ContentPresenter HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"
+                                  RecognizesAccessKey="True"/>
+            </Border>
+            <ControlTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter TargetName="ButtonChrome" Property="Background" Value="#CC59697B"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter TargetName="ButtonChrome" Property="Opacity" Value="0.72"/>
+                </Trigger>
+            </ControlTemplate.Triggers>
+        </ControlTemplate>
+        <ControlTemplate x:Key="DebugRestoreButtonTemplate" TargetType="{x:Type Button}">
+            <Border x:Name="ButtonChrome"
+                    CornerRadius="18"
+                    Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}">
+                <ContentPresenter HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"
+                                  RecognizesAccessKey="True"/>
+            </Border>
+            <ControlTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter TargetName="ButtonChrome" Property="Background" Value="#CC59697B"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter TargetName="ButtonChrome" Property="Opacity" Value="0.72"/>
+                </Trigger>
+            </ControlTemplate.Triggers>
+        </ControlTemplate>
+        <DataTemplate x:Key="DebugMinimizeGlyphTemplate">
+            <Grid Width="12" Height="12">
+                <Rectangle Width="9" Height="1.5" Fill="#FF9FD6A5"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Grid>
+        </DataTemplate>
+        <DataTemplate x:Key="DebugCloseGlyphTemplate">
+            <Grid Width="12" Height="12">
+                <Rectangle Width="11" Height="1.5" Fill="#FF9FD6A5"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           RenderTransformOrigin="0.5,0.5">
+                    <Rectangle.RenderTransform>
+                        <RotateTransform Angle="45"/>
+                    </Rectangle.RenderTransform>
+                </Rectangle>
+                <Rectangle Width="11" Height="1.5" Fill="#FF9FD6A5"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           RenderTransformOrigin="0.5,0.5">
+                    <Rectangle.RenderTransform>
+                        <RotateTransform Angle="-45"/>
+                    </Rectangle.RenderTransform>
+                </Rectangle>
+            </Grid>
+        </DataTemplate>
+        <DataTemplate x:Key="DebugRestoreGlyphTemplate">
+            <Grid Width="12" Height="12">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="4"/>
+                    <RowDefinition Height="4"/>
+                    <RowDefinition Height="4"/>
+                </Grid.RowDefinitions>
+                <Rectangle Grid.Row="0" Width="10" Height="1.4" Fill="#FF9FD6A5"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <Rectangle Grid.Row="1" Width="7" Height="1.4" Fill="#FF9FD6A5"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <Rectangle Grid.Row="2" Width="10" Height="1.4" Fill="#FF9FD6A5"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Grid>
+        </DataTemplate>
+        <DataTemplate x:Key="DebugSettingsGlyphTemplate">
+            <TextBlock Text="&#xE713;"
+                       FontFamily="Segoe MDL2 Assets"
+                       FontSize="12"
+                       Foreground="#FF9FD6A5"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"/>
+        </DataTemplate>
+    </Window.Resources>
     <Canvas x:Name="OverlayCanvas" Background="Transparent" IsHitTestVisible="False">
         <Button x:Name="DragButton"
                 Width="20" Height="20"
@@ -96,11 +183,11 @@
         </Grid>
 
         <Border x:Name="DebugSamplingPanel"
-                Width="760"
+                Width="350"
                 Height="158"
                 Padding="8"
-                Background="#E6202733"
-                BorderBrush="#CC69D7F5"
+                Background="#80202733"
+                BorderBrush="#CC9BA5A7"
                 BorderThickness="1"
                 CornerRadius="4"
                 Visibility="Collapsed"
@@ -113,9 +200,9 @@
                 </Grid.RowDefinitions>
                 <TextBlock x:Name="DebugResourceText"
                            Grid.Row="0"
-                           Foreground="#FF8DE8FF"
+                           Foreground="#FF9FD6A5"
                            FontFamily="Consolas"
-                           FontSize="13"
+                           FontSize="12"
                            FontWeight="Bold"
                            Margin="0,0,28,5"
                            Text="CPU -- | Memory --"/>
@@ -125,27 +212,63 @@
                               HorizontalScrollBarVisibility="Disabled"
                               IsHitTestVisible="False">
                     <TextBlock x:Name="DebugSamplingText"
-                               Foreground="#FFF4F7FB"
+                               Foreground="#FF9FD6A5"
                                FontFamily="Consolas"
-                               FontSize="13"
-                               TextWrapping="Wrap"
+                               FontSize="12"
+                               TextWrapping="NoWrap"
                                VerticalAlignment="Top"/>
                 </ScrollViewer>
             </Grid>
         </Border>
-        <Button x:Name="DebugSamplingCloseButton"
+        <Button x:Name="DebugSamplingMinimizeButton"
                 Width="22" Height="22"
-                Content="×"
-                FontSize="17"
-                FontWeight="Bold"
+                Content="Minimize"
+                ContentTemplate="{StaticResource DebugMinimizeGlyphTemplate}"
                 Foreground="White"
                 Background="#CC3A4656"
+                BorderBrush="Transparent"
                 BorderThickness="0"
+                Padding="0"
                 Cursor="Hand"
                 Visibility="Collapsed"
                 IsHitTestVisible="True"
                 Focusable="False"
-                Click="DebugSamplingCloseButton_Click"
+                ToolTip="{DynamicResource Debug_MinimizeTooltip}"
+                Click="DebugSamplingMinimizeButton_Click"
+                Template="{StaticResource DebugControlButtonTemplate}"
+                Panel.ZIndex="100002"/>
+        <Button x:Name="DebugSamplingSettingsButton"
+                Width="22" Height="22"
+                Content="Settings"
+                ContentTemplate="{StaticResource DebugSettingsGlyphTemplate}"
+                Foreground="White"
+                Background="#CC3A4656"
+                BorderBrush="Transparent"
+                BorderThickness="0"
+                Padding="0"
+                Cursor="Hand"
+                Visibility="Collapsed"
+                IsHitTestVisible="True"
+                Focusable="False"
+                ToolTip="{DynamicResource Debug_SettingsTooltip}"
+                Click="DebugSamplingSettingsButton_Click"
+                Template="{StaticResource DebugControlButtonTemplate}"
                 Panel.ZIndex="100001"/>
+        <Button x:Name="DebugSamplingCloseButton"
+                Width="22" Height="22"
+                Content="Close"
+                ContentTemplate="{StaticResource DebugCloseGlyphTemplate}"
+                Foreground="White"
+                Background="#CC3A4656"
+                BorderBrush="Transparent"
+                BorderThickness="0"
+                Padding="0"
+                Cursor="Hand"
+                Visibility="Collapsed"
+                IsHitTestVisible="True"
+                Focusable="False"
+                Template="{StaticResource DebugControlButtonTemplate}"
+                Click="DebugSamplingCloseButton_Click"
+                Panel.ZIndex="100003"/>
     </Canvas>
 </Window>
