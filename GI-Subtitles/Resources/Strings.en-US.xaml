@@ -248,4 +248,31 @@
     <sys:String x:Key="SubtitleColor_SaveFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Could not save the subtitle color: {0}</sys:String>
     <sys:String x:Key="SubtitleColor_InvalidSaved" xmlns:sys="clr-namespace:System;assembly=mscorlib">The saved subtitle color '{0}' is invalid and was reset to white. Choose a new color in Settings.</sys:String>
     <sys:String x:Key="SubtitleColor_InvalidSavedTitle" xmlns:sys="clr-namespace:System;assembly=mscorlib">Subtitle color reset</sys:String>
+
+    <!-- Text Search -->
+    <sys:String x:Key="Btn_TextSearch" xmlns:sys="clr-namespace:System;assembly=mscorlib">Text Search</sys:String>
+    <sys:String x:Key="TextSearch_Title" xmlns:sys="clr-namespace:System;assembly=mscorlib">Text Search</sys:String>
+    <sys:String x:Key="TextSearch_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">Find dialogue and translations in the text maps already installed on this device.</sys:String>
+    <sys:String x:Key="TextSearch_Game" xmlns:sys="clr-namespace:System;assembly=mscorlib">Game</sys:String>
+    <sys:String x:Key="TextSearch_SourceLanguage" xmlns:sys="clr-namespace:System;assembly=mscorlib">Input language</sys:String>
+    <sys:String x:Key="TextSearch_TargetLanguage" xmlns:sys="clr-namespace:System;assembly=mscorlib">Target language</sys:String>
+    <sys:String x:Key="TextSearch_Search" xmlns:sys="clr-namespace:System;assembly=mscorlib">Search</sys:String>
+    <sys:String x:Key="TextSearch_Input" xmlns:sys="clr-namespace:System;assembly=mscorlib">Text to search</sys:String>
+    <sys:String x:Key="TextSearch_Clear" xmlns:sys="clr-namespace:System;assembly=mscorlib">Clear</sys:String>
+    <sys:String x:Key="TextSearch_InputPlaceholder" xmlns:sys="clr-namespace:System;assembly=mscorlib">Paste or type text here…&#10;Put one sentence on each line.</sys:String>
+    <sys:String x:Key="TextSearch_MultilineHint" xmlns:sys="clr-namespace:System;assembly=mscorlib">Each non-empty line is searched separately.</sys:String>
+    <sys:String x:Key="TextSearch_Results" xmlns:sys="clr-namespace:System;assembly=mscorlib">Results</sys:String>
+    <sys:String x:Key="TextSearch_ColumnLine" xmlns:sys="clr-namespace:System;assembly=mscorlib">Line</sys:String>
+    <sys:String x:Key="TextSearch_ColumnInput" xmlns:sys="clr-namespace:System;assembly=mscorlib">Input</sys:String>
+    <sys:String x:Key="TextSearch_ColumnMatch" xmlns:sys="clr-namespace:System;assembly=mscorlib">Matched text</sys:String>
+    <sys:String x:Key="TextSearch_ColumnTranslation" xmlns:sys="clr-namespace:System;assembly=mscorlib">Translation</sys:String>
+    <sys:String x:Key="TextSearch_EmptyTitle" xmlns:sys="clr-namespace:System;assembly=mscorlib">Your results will appear here</sys:String>
+    <sys:String x:Key="TextSearch_EmptyDescription" xmlns:sys="clr-namespace:System;assembly=mscorlib">Choose a game and language pair, enter one or more lines, then search.</sys:String>
+    <sys:String x:Key="TextSearch_NoMatch" xmlns:sys="clr-namespace:System;assembly=mscorlib">No match</sys:String>
+    <sys:String x:Key="TextSearch_SelectSettings" xmlns:sys="clr-namespace:System;assembly=mscorlib">Choose a game and both languages before searching.</sys:String>
+    <sys:String x:Key="TextSearch_EnterText" xmlns:sys="clr-namespace:System;assembly=mscorlib">Enter at least one line of text to search.</sys:String>
+    <sys:String x:Key="TextSearch_Loading" xmlns:sys="clr-namespace:System;assembly=mscorlib">Loading local text maps and searching…</sys:String>
+    <sys:String x:Key="TextSearch_MissingMap" xmlns:sys="clr-namespace:System;assembly=mscorlib">The selected language map is missing: {0}. Download the required language packs from Settings.</sys:String>
+    <sys:String x:Key="TextSearch_Failed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Search failed: {0}</sys:String>
+    <sys:String x:Key="TextSearch_ResultSummary" xmlns:sys="clr-namespace:System;assembly=mscorlib">Matched {0} of {1} lines.</sys:String>
 </ResourceDictionary>
