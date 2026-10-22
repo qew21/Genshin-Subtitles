@@ -891,6 +891,12 @@
                                   Content="{DynamicResource Config_RecognizeDarkScreenSubtitles}"
                                   ToolTip="{DynamicResource Config_RecognizeDarkScreenSubtitles_Tooltip}"
                                   Margin="0,0,0,6"/>
+                        <CheckBox x:Name="SubtitleBackgroundCheckBox"
+                                  Checked="SubtitleBackgroundCheckBox_Changed"
+                                  Unchecked="SubtitleBackgroundCheckBox_Changed"
+                                  Content="{DynamicResource Config_SubtitleBackground}"
+                                  ToolTip="{DynamicResource Config_SubtitleBackground_Tooltip}"
+                                  Margin="0,0,0,6"/>
                         <StackPanel x:Name="DarkScreenDisplayRow" Margin="22,0,0,10" Visibility="Collapsed">
                             <TextBlock x:Name="DarkScreenDisplayStatus"
                                        Margin="0,0,0,6"

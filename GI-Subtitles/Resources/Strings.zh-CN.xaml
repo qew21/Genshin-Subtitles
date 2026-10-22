@@ -160,6 +160,8 @@
     <sys:String x:Key="Config_LogDenoise_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">关闭后活动日志窗口显示每一次运行，重复识别行以弱化样式标出。只影响日志窗口的显示，不删除任何记录，也不影响字幕与配音。</sys:String>
     <sys:String x:Key="Config_DebugSamplingOverlay" xmlns:sys="clr-namespace:System;assembly=mscorlib">显示识别调试面板</sys:String>
     <sys:String x:Key="Config_DebugSamplingOverlay_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">识别运行时显示采样与跳帧原因、进程 CPU 和内存；暂停识别时自动隐藏。</sys:String>
+    <sys:String x:Key="Config_SubtitleBackground" xmlns:sys="clr-namespace:System;assembly=mscorlib">显示半透明字幕底色</sys:String>
+    <sys:String x:Key="Config_SubtitleBackground_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">在字幕后显示深色背景以提高可读性，默认开启。</sys:String>
     <sys:String x:Key="Debug_ProcessResources" xmlns:sys="clr-namespace:System;assembly=mscorlib">程序占用 {0:F1}% · 内存 {1:F0} MB</sys:String>
     <sys:String x:Key="Debug_ProcessResourcesUnavailable" xmlns:sys="clr-namespace:System;assembly=mscorlib">程序状态暂不可用</sys:String>
     <sys:String x:Key="Debug_MinimizeTooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">最小化调试区域</sys:String>

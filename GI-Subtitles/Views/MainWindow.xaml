@@ -132,6 +132,7 @@
                  VerticalAlignment="Center"
                  HorizontalAlignment="Center"
                  Background="Transparent"
+                 Padding="8,4"
                  BorderThickness="0"
                  IsReadOnly="True"
                  AcceptsReturn="True"
@@ -145,6 +146,7 @@
                    TextAlignment="Center"
                    FontWeight="Bold"
                    Background="Transparent"
+                   Padding="8,4"
                    Visibility="Collapsed"
                    IsHitTestVisible="False"/>
         <TextBlock x:Name="DialogueChoiceText"
@@ -155,6 +157,7 @@
                    TextAlignment="Center"
                    FontWeight="Bold"
                    FontSize="14"
+                   Padding="8,4"
                    Visibility="Collapsed"
                    IsHitTestVisible="False">
             <TextBlock.RenderTransform>
@@ -173,6 +176,7 @@
                        TextAlignment="Center"
                        FontWeight="Bold"
                        FontSize="14"
+                       Padding="8,4"
                        VerticalAlignment="Center"
                        Visibility="Collapsed"/>
             <Border x:Name="PlaybackSpeedBadge"

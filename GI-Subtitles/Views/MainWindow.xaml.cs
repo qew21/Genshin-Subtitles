@@ -94,6 +94,8 @@ namespace GI_Subtitles.Views
         private int _samplingTicksSkippedSamplerBusy;
         private const int DebugSamplingOverlayEntryLimit = 8;
         private const int DebugSamplingMaxLineCells = 46;
+        private static readonly System.Windows.Media.Brush EnabledSubtitleBackgroundBrush =
+            CreateSubtitleBackgroundBrush();
         private const long DebugOverlayMaxFilterPixels = 220000;
         private const long DebugOverlayMaxFastFilterPixels = 400000;
         private const double DebugSamplingHorizontalMargin = 8;
@@ -498,6 +500,7 @@ namespace GI_Subtitles.Views
             _genshinVoiceFileResolver = new LocalVoiceFileResolver(dataDir, "Genshin");
             Task.Run(() => CleanupOldAudioTempFiles());
             InitializeComponent();
+            ApplySubtitleBackgroundSetting();
             DragButton.RenderTransform = _dragHandleRenderTransform;
             SubtitleText.RenderTransform = _subtitleDragRenderTransform;
             _headerRenderTransformGroup.Children.Add(_headerPositionRenderTransform);
@@ -2404,6 +2407,30 @@ namespace GI_Subtitles.Views
             HeaderPanel.Visibility = headerChromeVisible ? Visibility.Visible : Visibility.Collapsed;
         }
 
+        public void ApplySubtitleBackgroundSetting()
+        {
+            System.Windows.Media.Brush background = Config.Get("SubtitleBackgroundEnabled", true)
+                ? EnabledSubtitleBackgroundBrush
+                : System.Windows.Media.Brushes.Transparent;
+
+            SubtitleText.Background = background;
+            DarkScreenText.Background = background;
+            DialogueChoiceText.Background = background;
+            HeaderText.Background = background;
+            foreach (System.Windows.Controls.TextBlock block in _extraPairBodies)
+            {
+                block.Background = background;
+            }
+        }
+
+        private static System.Windows.Media.Brush CreateSubtitleBackgroundBrush()
+        {
+            var brush = new System.Windows.Media.SolidColorBrush(
+                System.Windows.Media.Color.FromArgb(160, 0, 0, 0));
+            brush.Freeze();
+            return brush;
+        }
+
         private void ApplyDarkScreenOverlay()
         {
             ExtraPathBody body = _overlaySession.DarkScreenBody;
@@ -2641,7 +2668,10 @@ namespace GI_Subtitles.Views
                     TextWrapping = TextWrapping.Wrap,
                     TextAlignment = TextAlignment.Center,
                     FontWeight = FontWeights.Bold,
-                    Background = System.Windows.Media.Brushes.Transparent,
+                    Background = Config.Get("SubtitleBackgroundEnabled", true)
+                        ? EnabledSubtitleBackgroundBrush
+                        : System.Windows.Media.Brushes.Transparent,
+                    Padding = new Thickness(8, 4, 8, 4),
                     Effect = new System.Windows.Media.Effects.DropShadowEffect
                     {
                         Color = System.Windows.Media.Colors.Black,
