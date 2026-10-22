@@ -2639,14 +2639,23 @@ namespace GI_Subtitles.Views
                 var block = new System.Windows.Controls.TextBlock
                 {
                     TextWrapping = TextWrapping.Wrap,
-                    Foreground = System.Windows.Media.Brushes.White,
                     TextAlignment = TextAlignment.Center,
                     FontWeight = FontWeights.Bold,
                     Background = System.Windows.Media.Brushes.Transparent,
+                    Effect = new System.Windows.Media.Effects.DropShadowEffect
+                    {
+                        Color = System.Windows.Media.Colors.Black,
+                        Opacity = 0.85,
+                        BlurRadius = 3,
+                        ShadowDepth = 1
+                    },
                     Visibility = Visibility.Collapsed,
                     IsHitTestVisible = false,
                     RenderTransform = new TranslateTransform()
                 };
+                block.SetResourceReference(
+                    System.Windows.Controls.TextBlock.ForegroundProperty,
+                    "SubtitleForegroundBrush");
                 block.SetResourceReference(
                     System.Windows.Controls.TextBlock.FontFamilyProperty,
                     "SubtitleFontFamily");

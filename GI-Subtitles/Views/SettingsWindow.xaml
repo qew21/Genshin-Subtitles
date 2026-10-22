@@ -960,6 +960,7 @@
                             <Button Content="{DynamicResource Btn_OpenFolder}" Margin="0,0,12,0" Click="OpenAppDataFolder_Click"/>
                             <Button Content="{DynamicResource Btn_ActivityLog}" Margin="0,0,12,0" Click="OpenActivityLog_Click"/>
                             <Button Content="{DynamicResource Btn_SubtitleFont}" Margin="0,0,12,0" Click="FontPreview_Click"/>
+                            <Button Content="{DynamicResource Btn_SubtitleColor}" Click="SubtitleColor_Click"/>
                         </WrapPanel>
                     </Border>
 

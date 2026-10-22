@@ -96,6 +96,18 @@ namespace GI_Subtitles.Core.Config
             return defaultValue;
         }
 
+        public static bool TryGetString(string key, out string value)
+        {
+            value = null;
+            if (!_settings.TryGetValue(key, out var token) || token.Type != JTokenType.String)
+            {
+                return false;
+            }
+
+            value = token.Value<string>();
+            return true;
+        }
+
         public static void Set<T>(string key, T value)
         {
             _settings[key] = JToken.FromObject(value);

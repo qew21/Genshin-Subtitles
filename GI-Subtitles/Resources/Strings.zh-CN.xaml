@@ -192,6 +192,7 @@
     <sys:String x:Key="Btn_DeleteSecondRegion_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">删除第二识别区域</sys:String>
     <sys:String x:Key="Btn_Voice" xmlns:sys="clr-namespace:System;assembly=mscorlib">支线配音</sys:String>
     <sys:String x:Key="Btn_SubtitleFont" xmlns:sys="clr-namespace:System;assembly=mscorlib">更改字体</sys:String>
+    <sys:String x:Key="Btn_SubtitleColor" xmlns:sys="clr-namespace:System;assembly=mscorlib">更改字幕颜色</sys:String>
 
     <!-- Notify Icon Menu -->
     <sys:String x:Key="Tray_FontSize" xmlns:sys="clr-namespace:System;assembly=mscorlib">字号选择</sys:String>
@@ -236,4 +237,21 @@
     <sys:String x:Key="FontSetTitle" xmlns:sys="clr-namespace:System;assembly=mscorlib">字体已设置</sys:String>
     <sys:String x:Key="FontChoosePrompt" xmlns:sys="clr-namespace:System;assembly=mscorlib">请选择一种字体</sys:String>
     <sys:String x:Key="FontNoSelectionTitle" xmlns:sys="clr-namespace:System;assembly=mscorlib">未选择字体</sys:String>
+
+    <!-- Subtitle Color -->
+    <sys:String x:Key="SubtitleColorWindow" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕颜色</sys:String>
+    <sys:String x:Key="SubtitleColor_Title" xmlns:sys="clr-namespace:System;assembly=mscorlib">自定义字幕颜色</sys:String>
+    <sys:String x:Key="SubtitleColor_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">先看预览，再选择推荐颜色或输入 HEX 色值；原游戏画面不受影响。</sys:String>
+    <sys:String x:Key="SubtitleColor_DarkScene" xmlns:sys="clr-namespace:System;assembly=mscorlib">暗色场景</sys:String>
+    <sys:String x:Key="SubtitleColor_LightScene" xmlns:sys="clr-namespace:System;assembly=mscorlib">亮色场景</sys:String>
+    <sys:String x:Key="SubtitleColor_SampleText" xmlns:sys="clr-namespace:System;assembly=mscorlib">旅人，准备好了吗？&#10;Ready, Traveler?</sys:String>
+    <sys:String x:Key="SubtitleColor_Presets" xmlns:sys="clr-namespace:System;assembly=mscorlib">推荐颜色</sys:String>
+    <sys:String x:Key="SubtitleColor_Custom" xmlns:sys="clr-namespace:System;assembly=mscorlib">自定义 HEX</sys:String>
+    <sys:String x:Key="SubtitleColor_Reset" xmlns:sys="clr-namespace:System;assembly=mscorlib">恢复白色</sys:String>
+    <sys:String x:Key="SubtitleColor_Apply" xmlns:sys="clr-namespace:System;assembly=mscorlib">应用</sys:String>
+    <sys:String x:Key="SubtitleColor_Cancel" xmlns:sys="clr-namespace:System;assembly=mscorlib">取消</sys:String>
+    <sys:String x:Key="SubtitleColor_InvalidHex" xmlns:sys="clr-namespace:System;assembly=mscorlib">请输入 #RRGGBB 格式的颜色值，例如 #FFE66D。</sys:String>
+    <sys:String x:Key="SubtitleColor_SaveFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">保存字幕颜色失败：{0}</sys:String>
+    <sys:String x:Key="SubtitleColor_InvalidSaved" xmlns:sys="clr-namespace:System;assembly=mscorlib">保存的字幕颜色“{0}”无效，已恢复为白色。你可以在设置中重新选择颜色。</sys:String>
+    <sys:String x:Key="SubtitleColor_InvalidSavedTitle" xmlns:sys="clr-namespace:System;assembly=mscorlib">已重置字幕颜色</sys:String>
 </ResourceDictionary>

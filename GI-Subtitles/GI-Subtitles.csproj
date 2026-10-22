@@ -179,6 +179,9 @@
     <Compile Include="Views\Font.xaml.cs">
       <DependentUpon>Font.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Views\SubtitleColor.xaml.cs">
+      <DependentUpon>SubtitleColor.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Views\SettingsWindow.xaml.cs">
       <DependentUpon>Views\SettingsWindow.xaml</DependentUpon>
     </Compile>
@@ -206,6 +209,10 @@
     <Compile Include="Models\OCRTestResult.cs" />
     <Compile Include="Services\Update\UpdateChecker.cs" />
     <Page Include="Views\Font.xaml" />
+    <Page Include="Views\SubtitleColor.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
     <Page Include="Views\MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>

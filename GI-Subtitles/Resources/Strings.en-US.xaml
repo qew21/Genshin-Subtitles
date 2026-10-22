@@ -184,6 +184,7 @@
     <sys:String x:Key="Btn_DeleteSecondRegion_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Delete secondary recognition region</sys:String>
     <sys:String x:Key="Btn_Voice" xmlns:sys="clr-namespace:System;assembly=mscorlib">Voice</sys:String>
     <sys:String x:Key="Btn_SubtitleFont" xmlns:sys="clr-namespace:System;assembly=mscorlib">Change Font</sys:String>
+    <sys:String x:Key="Btn_SubtitleColor" xmlns:sys="clr-namespace:System;assembly=mscorlib">Change Subtitle Color</sys:String>
 
     <!-- Tray menu -->
     <sys:String x:Key="Tray_FontSize" xmlns:sys="clr-namespace:System;assembly=mscorlib">Font Size</sys:String>
@@ -228,4 +229,21 @@
     <sys:String x:Key="FontSetTitle" xmlns:sys="clr-namespace:System;assembly=mscorlib">Font Set</sys:String>
     <sys:String x:Key="FontChoosePrompt" xmlns:sys="clr-namespace:System;assembly=mscorlib">Choose a font</sys:String>
     <sys:String x:Key="FontNoSelectionTitle" xmlns:sys="clr-namespace:System;assembly=mscorlib">No Selection</sys:String>
+
+    <!-- Subtitle Color -->
+    <sys:String x:Key="SubtitleColorWindow" xmlns:sys="clr-namespace:System;assembly=mscorlib">Subtitle Color</sys:String>
+    <sys:String x:Key="SubtitleColor_Title" xmlns:sys="clr-namespace:System;assembly=mscorlib">Customize subtitle color</sys:String>
+    <sys:String x:Key="SubtitleColor_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">Preview first, then choose a suggested color or enter a HEX value. The game image is not changed.</sys:String>
+    <sys:String x:Key="SubtitleColor_DarkScene" xmlns:sys="clr-namespace:System;assembly=mscorlib">Dark scene</sys:String>
+    <sys:String x:Key="SubtitleColor_LightScene" xmlns:sys="clr-namespace:System;assembly=mscorlib">Light scene</sys:String>
+    <sys:String x:Key="SubtitleColor_SampleText" xmlns:sys="clr-namespace:System;assembly=mscorlib">Ready, Traveler?&#10;旅人，準備好了嗎？</sys:String>
+    <sys:String x:Key="SubtitleColor_Presets" xmlns:sys="clr-namespace:System;assembly=mscorlib">Suggested colors</sys:String>
+    <sys:String x:Key="SubtitleColor_Custom" xmlns:sys="clr-namespace:System;assembly=mscorlib">Custom HEX</sys:String>
+    <sys:String x:Key="SubtitleColor_Reset" xmlns:sys="clr-namespace:System;assembly=mscorlib">Reset to white</sys:String>
+    <sys:String x:Key="SubtitleColor_Apply" xmlns:sys="clr-namespace:System;assembly=mscorlib">Apply</sys:String>
+    <sys:String x:Key="SubtitleColor_Cancel" xmlns:sys="clr-namespace:System;assembly=mscorlib">Cancel</sys:String>
+    <sys:String x:Key="SubtitleColor_InvalidHex" xmlns:sys="clr-namespace:System;assembly=mscorlib">Enter a color in #RRGGBB format, for example #FFE66D.</sys:String>
+    <sys:String x:Key="SubtitleColor_SaveFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Could not save the subtitle color: {0}</sys:String>
+    <sys:String x:Key="SubtitleColor_InvalidSaved" xmlns:sys="clr-namespace:System;assembly=mscorlib">The saved subtitle color '{0}' is invalid and was reset to white. Choose a new color in Settings.</sys:String>
+    <sys:String x:Key="SubtitleColor_InvalidSavedTitle" xmlns:sys="clr-namespace:System;assembly=mscorlib">Subtitle color reset</sys:String>
 </ResourceDictionary>

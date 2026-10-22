@@ -184,6 +184,7 @@
     <sys:String x:Key="Btn_DeleteSecondRegion_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">第2認識領域を削除</sys:String>
     <sys:String x:Key="Btn_Voice" xmlns:sys="clr-namespace:System;assembly=mscorlib">音声</sys:String>
     <sys:String x:Key="Btn_SubtitleFont" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕フォントを変更</sys:String>
+    <sys:String x:Key="Btn_SubtitleColor" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕色を変更</sys:String>
 
     <!-- トレイ メニュー -->
     <sys:String x:Key="Tray_FontSize" xmlns:sys="clr-namespace:System;assembly=mscorlib">フォントサイズ</sys:String>
@@ -228,4 +229,21 @@
     <sys:String x:Key="FontSetTitle" xmlns:sys="clr-namespace:System;assembly=mscorlib">フォントを設定しました</sys:String>
     <sys:String x:Key="FontChoosePrompt" xmlns:sys="clr-namespace:System;assembly=mscorlib">フォントを選択してください</sys:String>
     <sys:String x:Key="FontNoSelectionTitle" xmlns:sys="clr-namespace:System;assembly=mscorlib">フォント未選択</sys:String>
+
+    <!-- 字幕色 -->
+    <sys:String x:Key="SubtitleColorWindow" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕色</sys:String>
+    <sys:String x:Key="SubtitleColor_Title" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕色をカスタマイズ</sys:String>
+    <sys:String x:Key="SubtitleColor_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">プレビューを確認し、おすすめの色を選ぶか HEX 値を入力してください。ゲーム画面には影響しません。</sys:String>
+    <sys:String x:Key="SubtitleColor_DarkScene" xmlns:sys="clr-namespace:System;assembly=mscorlib">暗いシーン</sys:String>
+    <sys:String x:Key="SubtitleColor_LightScene" xmlns:sys="clr-namespace:System;assembly=mscorlib">明るいシーン</sys:String>
+    <sys:String x:Key="SubtitleColor_SampleText" xmlns:sys="clr-namespace:System;assembly=mscorlib">旅人、準備はいい？&#10;Ready, Traveler?</sys:String>
+    <sys:String x:Key="SubtitleColor_Presets" xmlns:sys="clr-namespace:System;assembly=mscorlib">おすすめの色</sys:String>
+    <sys:String x:Key="SubtitleColor_Custom" xmlns:sys="clr-namespace:System;assembly=mscorlib">カスタム HEX</sys:String>
+    <sys:String x:Key="SubtitleColor_Reset" xmlns:sys="clr-namespace:System;assembly=mscorlib">白に戻す</sys:String>
+    <sys:String x:Key="SubtitleColor_Apply" xmlns:sys="clr-namespace:System;assembly=mscorlib">適用</sys:String>
+    <sys:String x:Key="SubtitleColor_Cancel" xmlns:sys="clr-namespace:System;assembly=mscorlib">キャンセル</sys:String>
+    <sys:String x:Key="SubtitleColor_InvalidHex" xmlns:sys="clr-namespace:System;assembly=mscorlib">#RRGGBB 形式で色を入力してください（例：#FFE66D）。</sys:String>
+    <sys:String x:Key="SubtitleColor_SaveFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕色を保存できませんでした：{0}</sys:String>
+    <sys:String x:Key="SubtitleColor_InvalidSaved" xmlns:sys="clr-namespace:System;assembly=mscorlib">保存された字幕色「{0}」が無効なため、白に戻しました。設定から新しい色を選んでください。</sys:String>
+    <sys:String x:Key="SubtitleColor_InvalidSavedTitle" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕色をリセットしました</sys:String>
 </ResourceDictionary>

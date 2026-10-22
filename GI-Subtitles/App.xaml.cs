@@ -50,12 +50,71 @@ namespace GI_Subtitles
             }
             ApplySubtitleFont(resolvedFont);
 
+            bool hasSubtitleColor = Config.Contains("SubtitleColor");
+            string configuredSubtitleColor = "#FFFFFF";
+            bool hasStringSubtitleColor = !hasSubtitleColor ||
+                Config.TryGetString("SubtitleColor", out configuredSubtitleColor);
+            if (!hasSubtitleColor)
+            {
+                // Backfill installations whose packaged defaults predate this setting.
+                Config.Set("SubtitleColor", configuredSubtitleColor);
+            }
+
+            Color subtitleColor;
+            if (!hasStringSubtitleColor ||
+                !TryParseSubtitleColor(configuredSubtitleColor, out subtitleColor))
+            {
+                string messageTemplate = Current.TryFindResource("SubtitleColor_InvalidSaved") as string
+                    ?? "The saved subtitle color '{0}' is invalid. It has been reset to white; choose a new color in Settings.";
+                string title = Current.TryFindResource("SubtitleColor_InvalidSavedTitle") as string
+                    ?? "Subtitle color reset";
+                string invalidValue = hasStringSubtitleColor ? configuredSubtitleColor : "<non-string value>";
+                Logger.Log.Error($"Invalid saved subtitle color '{invalidValue}'. Resetting it to #FFFFFF.");
+                MessageBox.Show(
+                    string.Format(CultureInfo.CurrentCulture, messageTemplate, invalidValue),
+                    title,
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                Config.Set("SubtitleColor", "#FFFFFF");
+                subtitleColor = Colors.White;
+            }
+            ApplySubtitleColor(subtitleColor);
+
             base.OnStartup(e);
         }
 
         public static void ApplySubtitleFont(string fontName)
         {
             Current.Resources["SubtitleFontFamily"] = new FontFamily(ResolveSubtitleFontName(fontName));
+        }
+
+        public static void ApplySubtitleColor(Color color)
+        {
+            var brush = new SolidColorBrush(color);
+            if (brush.CanFreeze)
+            {
+                brush.Freeze();
+            }
+            Current.Resources["SubtitleForegroundBrush"] = brush;
+        }
+
+        internal static bool TryParseSubtitleColor(string value, out Color color)
+        {
+            color = Colors.White;
+            if (string.IsNullOrWhiteSpace(value) || value.Length != 7 || value[0] != '#')
+            {
+                return false;
+            }
+
+            if (!byte.TryParse(value.Substring(1, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out byte red) ||
+                !byte.TryParse(value.Substring(3, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out byte green) ||
+                !byte.TryParse(value.Substring(5, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out byte blue))
+            {
+                return false;
+            }
+
+            color = Color.FromRgb(red, green, blue);
+            return true;
         }
 
         public static string ResolveSubtitleFontName(string fontName)

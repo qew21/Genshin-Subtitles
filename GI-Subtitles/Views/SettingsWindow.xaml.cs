@@ -2934,5 +2934,15 @@ namespace GI_Subtitles.Views
             };
             font.ShowDialog();
         }
+
+        private void SubtitleColor_Click(object sender, RoutedEventArgs e)
+        {
+            var colorWindow = new SubtitleColor
+            {
+                Owner = this,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner
+            };
+            colorWindow.ShowDialog();
+        }
     }
 }
