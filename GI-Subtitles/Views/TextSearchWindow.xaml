@@ -116,6 +116,25 @@
             <Setter Property="Background" Value="White"/>
             <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
             <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="VerticalContentAlignment" Value="Top"/>
+        </Style>
+
+        <Style x:Key="WrappedResultText" TargetType="TextBlock">
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="TextTrimming" Value="None"/>
+            <Setter Property="VerticalAlignment" Value="Top"/>
+        </Style>
+
+        <Style TargetType="DataGridCell">
+            <Setter Property="Padding" Value="8,7"/>
+            <Setter Property="VerticalContentAlignment" Value="Top"/>
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="{StaticResource AccentSoftBrush}"/>
+                    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                    <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+                </Trigger>
+            </Style.Triggers>
         </Style>
     </Window.Resources>
 
@@ -214,12 +233,17 @@
                                   CanUserReorderColumns="False" CanUserResizeRows="False" IsReadOnly="True"
                                   HeadersVisibility="Column" GridLinesVisibility="None"
                                   Background="White" BorderBrush="{StaticResource BorderBrush}"
+                                  HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto"
                                   RowHeaderWidth="0" SelectionMode="Single" SelectionUnit="FullRow">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="{DynamicResource TextSearch_ColumnLine}" Binding="{Binding LineNumber}" Width="52"/>
-                                <DataGridTextColumn Header="{DynamicResource TextSearch_ColumnInput}" Binding="{Binding Input}" Width="1.15*"/>
-                                <DataGridTextColumn Header="{DynamicResource TextSearch_ColumnMatch}" Binding="{Binding MatchedText}" Width="1.15*"/>
-                                <DataGridTextColumn Header="{DynamicResource TextSearch_ColumnTranslation}" Binding="{Binding Translation}" Width="1.15*"/>
+                                <DataGridTextColumn Header="{DynamicResource TextSearch_ColumnLine}" Binding="{Binding LineNumber}" Width="44"
+                                                    ElementStyle="{StaticResource WrappedResultText}"/>
+                                <DataGridTextColumn Header="{DynamicResource TextSearch_ColumnInput}" Binding="{Binding Input}" Width="0.75*"
+                                                    ElementStyle="{StaticResource WrappedResultText}"/>
+                                <DataGridTextColumn Header="{DynamicResource TextSearch_ColumnMatch}" Binding="{Binding MatchedText}" Width="1.5*"
+                                                    ElementStyle="{StaticResource WrappedResultText}"/>
+                                <DataGridTextColumn Header="{DynamicResource TextSearch_ColumnTranslation}" Binding="{Binding Translation}" Width="1.25*"
+                                                    ElementStyle="{StaticResource WrappedResultText}"/>
                             </DataGrid.Columns>
                         </DataGrid>
                         <StackPanel x:Name="EmptyResultsPanel" HorizontalAlignment="Center" VerticalAlignment="Center"
