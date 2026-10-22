@@ -1,4 +1,4 @@
-﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <sys:String x:Key="Tab_Language" xmlns:sys="clr-namespace:System;assembly=mscorlib">语言包管理</sys:String>
     <sys:String x:Key="Tab_Hotkeys" xmlns:sys="clr-namespace:System;assembly=mscorlib">快捷键设置</sys:String>
@@ -268,11 +268,11 @@
     <sys:String x:Key="TextSearch_Input" xmlns:sys="clr-namespace:System;assembly=mscorlib">待搜索文本</sys:String>
     <sys:String x:Key="TextSearch_Clear" xmlns:sys="clr-namespace:System;assembly=mscorlib">清空</sys:String>
     <sys:String x:Key="TextSearch_InputPlaceholder" xmlns:sys="clr-namespace:System;assembly=mscorlib">在此粘贴或输入文本……&#10;每行输入一句。</sys:String>
-    <sys:String x:Key="TextSearch_MultilineHint" xmlns:sys="clr-namespace:System;assembly=mscorlib">每个非空行都会单独搜索。</sys:String>
+    <sys:String x:Key="TextSearch_MultilineHint" xmlns:sys="clr-namespace:System;assembly=mscorlib">输入完整对话或一段有辨识度的文字，结果会显示包含它的完整对话。</sys:String>
     <sys:String x:Key="TextSearch_Results" xmlns:sys="clr-namespace:System;assembly=mscorlib">搜索结果</sys:String>
     <sys:String x:Key="TextSearch_ColumnLine" xmlns:sys="clr-namespace:System;assembly=mscorlib">行</sys:String>
-    <sys:String x:Key="TextSearch_ColumnInput" xmlns:sys="clr-namespace:System;assembly=mscorlib">输入文本</sys:String>
-    <sys:String x:Key="TextSearch_ColumnMatch" xmlns:sys="clr-namespace:System;assembly=mscorlib">匹配文本</sys:String>
+    <sys:String x:Key="TextSearch_ColumnInput" xmlns:sys="clr-namespace:System;assembly=mscorlib">搜索文本</sys:String>
+    <sys:String x:Key="TextSearch_ColumnMatch" xmlns:sys="clr-namespace:System;assembly=mscorlib">匹配对话</sys:String>
     <sys:String x:Key="TextSearch_ColumnTranslation" xmlns:sys="clr-namespace:System;assembly=mscorlib">译文</sys:String>
     <sys:String x:Key="TextSearch_EmptyTitle" xmlns:sys="clr-namespace:System;assembly=mscorlib">搜索结果会显示在这里</sys:String>
     <sys:String x:Key="TextSearch_EmptyDescription" xmlns:sys="clr-namespace:System;assembly=mscorlib">选择游戏和语言，输入一行或多行文本，然后开始搜索。</sys:String>
@@ -282,5 +282,6 @@
     <sys:String x:Key="TextSearch_Loading" xmlns:sys="clr-namespace:System;assembly=mscorlib">正在加载本地文本表并搜索……</sys:String>
     <sys:String x:Key="TextSearch_MissingMap" xmlns:sys="clr-namespace:System;assembly=mscorlib">缺少所选语言文本表：{0}。请前往设置下载所需语言包。</sys:String>
     <sys:String x:Key="TextSearch_Failed" xmlns:sys="clr-namespace:System;assembly=mscorlib">搜索失败：{0}</sys:String>
-    <sys:String x:Key="TextSearch_ResultSummary" xmlns:sys="clr-namespace:System;assembly=mscorlib">匹配到 {0}/{1} 行。</sys:String>
+    <sys:String x:Key="TextSearch_ResultSummary" xmlns:sys="clr-namespace:System;assembly=mscorlib">找到 {0} 条对话，覆盖 {1}/{2} 行搜索文本。</sys:String>
+    <sys:String x:Key="TextSearch_ResultSummaryLimited" xmlns:sys="clr-namespace:System;assembly=mscorlib">显示 {0} 条对话（覆盖 {1}/{2} 行），每行最多显示 {3} 条结果。</sys:String>
 </ResourceDictionary>

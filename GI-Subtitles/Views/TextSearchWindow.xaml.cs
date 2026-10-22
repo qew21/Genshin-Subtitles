@@ -15,6 +15,8 @@ namespace GI_Subtitles.Views
 {
     public partial class TextSearchWindow : Window
     {
+        private const int MaxDialogueMatchesPerLine = 50;
+
         private static readonly LanguageOption[] SourceLanguages =
         {
             new LanguageOption("CHS", "简体中文"),
@@ -67,6 +69,7 @@ namespace GI_Subtitles.Views
             }
 
             InitializeComponent();
+            FitToWorkArea();
             DataContext = this;
             _lookup = new TextSearchLookup(_dataDirectory);
             _noMatchText = FindResource("TextSearch_NoMatch") as string ?? "No match";
@@ -87,6 +90,17 @@ namespace GI_Subtitles.Views
             SourceLanguageSelector.SelectedValue = Config.Get("Input", string.Empty);
             UpdateTargetLanguages(Config.Get("Output", string.Empty));
             UpdateEmptyState();
+        }
+
+        private void FitToWorkArea()
+        {
+            Rect workArea = SystemParameters.WorkArea;
+            MaxWidth = workArea.Width * 0.94;
+            MaxHeight = workArea.Height * 0.90;
+            Width = Math.Min(1100, MaxWidth);
+            Height = Math.Min(700, MaxHeight);
+            MinWidth = Math.Min(800, Width);
+            MinHeight = Math.Min(560, Height);
         }
 
         private async void SearchButton_Click(object sender, RoutedEventArgs e)
@@ -127,32 +141,83 @@ namespace GI_Subtitles.Views
                     ? _matcher
                     : await Task.Run(() => _lookup.LoadMatcher(game, sourceLanguage, targetLanguage));
 
-                var results = await Task.Run(() => lines.Select(line =>
+                var results = await Task.Run(() =>
                 {
-                    string translation = matcher.FindClosestMatch(line.Text, out string matchedText);
-                    bool found = !string.IsNullOrEmpty(translation);
-                    return new TextSearchResult
+                    bool hasMoreMatches = false;
+                    var foundResults = new List<TextSearchResult>();
+                    foreach (var line in lines)
                     {
-                        LineNumber = line.LineNumber,
-                        Input = line.Text,
-                        MatchedText = found ? matchedText : _noMatchText,
-                        Translation = found ? translation : _noMatchText,
-                        IsMatch = found
-                    };
-                }).ToList());
+                        List<KeyValuePair<string, string>> matches = matcher.FindDialogueMatches(
+                            line.Text,
+                            MaxDialogueMatchesPerLine,
+                            out bool lineHasMoreMatches);
+                        hasMoreMatches |= lineHasMoreMatches;
+
+                        if (matches.Count == 0)
+                        {
+                            foundResults.Add(new TextSearchResult
+                            {
+                                LineNumber = line.LineNumber,
+                                Input = line.Text,
+                                MatchedText = _noMatchText,
+                                Translation = _noMatchText,
+                                IsMatch = false
+                            });
+                            continue;
+                        }
+
+                        foreach (KeyValuePair<string, string> match in matches)
+                        {
+                            foundResults.Add(new TextSearchResult
+                            {
+                                LineNumber = line.LineNumber,
+                                Input = line.Text,
+                                MatchedText = match.Key,
+                                Translation = match.Value,
+                                IsMatch = true
+                            });
+                        }
+                    }
+
+                    return new SearchResults(foundResults, hasMoreMatches);
+                });
 
                 _matcher = matcher;
                 _matcherKey = matcherKey;
                 Results.Clear();
-                foreach (TextSearchResult result in results)
+                foreach (TextSearchResult result in results.Items)
                 {
                     Results.Add(result);
                 }
+                ResultsGrid.SelectedIndex = -1;
 
                 UpdateEmptyState();
-                int matchedCount = results.Count(result => result.IsMatch);
-                string statusTemplate = FindResource("TextSearch_ResultSummary") as string ?? "Matched {0} of {1} lines.";
-                SetStatus(string.Format(statusTemplate, matchedCount, results.Count), isError: matchedCount == 0);
+                int matchedCount = results.Items.Count(result => result.IsMatch);
+                int matchedLineCount = results.Items
+                    .Where(result => result.IsMatch)
+                    .Select(result => result.LineNumber)
+                    .Distinct()
+                    .Count();
+                string summaryKey = results.HasMoreMatches
+                    ? "TextSearch_ResultSummaryLimited"
+                    : "TextSearch_ResultSummary";
+                string statusTemplate = FindResource(summaryKey) as string
+                    ?? "Found {0} dialogue matches from {1} of {2} input lines.";
+                if (results.HasMoreMatches)
+                {
+                    SetStatus(string.Format(
+                        statusTemplate,
+                        matchedCount,
+                        matchedLineCount,
+                        lines.Count,
+                        MaxDialogueMatchesPerLine),
+                        isError: false);
+                }
+                else
+                {
+                    SetStatus(string.Format(statusTemplate, matchedCount, matchedLineCount, lines.Count),
+                        isError: matchedCount == 0);
+                }
             }
             catch (FileNotFoundException ex)
             {
@@ -291,6 +356,18 @@ namespace GI_Subtitles.Views
             public string MatchedText { get; set; }
             public string Translation { get; set; }
             public bool IsMatch { get; set; }
+        }
+
+        private sealed class SearchResults
+        {
+            public SearchResults(List<TextSearchResult> items, bool hasMoreMatches)
+            {
+                Items = items;
+                HasMoreMatches = hasMoreMatches;
+            }
+
+            public List<TextSearchResult> Items { get; }
+            public bool HasMoreMatches { get; }
         }
     }
 }
