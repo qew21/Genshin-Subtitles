@@ -815,26 +815,29 @@
 
             <!-- Tab 4: Configuration -->
             <TabItem x:Name="OtherSettingsTab" Header="{DynamicResource Tab_Config}">
-                <Grid Margin="18">
+                <Grid Margin="12">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
-                    <Border Grid.Row="0" Style="{StaticResource Card}" Padding="16" Margin="0,0,0,12">
+                    <Border Grid.Row="0" Style="{StaticResource Card}" Padding="10" Margin="0,0,0,8">
                         <WrapPanel HorizontalAlignment="Left">
-                            <Button Content="{DynamicResource Btn_OpenFolder}" Margin="0,0,12,0" Click="OpenAppDataFolder_Click"/>
-                            <Button Content="{DynamicResource Btn_ActivityLog}" Margin="0,0,12,0" Click="OpenActivityLog_Click"/>
-                            <Button Content="{DynamicResource Btn_SubtitleFont}" Margin="0,0,12,0" Click="FontPreview_Click"/>
-                            <Button Content="{DynamicResource Btn_SubtitleColor}" Margin="0,0,12,0" Click="SubtitleColor_Click"/>
+                            <Button Content="{DynamicResource Btn_OpenFolder}" Margin="0,0,8,0" Click="OpenAppDataFolder_Click"/>
+                            <Button Content="{DynamicResource Btn_ActivityLog}" Margin="0,0,8,0" Click="OpenActivityLog_Click"/>
+                            <Button Content="{DynamicResource Btn_SubtitleFont}" Margin="0,0,8,0" Click="FontPreview_Click"/>
+                            <Button Content="{DynamicResource Btn_SubtitleColor}" Margin="0,0,8,0" Click="SubtitleColor_Click"/>
                             <Button Content="{DynamicResource Btn_TextSearch}" Click="TextSearch_Click"/>
                         </WrapPanel>
                     </Border>
 
                     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel>
+                            <StackPanel.LayoutTransform>
+                                <ScaleTransform ScaleY="0.90"/>
+                            </StackPanel.LayoutTransform>
                     <!-- OCR interval -->
-                    <Border Style="{StaticResource Card}" Padding="16" Margin="0,0,0,12">
+                    <Border Style="{StaticResource Card}" Padding="10" Margin="0,0,0,8">
                         <StackPanel>
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <TextBlock Text="{DynamicResource Config_OcrInterval_Label}" VerticalAlignment="Center" Width="200"/>
@@ -852,7 +855,7 @@
                     </Border>
 
                     <!-- Subtitle idle timeout -->
-                    <Border Style="{StaticResource Card}" Padding="16" Margin="0,0,0,12">
+                    <Border Style="{StaticResource Card}" Padding="10" Margin="0,0,0,8">
                         <StackPanel>
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <TextBlock Text="{DynamicResource Config_SubtitleIdleTimeout_Label}" VerticalAlignment="Center" Width="200"/>
@@ -869,10 +872,10 @@
                     </Border>
 
                     <!-- Boolean Flags -->
-                    <Border Style="{StaticResource Card}" Padding="16" Margin="0,0,0,12">
+                    <Border Style="{StaticResource Card}" Padding="10" Margin="0,0,0,8">
                         <StackPanel>
-                        <CheckBox x:Name="AutoStartCheckBox" Checked="AutoStartCheckBox_Checked" Unchecked="AutoStartCheckBox_Checked" Content="{DynamicResource Config_AutoStart}" Margin="0,0,0,6"/>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                        <CheckBox x:Name="AutoStartCheckBox" Checked="AutoStartCheckBox_Checked" Unchecked="AutoStartCheckBox_Checked" Content="{DynamicResource Config_AutoStart}" Margin="0,0,0,3"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
                             <CheckBox x:Name="PlayVoiceCheckBox"
                                       Checked="PlayVoiceCheckBox_Checked"
                                       Unchecked="PlayVoiceCheckBox_Checked"
@@ -885,12 +888,12 @@
                                     Padding="10,2"/>
                         </StackPanel>
                         <TextBlock x:Name="VoiceTestStatus"
-                                   Margin="0,0,0,6"
+                                   Margin="0,0,0,2"
                                    TextWrapping="Wrap"
                                    Foreground="{StaticResource TextSecondaryBrush}"
                                    FontStyle="Italic"/>
                         <TextBlock x:Name="VoicePrimaryHint"
-                                   Margin="22,0,0,6"
+                                   Margin="22,0,0,2"
                                    TextWrapping="Wrap"
                                    Foreground="{StaticResource TextSecondaryBrush}"
                                    FontStyle="Italic"/>
@@ -899,19 +902,19 @@
                                   Unchecked="RecognizeDarkScreenSubtitlesCheckBox_Checked"
                                   Content="{DynamicResource Config_RecognizeDarkScreenSubtitles}"
                                   ToolTip="{DynamicResource Config_RecognizeDarkScreenSubtitles_Tooltip}"
-                                  Margin="0,0,0,6"/>
+                                  Margin="0,0,0,3"/>
                         <CheckBox x:Name="SubtitleBackgroundCheckBox"
                                   Checked="SubtitleBackgroundCheckBox_Changed"
                                   Unchecked="SubtitleBackgroundCheckBox_Changed"
                                   Content="{DynamicResource Config_SubtitleBackground}"
                                   ToolTip="{DynamicResource Config_SubtitleBackground_Tooltip}"
-                                  Margin="0,0,0,6"/>
-                        <StackPanel x:Name="DarkScreenDisplayRow" Margin="22,0,0,10" Visibility="Collapsed">
+                                  Margin="0,0,0,3"/>
+                        <StackPanel x:Name="DarkScreenDisplayRow" Margin="22,0,0,6" Visibility="Collapsed">
                             <TextBlock x:Name="DarkScreenDisplayStatus"
-                                       Margin="0,0,0,6"
+                                   Margin="0,0,0,3"
                                        TextWrapping="Wrap"
                                        Foreground="{StaticResource TextSecondaryBrush}"/>
-                            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                            <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
                                 <Button Content="{DynamicResource ExtraPath_BoxDisplay}"
                                         Click="BoxDarkScreenDisplay_Click"
                                         Padding="10,2"
@@ -932,10 +935,10 @@
                                       Unchecked="RecognizeDialogueOptionsCheckBox_Checked"
                                       Content="{DynamicResource Config_RecognizeDialogueOptions}"
                                       ToolTip="{DynamicResource Config_RecognizeDialogueOptions_Tooltip}"
-                                      Margin="0,0,0,6"/>
-                            <StackPanel x:Name="DialogueOptionDisplayRow" Margin="22,0,0,10" Visibility="Collapsed">
+                                      Margin="0,0,0,3"/>
+                            <StackPanel x:Name="DialogueOptionDisplayRow" Margin="22,0,0,6" Visibility="Collapsed">
                                 <TextBlock x:Name="DialogueOptionDisplayStatus"
-                                           Margin="0,0,0,6"
+                                           Margin="0,0,0,3"
                                            TextWrapping="Wrap"
                                            Foreground="{StaticResource TextSecondaryBrush}"/>
                                 <StackPanel Orientation="Horizontal">
@@ -959,13 +962,13 @@
                                   Unchecked="LogDenoiseCheckBox_Checked"
                                   Content="{DynamicResource Config_LogDenoise}"
                                   ToolTip="{DynamicResource Config_LogDenoise_Tooltip}"
-                                  Margin="0,0,0,6"/>
+                                  Margin="0,0,0,3"/>
                         <CheckBox x:Name="DebugSamplingOverlayCheckBox"
                                   Checked="DebugSamplingOverlayCheckBox_Changed"
                                   Unchecked="DebugSamplingOverlayCheckBox_Changed"
                                   Content="{DynamicResource Config_DebugSamplingOverlay}"
                                   ToolTip="{DynamicResource Config_DebugSamplingOverlay_Tooltip}"
-                                  Margin="0,0,0,6"/>
+                                  Margin="0,0,0,3"/>
                         </StackPanel>
                     </Border>
 

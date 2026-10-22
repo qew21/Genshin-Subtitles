@@ -198,13 +198,19 @@
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
-                    <DockPanel Grid.Row="0" Margin="0,0,0,10">
+                    <Grid Grid.Row="0" Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
                         <TextBlock Text="{DynamicResource TextSearch_Input}" FontSize="16" FontWeight="SemiBold"
-                                   Foreground="{StaticResource TextPrimaryBrush}"/>
-                        <Button DockPanel.Dock="Right" Content="{DynamicResource TextSearch_Clear}"
-                                Style="{StaticResource ModernButton}" MinHeight="28" Padding="10,3"
+                                   Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                        <Button Grid.Column="1" Content="×" ToolTip="{DynamicResource TextSearch_Clear}"
+                                AutomationProperties.Name="{DynamicResource TextSearch_Clear}"
+                                Style="{StaticResource ModernButton}" Width="30" Height="30" MinHeight="30"
+                                Padding="0" FontSize="19" FontWeight="SemiBold"
                                 Click="ClearButton_Click"/>
-                    </DockPanel>
+                    </Grid>
                     <Grid Grid.Row="1">
                         <TextBox x:Name="InputTextBox" AcceptsReturn="True" TextWrapping="Wrap"
                                  VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
