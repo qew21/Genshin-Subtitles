@@ -6,7 +6,7 @@
         MinHeight="600" MinWidth="800"
         Icon="../Resources/mask.ico"
         WindowStartupLocation="CenterOwner"
-        Background="{StaticResource WindowBackgroundBrush}"
+        Background="{DynamicResource WindowBackgroundBrush}"
         FontFamily="Segoe UI"
         FontSize="13"
         UseLayoutRounding="True"
