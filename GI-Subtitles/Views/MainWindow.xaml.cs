@@ -2138,35 +2138,8 @@ namespace GI_Subtitles.Views
 
         private bool ShouldRequestAutoRegionOcr()
         {
-            if (_autoRegionDetectionLocked ||
-                !_overlaySession.RecognitionRunning ||
-                data == null ||
-                data.engine == null ||
-                data.Matcher == null ||
-                _autoRegionOcrInFlight)
-            {
-                return false;
-            }
-
-            IReadOnlyList<RegionPair> pairs = _overlaySession.Pairs;
-            int primaryIndex = FindPrimaryPairIndex(pairs);
-            bool primaryCaptureMissing = primaryIndex < 0 || !pairs[primaryIndex].Capture.IsValid;
-            if (primaryCaptureMissing)
-            {
-                _autoRegionRepairReason = "missing-primary-capture";
-                int missingRegionRetryDelay = Math.Max(500, _overlaySession.EngineOcrIntervalMs * 2);
-                return DateTime.UtcNow - _lastAutoRegionSearchStartedUtc >=
-                       TimeSpan.FromMilliseconds(missingRegionRetryDelay);
-            }
-
-            if (!_autoRegionRepairPending)
-            {
-                return false;
-            }
-
-            int retryDelay = Math.Max(5000, _overlaySession.EngineOcrIntervalMs * 4);
-            return DateTime.UtcNow - _lastAutoRegionSearchStartedUtc >=
-                   TimeSpan.FromMilliseconds(retryDelay);
+            // Keep capture-region selection and changes under the user's control.
+            return false;
         }
 
         public void UpdateWindowPosition()
