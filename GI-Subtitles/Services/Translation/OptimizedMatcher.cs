@@ -35,6 +35,16 @@ namespace GI_Subtitles.Services.Translation
             public int Length;
         }
 
+        internal static void ShareEqualText(ref Entry entry)
+        {
+            if (string.Equals(entry.NormalizedKey, entry.OriginalKey, StringComparison.Ordinal))
+                entry.NormalizedKey = entry.OriginalKey;
+            if (string.Equals(entry.Value, entry.OriginalKey, StringComparison.Ordinal))
+                entry.Value = entry.OriginalKey;
+            else if (string.Equals(entry.Value, entry.NormalizedKey, StringComparison.Ordinal))
+                entry.Value = entry.NormalizedKey;
+        }
+
         // Fast hash for n-gram to avoid Substring allocation
         private static long GetNgramHash(string s, int start, int length)
         {
@@ -74,6 +84,7 @@ namespace GI_Subtitles.Services.Translation
                     Value = kvp.Value,
                     Length = normKey.Length
                 };
+                ShareEqualText(ref _entries[index]);
 
                 if (normKey.Length < _ngramSize)
                 {
@@ -99,6 +110,10 @@ namespace GI_Subtitles.Services.Translation
                 }
                 index++;
             }
+            // Release duplicate values and spare posting capacity after the immutable index is built.
+            foreach (var entry in _entries) voiceContentDict[entry.OriginalKey] = entry.Value;
+            foreach (var postings in _ngramIndex.Values) postings.TrimExcess();
+            _ngramIndex = new Dictionary<long, List<int>>(_ngramIndex);
             _shortKeysIndices = shortKeysList.ToArray();
             Loaded = true;
         }

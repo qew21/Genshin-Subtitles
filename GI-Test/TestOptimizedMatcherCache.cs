@@ -11,6 +11,52 @@ namespace GI_Test
     public class TestOptimizedMatcherCache
     {
         [TestMethod]
+        public void ColdBuild_ReusesEqualTextWithoutChangingTranslations()
+        {
+            string key = new string("你好世界".ToCharArray());
+            string value = new string(key.ToCharArray());
+            var content = new Dictionary<string, string> { { key, value } };
+            var matcher = new OptimizedMatcher(content, "CHS");
+            var entry = matcher.Entries[0];
+
+            Assert.AreSame(entry.OriginalKey, entry.NormalizedKey);
+            Assert.AreSame(entry.OriginalKey, entry.Value);
+            Assert.AreSame(entry.Value, content[key]);
+            AssertMatch(matcher, key, key, value);
+
+            var translated = new OptimizedMatcher(
+                new Dictionary<string, string> { { "Hello, World!", "你好世界" } }, "EN");
+            Assert.AreEqual("helloworld", translated.Entries[0].NormalizedKey);
+            AssertMatch(translated, "Hello World", "Hello, World!", "你好世界");
+        }
+
+        [TestMethod]
+        public void CachedMatcher_ReusesEqualTextAndPreservesSerializedBytes()
+        {
+            WithTempDirectory(directory =>
+            {
+                const string fingerprint = "unchanged-content";
+                string cachePath = Path.Combine(directory, "matcher.bin");
+                string restoredPath = Path.Combine(directory, "restored.bin");
+                var original = new OptimizedMatcher(
+                    new Dictionary<string, string> {
+                        { "你好世界", "你好世界" },
+                        { "Hello, World!", "helloworld" }
+                    }, "EN");
+                OptimizedMatcherCache.Save(cachePath, fingerprint, original);
+
+                Assert.IsTrue(OptimizedMatcherCache.TryLoad(cachePath, fingerprint, out OptimizedMatcher restored));
+                var chinese = Array.Find(restored.Entries, entry => entry.OriginalKey == "你好世界");
+                var english = Array.Find(restored.Entries, entry => entry.OriginalKey == "Hello, World!");
+                Assert.AreSame(chinese.OriginalKey, chinese.Value);
+                Assert.AreSame(english.NormalizedKey, english.Value);
+                OptimizedMatcherCache.Save(restoredPath, fingerprint, restored);
+                CollectionAssert.AreEqual(File.ReadAllBytes(cachePath), File.ReadAllBytes(restoredPath));
+                AssertMatchEqual(original, restored, "Hello World");
+            });
+        }
+
+        [TestMethod]
         public void SavedMatcher_PreservesMatchResultsAndPostingOrder()
         {
             WithTempDirectory(directory =>

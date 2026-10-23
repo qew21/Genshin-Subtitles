@@ -926,7 +926,8 @@ namespace PaddleOCRSharp
                 NamedOnnxValue.CreateFromTensor(_detSession.InputNames[0], inputTensor)
             };
 
-            using var outputs = _detSession.Run(inputs);
+            using var runOptions = CreateMemoryAwareRunOptions();
+            using var outputs = _detSession.Run(inputs, _detSession.OutputNames, runOptions);
             var output = outputs.First().AsTensor<float>();
 
             // Convert to Mat
@@ -1028,7 +1029,8 @@ namespace PaddleOCRSharp
                     NamedOnnxValue.CreateFromTensor(_recSession.InputNames[0], inputTensor)
                 };
 
-                using var outputs = _recSession.Run(inputs);
+                using var runOptions = CreateMemoryAwareRunOptions();
+                using var outputs = _recSession.Run(inputs, _recSession.OutputNames, runOptions);
                 var output = outputs.First().AsTensor<float>();
 
                 // Decode text
@@ -1372,6 +1374,15 @@ namespace PaddleOCRSharp
                 }
                 return result;
             }
+        }
+
+        private RunOptions CreateMemoryAwareRunOptions()
+        {
+            var options = new RunOptions();
+            // Return idle CPU arena extensions after large or unusually wide OCR inputs.
+            if (ActiveExecutionProvider == OCRExecutionProvider.Cpu)
+                options.AddRunConfigEntry("memory.enable_memory_arena_shrinkage", "cpu:0");
+            return options;
         }
 
         /// <summary>
