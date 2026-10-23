@@ -173,6 +173,7 @@
     <Compile Include="Services\Translation\OptimizedMatcher.cs" />
     <Compile Include="Services\Translation\OptimizedMatcherCache.cs" />
     <Compile Include="Services\Translation\MatchDataLoader.cs" />
+    <Compile Include="Services\Translation\TextSearchLookup.cs" />
     <Compile Include="Core\Screen\ScreenInfo.cs" />
     <Compile Include="Core\Screen\SubtitleTextRegionDetector.cs" />
     <Compile Include="Views\RegionPairSettings.cs" />
@@ -184,6 +185,9 @@
     </Compile>
     <Compile Include="Views\SettingsWindow.xaml.cs">
       <DependentUpon>Views\SettingsWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\TextSearchWindow.xaml.cs">
+      <DependentUpon>Views\TextSearchWindow.xaml</DependentUpon>
     </Compile>
     <Compile Include="Views\ActivityLogWindow.xaml.cs">
       <DependentUpon>Views\ActivityLogWindow.xaml</DependentUpon>
@@ -244,6 +248,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Views\SettingsWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\TextSearchWindow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

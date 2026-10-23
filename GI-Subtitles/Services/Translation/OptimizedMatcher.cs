@@ -305,6 +305,115 @@ namespace GI_Subtitles.Services.Translation
             return "";
         }
 
+        /// <summary>
+        /// Finds complete text-map lines containing the query. This is intended for
+        /// user text search, where returning a short subtitle/OCR fragment is misleading.
+        /// </summary>
+        public List<KeyValuePair<string, string>> FindDialogueMatches(
+            string input,
+            int maxResults,
+            out bool hasMore)
+        {
+            hasMore = false;
+            if (string.IsNullOrWhiteSpace(input) || maxResults <= 0)
+            {
+                return new List<KeyValuePair<string, string>>();
+            }
+
+            string normalizedInput = NormalizeInput(input, isEng);
+            if (normalizedInput.Length < _ngramSize)
+            {
+                return new List<KeyValuePair<string, string>>();
+            }
+
+            var candidates = new HashSet<int>();
+            const int maxCandidatesPerGram = 2000;
+            bool foundRareGram = false;
+            int step = normalizedInput.Length > 50 ? 2 : 1;
+
+            for (int i = 0; i <= normalizedInput.Length - _ngramSize; i += step)
+            {
+                long hash = GetNgramHash(normalizedInput, i, _ngramSize);
+                if (!_ngramIndex.TryGetValue(hash, out List<int> ids) || ids.Count > maxCandidatesPerGram)
+                {
+                    continue;
+                }
+
+                foundRareGram = true;
+                foreach (int id in ids)
+                {
+                    candidates.Add(id);
+                }
+            }
+
+            if (!foundRareGram)
+            {
+                for (int i = 0; i <= normalizedInput.Length - _ngramSize; i += step)
+                {
+                    long hash = GetNgramHash(normalizedInput, i, _ngramSize);
+                    if (_ngramIndex.TryGetValue(hash, out List<int> ids))
+                    {
+                        foreach (int id in ids)
+                        {
+                            candidates.Add(id);
+                        }
+                    }
+                }
+            }
+
+            int minimumDialogueLength = isEng ? 12 : 6;
+            var matches = new List<int>();
+            foreach (int id in candidates)
+            {
+                ref readonly Entry entry = ref _entries[id];
+                bool isExact = string.Equals(entry.NormalizedKey, normalizedInput, StringComparison.Ordinal);
+                if (!isExact &&
+                    (entry.Length < minimumDialogueLength ||
+                     entry.NormalizedKey.IndexOf(normalizedInput, StringComparison.Ordinal) < 0))
+                {
+                    continue;
+                }
+
+                if (entry.Length < minimumDialogueLength && !HasSentencePunctuation(entry.OriginalKey))
+                {
+                    continue;
+                }
+
+                matches.Add(id);
+            }
+
+            matches.Sort((left, right) =>
+            {
+                ref readonly Entry leftEntry = ref _entries[left];
+                ref readonly Entry rightEntry = ref _entries[right];
+                bool leftExact = leftEntry.Length == normalizedInput.Length &&
+                    string.Equals(leftEntry.NormalizedKey, normalizedInput, StringComparison.Ordinal);
+                bool rightExact = rightEntry.Length == normalizedInput.Length &&
+                    string.Equals(rightEntry.NormalizedKey, normalizedInput, StringComparison.Ordinal);
+
+                if (leftExact != rightExact) return leftExact ? -1 : 1;
+                int lengthOrder = leftEntry.Length.CompareTo(rightEntry.Length);
+                return lengthOrder != 0
+                    ? lengthOrder
+                    : StringComparer.Ordinal.Compare(leftEntry.OriginalKey, rightEntry.OriginalKey);
+            });
+
+            hasMore = matches.Count > maxResults;
+            var results = new List<KeyValuePair<string, string>>(Math.Min(matches.Count, maxResults));
+            for (int i = 0; i < matches.Count && i < maxResults; i++)
+            {
+                Entry entry = _entries[matches[i]];
+                results.Add(new KeyValuePair<string, string>(entry.OriginalKey, entry.Value));
+            }
+
+            return results;
+        }
+
+        private static bool HasSentencePunctuation(string text)
+        {
+            return text.IndexOfAny(new[] { '.', '!', '?', '。', '！', '？', '…', '｡', '؟' }) >= 0;
+        }
+
         private static int CalculateLevenshteinDistance(ReadOnlySpan<char> source, ReadOnlySpan<char> target, int threshold)
         {
             int sourceLen = source.Length;

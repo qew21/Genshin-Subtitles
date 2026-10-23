@@ -2957,5 +2957,15 @@ namespace GI_Subtitles.Views
             };
             colorWindow.ShowDialog();
         }
+
+        private void TextSearch_Click(object sender, RoutedEventArgs e)
+        {
+            var searchWindow = new TextSearchWindow(_supportedGames)
+            {
+                Owner = this,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner
+            };
+            searchWindow.ShowDialog();
+        }
     }
 }
