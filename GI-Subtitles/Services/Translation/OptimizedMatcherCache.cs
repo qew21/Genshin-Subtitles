@@ -90,7 +90,8 @@ namespace GI_Subtitles.Services.Translation
                             Value = value,
                             Length = length
                         };
-                        content.Add(originalKey, value);
+                        OptimizedMatcher.ShareEqualText(ref entries[i]);
+                        content.Add(originalKey, entries[i].Value);
                     }
 
                     int ngramCount = ReadCount(reader, MaxNgrams, "n-gram");
