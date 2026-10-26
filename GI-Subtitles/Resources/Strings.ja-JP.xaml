@@ -259,8 +259,12 @@
     <sys:String x:Key="TextSearch_Search" xmlns:sys="clr-namespace:System;assembly=mscorlib">検索</sys:String>
     <sys:String x:Key="TextSearch_Input" xmlns:sys="clr-namespace:System;assembly=mscorlib">検索するテキスト</sys:String>
     <sys:String x:Key="TextSearch_Clear" xmlns:sys="clr-namespace:System;assembly=mscorlib">クリア</sys:String>
-    <sys:String x:Key="TextSearch_InputPlaceholder" xmlns:sys="clr-namespace:System;assembly=mscorlib">ここにテキストを入力または貼り付け…&#10;1 行に 1 文を入力してください。</sys:String>
-    <sys:String x:Key="TextSearch_MultilineHint" xmlns:sys="clr-namespace:System;assembly=mscorlib">会話全文または特徴的な一部を入力すると、一致する会話全文を表示します。</sys:String>
+    <sys:String x:Key="TextSearch_InputPlaceholder" xmlns:sys="clr-namespace:System;assembly=mscorlib">段落を入力または貼り付け…&#10;空でない各行を個別に検索します。</sys:String>
+    <sys:String x:Key="TextSearch_ParagraphHint" xmlns:sys="clr-namespace:System;assembly=mscorlib">段落を貼り付けできます。空でない各行を個別に照合し、空行は無視します。</sys:String>
+    <sys:String x:Key="TextSearch_HistoryLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">履歴</sys:String>
+    <sys:String x:Key="TextSearch_History" xmlns:sys="clr-namespace:System;assembly=mscorlib">検索日時付きの最近の検索</sys:String>
+    <sys:String x:Key="TextSearch_HistoryLoadFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">検索履歴を読み込めませんでした（{0}）：{1}。ファイルは変更していません。</sys:String>
+    <sys:String x:Key="TextSearch_HistorySaveFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">検索は完了しましたが、履歴を保存できませんでした：{0}</sys:String>
     <sys:String x:Key="TextSearch_Results" xmlns:sys="clr-namespace:System;assembly=mscorlib">検索結果</sys:String>
     <sys:String x:Key="TextSearch_ColumnLine" xmlns:sys="clr-namespace:System;assembly=mscorlib">行</sys:String>
     <sys:String x:Key="TextSearch_ColumnInput" xmlns:sys="clr-namespace:System;assembly=mscorlib">検索テキスト</sys:String>

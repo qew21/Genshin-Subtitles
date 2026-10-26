@@ -259,8 +259,12 @@
     <sys:String x:Key="TextSearch_Search" xmlns:sys="clr-namespace:System;assembly=mscorlib">Search</sys:String>
     <sys:String x:Key="TextSearch_Input" xmlns:sys="clr-namespace:System;assembly=mscorlib">Text to search</sys:String>
     <sys:String x:Key="TextSearch_Clear" xmlns:sys="clr-namespace:System;assembly=mscorlib">Clear</sys:String>
-    <sys:String x:Key="TextSearch_InputPlaceholder" xmlns:sys="clr-namespace:System;assembly=mscorlib">Paste or type text here…&#10;Put one sentence on each line.</sys:String>
-    <sys:String x:Key="TextSearch_MultilineHint" xmlns:sys="clr-namespace:System;assembly=mscorlib">Enter a full dialogue line or a distinctive snippet to find complete matching lines.</sys:String>
+    <sys:String x:Key="TextSearch_InputPlaceholder" xmlns:sys="clr-namespace:System;assembly=mscorlib">Paste or type a paragraph here…&#10;Each non-empty line is searched separately.</sys:String>
+    <sys:String x:Key="TextSearch_ParagraphHint" xmlns:sys="clr-namespace:System;assembly=mscorlib">Paste a paragraph; each non-empty line is matched independently, and blank lines are ignored.</sys:String>
+    <sys:String x:Key="TextSearch_HistoryLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">History</sys:String>
+    <sys:String x:Key="TextSearch_History" xmlns:sys="clr-namespace:System;assembly=mscorlib">Recent searches with their last search time</sys:String>
+    <sys:String x:Key="TextSearch_HistoryLoadFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Search history could not be read from {0}: {1}. The file was left unchanged.</sys:String>
+    <sys:String x:Key="TextSearch_HistorySaveFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Search completed, but its history entry could not be saved: {0}</sys:String>
     <sys:String x:Key="TextSearch_Results" xmlns:sys="clr-namespace:System;assembly=mscorlib">Results</sys:String>
     <sys:String x:Key="TextSearch_ColumnLine" xmlns:sys="clr-namespace:System;assembly=mscorlib">Line</sys:String>
     <sys:String x:Key="TextSearch_ColumnInput" xmlns:sys="clr-namespace:System;assembly=mscorlib">Search text</sys:String>

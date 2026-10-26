@@ -202,10 +202,21 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <TextBlock Text="{DynamicResource TextSearch_Input}" FontSize="16" FontWeight="SemiBold"
                                    Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
-                        <Button Grid.Column="1" ToolTip="{DynamicResource TextSearch_Clear}"
+                        <TextBlock Grid.Column="1" Text="{DynamicResource TextSearch_HistoryLabel}"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <ComboBox x:Name="HistorySelector" Grid.Column="2" Width="230" Height="30"
+                                  Margin="0,0,8,0" Padding="8,3" MaxDropDownHeight="280"
+                                  ToolTip="{DynamicResource TextSearch_History}"
+                                  ItemsSource="{Binding SearchHistory}" DisplayMemberPath="DisplayLabel"
+                                  SelectionChanged="HistorySelector_SelectionChanged"
+                                  IsEnabled="False"/>
+                        <Button Grid.Column="3" ToolTip="{DynamicResource TextSearch_Clear}"
                                 AutomationProperties.Name="{DynamicResource TextSearch_Clear}"
                                 Style="{StaticResource ModernButton}" Width="30" Height="30" MinHeight="30"
                                 Padding="0" Click="ClearButton_Click">
@@ -224,7 +235,7 @@
                                    Foreground="{StaticResource TextSecondaryBrush}" Opacity="0.8"
                                    IsHitTestVisible="False"/>
                     </Grid>
-                    <TextBlock Grid.Row="2" Margin="0,6,0,0" Text="{DynamicResource TextSearch_MultilineHint}"
+                    <TextBlock Grid.Row="2" Margin="0,6,0,0" Text="{DynamicResource TextSearch_ParagraphHint}"
                                Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
                 </Grid>
             </Border>

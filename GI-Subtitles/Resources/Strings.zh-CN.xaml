@@ -267,8 +267,12 @@
     <sys:String x:Key="TextSearch_Search" xmlns:sys="clr-namespace:System;assembly=mscorlib">搜索</sys:String>
     <sys:String x:Key="TextSearch_Input" xmlns:sys="clr-namespace:System;assembly=mscorlib">待搜索文本</sys:String>
     <sys:String x:Key="TextSearch_Clear" xmlns:sys="clr-namespace:System;assembly=mscorlib">清空</sys:String>
-    <sys:String x:Key="TextSearch_InputPlaceholder" xmlns:sys="clr-namespace:System;assembly=mscorlib">在此粘贴或输入文本……&#10;每行输入一句。</sys:String>
-    <sys:String x:Key="TextSearch_MultilineHint" xmlns:sys="clr-namespace:System;assembly=mscorlib">输入完整对话或一段有辨识度的文字，结果会显示包含它的完整对话。</sys:String>
+    <sys:String x:Key="TextSearch_InputPlaceholder" xmlns:sys="clr-namespace:System;assembly=mscorlib">在此粘贴或输入一段文字……&#10;每个非空行都会单独搜索。</sys:String>
+    <sys:String x:Key="TextSearch_ParagraphHint" xmlns:sys="clr-namespace:System;assembly=mscorlib">可以粘贴一整段文本；每个非空行分别匹配，空行会忽略。</sys:String>
+    <sys:String x:Key="TextSearch_HistoryLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">历史</sys:String>
+    <sys:String x:Key="TextSearch_History" xmlns:sys="clr-namespace:System;assembly=mscorlib">最近搜索记录及上次搜索时间</sys:String>
+    <sys:String x:Key="TextSearch_HistoryLoadFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">无法读取搜索历史：{0}（{1}）。原文件已保留。</sys:String>
+    <sys:String x:Key="TextSearch_HistorySaveFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">搜索已完成，但无法保存历史记录：{0}</sys:String>
     <sys:String x:Key="TextSearch_Results" xmlns:sys="clr-namespace:System;assembly=mscorlib">搜索结果</sys:String>
     <sys:String x:Key="TextSearch_ColumnLine" xmlns:sys="clr-namespace:System;assembly=mscorlib">行</sys:String>
     <sys:String x:Key="TextSearch_ColumnInput" xmlns:sys="clr-namespace:System;assembly=mscorlib">搜索文本</sys:String>
