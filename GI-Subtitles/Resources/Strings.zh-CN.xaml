@@ -283,7 +283,8 @@
     <sys:String x:Key="TextSearch_NoMatch" xmlns:sys="clr-namespace:System;assembly=mscorlib">没有匹配项</sys:String>
     <sys:String x:Key="TextSearch_SelectSettings" xmlns:sys="clr-namespace:System;assembly=mscorlib">请先选择游戏、输入语言和目标语言。</sys:String>
     <sys:String x:Key="TextSearch_EnterText" xmlns:sys="clr-namespace:System;assembly=mscorlib">请至少输入一行待搜索文本。</sys:String>
-    <sys:String x:Key="TextSearch_Loading" xmlns:sys="clr-namespace:System;assembly=mscorlib">正在加载本地文本表并搜索……</sys:String>
+    <sys:String x:Key="TextSearch_Loading" xmlns:sys="clr-namespace:System;assembly=mscorlib">正在加载本地搜索索引……</sys:String>
+    <sys:String x:Key="TextSearch_Searching" xmlns:sys="clr-namespace:System;assembly=mscorlib">正在搜索……</sys:String>
     <sys:String x:Key="TextSearch_MissingMap" xmlns:sys="clr-namespace:System;assembly=mscorlib">缺少所选语言文本表：{0}。请前往设置下载所需语言包。</sys:String>
     <sys:String x:Key="TextSearch_Failed" xmlns:sys="clr-namespace:System;assembly=mscorlib">搜索失败：{0}</sys:String>
     <sys:String x:Key="TextSearch_ResultSummary" xmlns:sys="clr-namespace:System;assembly=mscorlib">找到 {0} 条对话，覆盖 {1}/{2} 行搜索文本。</sys:String>

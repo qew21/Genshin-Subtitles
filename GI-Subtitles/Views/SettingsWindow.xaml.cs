@@ -93,6 +93,7 @@ namespace GI_Subtitles.Views
         private SubtitleIdleTimeoutSettingsView _subtitleIdleTimeoutView;
         private bool _subtitleIdleTimeoutBinding;
         private bool _syncingLayoutUi;
+        private TextSearchWindow _textSearchWindow;
 
         public RegionPairSettings PairSettings
         {
@@ -2960,12 +2961,21 @@ namespace GI_Subtitles.Views
 
         private void TextSearch_Click(object sender, RoutedEventArgs e)
         {
-            var searchWindow = new TextSearchWindow(_supportedGames)
+            if (_textSearchWindow == null)
             {
-                Owner = this,
-                WindowStartupLocation = WindowStartupLocation.CenterOwner
-            };
-            searchWindow.ShowDialog();
+                _textSearchWindow = new TextSearchWindow(_supportedGames)
+                {
+                    Owner = _mainWindow,
+                    WindowStartupLocation = WindowStartupLocation.CenterScreen
+                };
+                _textSearchWindow.Closed += (closedSender, closedArgs) => _textSearchWindow = null;
+                _textSearchWindow.Show();
+            }
+            if (_textSearchWindow.WindowState == WindowState.Minimized)
+            {
+                _textSearchWindow.WindowState = WindowState.Normal;
+            }
+            _textSearchWindow.Activate();
         }
     }
 }

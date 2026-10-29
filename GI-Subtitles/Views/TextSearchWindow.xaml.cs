@@ -54,10 +54,9 @@ namespace GI_Subtitles.Views
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "GI-Subtitles",
             SearchHistoryFileName);
-        private string _matcherKey;
-        private BilingualTextSearchMatcher _matcher;
         private bool _updatingLanguageSelectors;
         private bool _historyPersistenceAvailable = true;
+        private bool _isClosed;
 
         public ObservableCollection<TextSearchResult> Results { get; } =
             new ObservableCollection<TextSearchResult>();
@@ -115,6 +114,12 @@ namespace GI_Subtitles.Views
             MinHeight = Math.Min(560, Height);
         }
 
+        protected override void OnClosed(EventArgs e)
+        {
+            _isClosed = true;
+            base.OnClosed(e);
+        }
+
         private async void SearchButton_Click(object sender, RoutedEventArgs e)
         {
             string game = GameSelector.SelectedValue as string;
@@ -141,20 +146,24 @@ namespace GI_Subtitles.Views
                 return;
             }
 
-            string matcherKey = string.Join("|", game, sourceLanguage, targetLanguage);
             SearchButton.IsEnabled = false;
             GameSelector.IsEnabled = false;
             SourceLanguageSelector.IsEnabled = false;
             TargetLanguageSelector.IsEnabled = false;
             InputTextBox.IsEnabled = false;
             HistorySelector.IsEnabled = false;
-            SetStatus(FindResource("TextSearch_Loading") as string, isError: false);
-
             try
             {
-                BilingualTextSearchMatcher matcher = _matcherKey == matcherKey && _matcher != null
-                    ? _matcher
-                    : await Task.Run(() => _lookup.LoadMatcher(game, sourceLanguage, targetLanguage));
+                bool cached = _lookup.TryGetCachedMatcher(
+                    game, sourceLanguage, targetLanguage, out BilingualTextSearchMatcher matcher);
+                SetStatus(FindResource(cached ? "TextSearch_Searching" : "TextSearch_Loading") as string,
+                    isError: false);
+                if (!cached)
+                {
+                    matcher = await Task.Run(() => _lookup.LoadMatcher(game, sourceLanguage, targetLanguage));
+                }
+                if (_isClosed) return;
+                SetStatus(FindResource("TextSearch_Searching") as string, isError: false);
 
                 var results = await Task.Run(() =>
                 {
@@ -197,8 +206,7 @@ namespace GI_Subtitles.Views
                     return new SearchResults(foundResults, hasMoreMatches);
                 });
 
-                _matcher = matcher;
-                _matcherKey = matcherKey;
+                if (_isClosed) return;
                 Results.Clear();
                 foreach (TextSearchResult result in results.Items)
                 {
@@ -399,19 +407,19 @@ namespace GI_Subtitles.Views
 
             string targetLanguage = TargetLanguageSelector.SelectedValue as string;
             UpdateTargetLanguages(targetLanguage);
-            InvalidateMatcher();
+            ResetSearchResults();
         }
 
         private void GameSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            InvalidateMatcher();
+            ResetSearchResults();
         }
 
         private void TargetLanguageSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (!_updatingLanguageSelectors)
             {
-                InvalidateMatcher();
+                ResetSearchResults();
             }
         }
 
@@ -435,10 +443,8 @@ namespace GI_Subtitles.Views
             }
         }
 
-        private void InvalidateMatcher()
+        private void ResetSearchResults()
         {
-            _matcher = null;
-            _matcherKey = null;
             SourceTextColumn.Header = (SourceLanguageSelector.SelectedItem as LanguageOption)?.Display
                 ?? FindResource("TextSearch_ColumnMatch");
             TargetTextColumn.Header = (TargetLanguageSelector.SelectedItem as LanguageOption)?.Display

@@ -275,7 +275,8 @@
     <sys:String x:Key="TextSearch_NoMatch" xmlns:sys="clr-namespace:System;assembly=mscorlib">一致なし</sys:String>
     <sys:String x:Key="TextSearch_SelectSettings" xmlns:sys="clr-namespace:System;assembly=mscorlib">ゲームと入力・翻訳先言語を選択してください。</sys:String>
     <sys:String x:Key="TextSearch_EnterText" xmlns:sys="clr-namespace:System;assembly=mscorlib">検索するテキストを 1 行以上入力してください。</sys:String>
-    <sys:String x:Key="TextSearch_Loading" xmlns:sys="clr-namespace:System;assembly=mscorlib">ローカルテキストを読み込んで検索中…</sys:String>
+    <sys:String x:Key="TextSearch_Loading" xmlns:sys="clr-namespace:System;assembly=mscorlib">ローカル検索インデックスを読み込み中…</sys:String>
+    <sys:String x:Key="TextSearch_Searching" xmlns:sys="clr-namespace:System;assembly=mscorlib">検索中…</sys:String>
     <sys:String x:Key="TextSearch_MissingMap" xmlns:sys="clr-namespace:System;assembly=mscorlib">選択した言語マップがありません：{0}。設定から必要な言語パックをダウンロードしてください。</sys:String>
     <sys:String x:Key="TextSearch_Failed" xmlns:sys="clr-namespace:System;assembly=mscorlib">検索に失敗しました：{0}</sys:String>
     <sys:String x:Key="TextSearch_ResultSummary" xmlns:sys="clr-namespace:System;assembly=mscorlib">{2} 行中 {1} 行から会話 {0} 件が見つかりました。</sys:String>

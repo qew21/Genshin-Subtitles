@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 
 namespace GI_Subtitles.Services.Translation
 {
@@ -14,7 +15,16 @@ namespace GI_Subtitles.Services.Translation
         private readonly Dictionary<string, List<string>> _additionalSources =
             new Dictionary<string, List<string>>(StringComparer.Ordinal);
 
+        internal OptimizedMatcher TargetMatcher => _targetMatcher;
+        internal bool LoadedTargetFromCache { get; }
+
         public BilingualTextSearchMatcher(OptimizedMatcher sourceMatcher, string targetLanguage)
+            : this(sourceMatcher, targetLanguage, null)
+        {
+        }
+
+        internal BilingualTextSearchMatcher(
+            OptimizedMatcher sourceMatcher, string targetLanguage, OptimizedMatcher cachedTargetMatcher)
         {
             _sourceMatcher = sourceMatcher ?? throw new ArgumentNullException(nameof(sourceMatcher));
             if (string.IsNullOrWhiteSpace(targetLanguage))
@@ -24,18 +34,23 @@ namespace GI_Subtitles.Services.Translation
 
             // Reuse the already loaded bilingual strings. Only repeated translations
             // need an extra source list; reversing a dictionary alone would lose them.
-            var reversedContent = new Dictionary<string, string>(StringComparer.Ordinal);
+            var reversedContent = cachedTargetMatcher?.ContentDictionary
+                ?? new Dictionary<string, string>(StringComparer.Ordinal);
             foreach (KeyValuePair<string, string> pair in sourceMatcher.ContentDictionary)
             {
                 // Empty translations remain available to forward search, but have no
                 // text that can be indexed for reverse search.
                 if (string.IsNullOrWhiteSpace(pair.Value)) continue;
                 string searchableTarget = pair.Value.Replace("\\n", "\n");
-                if (!reversedContent.ContainsKey(searchableTarget))
+                if (!reversedContent.TryGetValue(searchableTarget, out string firstSource))
                 {
+                    if (cachedTargetMatcher != null)
+                    {
+                        throw new InvalidDataException("The cached search index is missing a translation. Delete the search reverse matcher cache and retry.");
+                    }
                     reversedContent.Add(searchableTarget, pair.Key);
                 }
-                else
+                else if (!string.Equals(firstSource, pair.Key, StringComparison.Ordinal))
                 {
                     if (!_additionalSources.TryGetValue(searchableTarget, out List<string> sources))
                     {
@@ -45,7 +60,8 @@ namespace GI_Subtitles.Services.Translation
                     sources.Add(pair.Key);
                 }
             }
-            _targetMatcher = new OptimizedMatcher(reversedContent, targetLanguage);
+            _targetMatcher = cachedTargetMatcher ?? new OptimizedMatcher(reversedContent, targetLanguage);
+            LoadedTargetFromCache = cachedTargetMatcher != null;
         }
 
         public List<KeyValuePair<string, string>> FindDialogueMatches(

@@ -275,7 +275,8 @@
     <sys:String x:Key="TextSearch_NoMatch" xmlns:sys="clr-namespace:System;assembly=mscorlib">No match</sys:String>
     <sys:String x:Key="TextSearch_SelectSettings" xmlns:sys="clr-namespace:System;assembly=mscorlib">Choose a game and both languages before searching.</sys:String>
     <sys:String x:Key="TextSearch_EnterText" xmlns:sys="clr-namespace:System;assembly=mscorlib">Enter at least one line of text to search.</sys:String>
-    <sys:String x:Key="TextSearch_Loading" xmlns:sys="clr-namespace:System;assembly=mscorlib">Loading local text maps and searching…</sys:String>
+    <sys:String x:Key="TextSearch_Loading" xmlns:sys="clr-namespace:System;assembly=mscorlib">Loading local search indexes…</sys:String>
+    <sys:String x:Key="TextSearch_Searching" xmlns:sys="clr-namespace:System;assembly=mscorlib">Searching…</sys:String>
     <sys:String x:Key="TextSearch_MissingMap" xmlns:sys="clr-namespace:System;assembly=mscorlib">The selected language map is missing: {0}. Download the required language packs from Settings.</sys:String>
     <sys:String x:Key="TextSearch_Failed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Search failed: {0}</sys:String>
     <sys:String x:Key="TextSearch_ResultSummary" xmlns:sys="clr-namespace:System;assembly=mscorlib">Found {0} dialogue matches for {1} of {2} input lines.</sys:String>
