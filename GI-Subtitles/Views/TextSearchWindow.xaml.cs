@@ -55,7 +55,7 @@ namespace GI_Subtitles.Views
             "GI-Subtitles",
             SearchHistoryFileName);
         private string _matcherKey;
-        private OptimizedMatcher _matcher;
+        private BilingualTextSearchMatcher _matcher;
         private bool _updatingLanguageSelectors;
         private bool _historyPersistenceAvailable = true;
 
@@ -152,7 +152,7 @@ namespace GI_Subtitles.Views
 
             try
             {
-                OptimizedMatcher matcher = _matcherKey == matcherKey && _matcher != null
+                BilingualTextSearchMatcher matcher = _matcherKey == matcherKey && _matcher != null
                     ? _matcher
                     : await Task.Run(() => _lookup.LoadMatcher(game, sourceLanguage, targetLanguage));
 
@@ -439,6 +439,10 @@ namespace GI_Subtitles.Views
         {
             _matcher = null;
             _matcherKey = null;
+            SourceTextColumn.Header = (SourceLanguageSelector.SelectedItem as LanguageOption)?.Display
+                ?? FindResource("TextSearch_ColumnMatch");
+            TargetTextColumn.Header = (TargetLanguageSelector.SelectedItem as LanguageOption)?.Display
+                ?? FindResource("TextSearch_ColumnTranslation");
             Results.Clear();
             UpdateEmptyState();
             StatusText.Text = string.Empty;

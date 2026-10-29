@@ -20,7 +20,7 @@ namespace GI_Subtitles.Services.Translation
             _dataDirectory = dataDirectory;
         }
 
-        public OptimizedMatcher LoadMatcher(string game, string sourceLanguage, string targetLanguage)
+        public BilingualTextSearchMatcher LoadMatcher(string game, string sourceLanguage, string targetLanguage)
         {
             if (string.IsNullOrWhiteSpace(game) ||
                 string.IsNullOrWhiteSpace(sourceLanguage) ||
@@ -46,13 +46,14 @@ namespace GI_Subtitles.Services.Translation
                 $"TextMap{sourceLanguage}_TextMap{targetLanguage}.json");
             string userName = targetLanguage == "CHS" ? "旅行者" : "Traveler";
 
-            return MatchDataLoader.Load(
+            OptimizedMatcher sourceMatcher = MatchDataLoader.Load(
                 inputFilePath,
                 outputFilePath,
                 contentJsonPath,
                 sourceLanguage,
                 userName,
                 renew: false).Matcher;
+            return new BilingualTextSearchMatcher(sourceMatcher, targetLanguage);
         }
     }
 }

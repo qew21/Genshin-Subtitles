@@ -143,6 +143,7 @@
     <Compile Include="TestWutheringTextMapSource.cs" />
     <Compile Include="TestOptimizedMatcherCache.cs" />
     <Compile Include="TestOptimizedMatcherMultilineFallback.cs" />
+    <Compile Include="TestBilingualTextSearchMatcher.cs" />
     <Compile Include="TestUpdateChecker.cs" />
     <Compile Include="TestContent.cs" />
     <Compile Include="TestVideo.cs" />

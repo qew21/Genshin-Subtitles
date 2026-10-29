@@ -261,9 +261,9 @@
                                                     ElementStyle="{StaticResource WrappedResultText}"/>
                                 <DataGridTextColumn Header="{DynamicResource TextSearch_ColumnInput}" Binding="{Binding Input}" Width="0.75*"
                                                     ElementStyle="{StaticResource WrappedResultText}"/>
-                                <DataGridTextColumn Header="{DynamicResource TextSearch_ColumnMatch}" Binding="{Binding MatchedText}" Width="1.5*"
+                                <DataGridTextColumn x:Name="SourceTextColumn" Header="{DynamicResource TextSearch_ColumnMatch}" Binding="{Binding MatchedText}" Width="1.5*"
                                                     ElementStyle="{StaticResource WrappedResultText}"/>
-                                <DataGridTextColumn Header="{DynamicResource TextSearch_ColumnTranslation}" Binding="{Binding Translation}" Width="1.25*"
+                                <DataGridTextColumn x:Name="TargetTextColumn" Header="{DynamicResource TextSearch_ColumnTranslation}" Binding="{Binding Translation}" Width="1.25*"
                                                     ElementStyle="{StaticResource WrappedResultText}"/>
                             </DataGrid.Columns>
                         </DataGrid>
