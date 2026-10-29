@@ -305,6 +305,121 @@ namespace GI_Subtitles.Services.Translation
             return "";
         }
 
+        /// <summary>
+        /// Finds complete text-map lines containing the query. This is intended for
+        /// user text search, where returning a short subtitle/OCR fragment is misleading.
+        /// </summary>
+        public List<KeyValuePair<string, string>> FindDialogueMatches(
+            string input,
+            int maxResults,
+            out bool hasMore)
+        {
+            hasMore = false;
+            if (string.IsNullOrWhiteSpace(input) || maxResults <= 0)
+            {
+                return new List<KeyValuePair<string, string>>();
+            }
+
+            string normalizedInput = NormalizeInput(input, isEng);
+            if (normalizedInput.Length == 0)
+            {
+                return new List<KeyValuePair<string, string>>();
+            }
+
+            // Queries shorter than an indexed gram still need substring lookup.
+            // Enumerate entries directly instead of allocating a full candidate set.
+            IEnumerable<int> candidates = normalizedInput.Length < _ngramSize
+                ? Enumerable.Range(0, _entries.Length)
+                : FindDialogueCandidates(normalizedInput);
+            int minimumDialogueLength = isEng ? 12 : 6;
+            var comparer = Comparer<int>.Create((left, right) =>
+            {
+                ref readonly Entry leftEntry = ref _entries[left];
+                ref readonly Entry rightEntry = ref _entries[right];
+                bool leftExact = string.Equals(leftEntry.NormalizedKey, normalizedInput, StringComparison.Ordinal);
+                bool rightExact = string.Equals(rightEntry.NormalizedKey, normalizedInput, StringComparison.Ordinal);
+
+                if (leftExact != rightExact) return leftExact ? -1 : 1;
+                int lengthOrder = leftEntry.Length.CompareTo(rightEntry.Length);
+                return lengthOrder != 0
+                    ? lengthOrder
+                    : StringComparer.Ordinal.Compare(leftEntry.OriginalKey, rightEntry.OriginalKey);
+            });
+            var matches = new SortedSet<int>(comparer);
+            foreach (int id in candidates)
+            {
+                ref readonly Entry entry = ref _entries[id];
+                if (entry.NormalizedKey.IndexOf(normalizedInput, StringComparison.Ordinal) < 0 ||
+                    (entry.Length < minimumDialogueLength && !HasSentencePunctuation(entry.OriginalKey)))
+                {
+                    continue;
+                }
+
+                // Keep only the best results, even when a short query matches a
+                // large part of the map. Exact matches retain their first position.
+                if (matches.Count == maxResults)
+                {
+                    hasMore = true;
+                    if (comparer.Compare(id, matches.Max) >= 0) continue;
+                    matches.Remove(matches.Max);
+                }
+                matches.Add(id);
+            }
+
+            var results = new List<KeyValuePair<string, string>>(matches.Count);
+            foreach (int id in matches)
+            {
+                Entry entry = _entries[id];
+                results.Add(new KeyValuePair<string, string>(entry.OriginalKey, entry.Value));
+            }
+            return results;
+        }
+
+        private HashSet<int> FindDialogueCandidates(string normalizedInput)
+        {
+            var candidates = new HashSet<int>();
+            const int maxCandidatesPerGram = 2000;
+            bool foundRareGram = false;
+            int step = normalizedInput.Length > 50 ? 2 : 1;
+
+            for (int i = 0; i <= normalizedInput.Length - _ngramSize; i += step)
+            {
+                long hash = GetNgramHash(normalizedInput, i, _ngramSize);
+                if (!_ngramIndex.TryGetValue(hash, out List<int> ids) || ids.Count > maxCandidatesPerGram)
+                {
+                    continue;
+                }
+
+                foundRareGram = true;
+                foreach (int id in ids)
+                {
+                    candidates.Add(id);
+                }
+            }
+
+            if (!foundRareGram)
+            {
+                for (int i = 0; i <= normalizedInput.Length - _ngramSize; i += step)
+                {
+                    long hash = GetNgramHash(normalizedInput, i, _ngramSize);
+                    if (_ngramIndex.TryGetValue(hash, out List<int> ids))
+                    {
+                        foreach (int id in ids)
+                        {
+                            candidates.Add(id);
+                        }
+                    }
+                }
+            }
+
+            return candidates;
+        }
+
+        private static bool HasSentencePunctuation(string text)
+        {
+            return text.IndexOfAny(new[] { '.', '!', '?', '。', '！', '？', '…', '｡', '؟' }) >= 0;
+        }
+
         private static int CalculateLevenshteinDistance(ReadOnlySpan<char> source, ReadOnlySpan<char> target, int threshold)
         {
             int sourceLen = source.Length;

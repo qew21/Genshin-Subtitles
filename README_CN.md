@@ -16,10 +16,11 @@
 2. **文本匹配**: 采用优化后的 n-gram 索引 + Levenshtein 距离算法匹配现有语言包
 3. **翻译展示**: 根据匹配结果找到目标语言文本并展示
 
-## 示例
-https://www.bilibili.com/video/BV1qxtjeME7e/
+## 程序演示
 
-![语言包管理](images/textMap.JPG)
+截图展示了程序识别《原神》中的中文对话，并在原文旁显示对应的英文译文。
+
+![原神游戏中的中英双语字幕演示](images/demo.png)
 
 ## 核心特性
 
@@ -47,22 +48,6 @@ https://www.bilibili.com/video/BV1qxtjeME7e/
 - 本地 AI 配音文件加载
 - 在线配音接口支持
 - 空白文本自动跳过配音
-
-## 更新日志
-
-**1.6.3** (当前版本)
-1. ✅ 升级 OCR 模型至 PP-OCRv4 mobile 版本（检测 + 识别）
-2. ✅ 新增 OptimizedMatcher，性能提升 10 倍以上
-3. ✅ 增加视频字幕录入功能（VideoProcessor）
-4. ✅ 增加帧检测，优化 OCR 触发时机
-5. ✅ 避免空白文本触发配音
-6. ✅ 支持崩坏：星穹铁道和崩坏 3
-7. ✅ 完整的 CI/CD 测试覆盖（8 个单元测试）
-
-**1.6.0**
-- 首次发布 OptimizedMatcher
-- 增加视频字幕提取功能
-- 帧检测优化
 
 ## 快捷键
 

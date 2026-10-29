@@ -8,6 +8,12 @@
 
 Genshin-Subtitles is an OCR-based application that provides real-time multi-language subtitles for games such as Genshin Impact and Honkai: Star Rail. It captures game text using optical character recognition technology, matches it against known text databases, and displays translated subtitles in a configurable overlay.
 
+## Demo
+
+The screenshot shows the application recognizing Chinese dialogue in Genshin Impact and displaying its English translation alongside the original text.
+
+![Genshin-Subtitles displaying Chinese and English subtitles in Genshin Impact](images/demo.png)
+
 ### Core Functionality
 
 Genshin-Subtitles enables players to:
@@ -78,22 +84,6 @@ Genshin-Subtitles enables players to:
 - Local AI voice file loading
 - Online voice synthesis API support
 - Automatically skips blank text
-
-## Version History
-
-### 1.6.3 (Current)
-✅ Upgraded OCR models to PP-OCRv4 mobile (detection + recognition)  
-✅ New OptimizedMatcher with 10x+ performance improvement  
-✅ Video subtitle extraction feature (VideoProcessor)  
-✅ Frame detection for optimized OCR triggering  
-✅ Skip voice synthesis for blank text  
-✅ Support for Honkai: Star Rail and Honkai Impact 3rd  
-✅ Full CI/CD test coverage (8 unit tests)  
-
-### 1.6.0
-- Initial release with OptimizedMatcher
-- Video processor for subtitle extraction
-- Frame detection optimization
 
 ## Hotkeys
 

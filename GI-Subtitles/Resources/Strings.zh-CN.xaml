@@ -1,4 +1,4 @@
-﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <sys:String x:Key="Tab_Language" xmlns:sys="clr-namespace:System;assembly=mscorlib">语言包管理</sys:String>
     <sys:String x:Key="Tab_Hotkeys" xmlns:sys="clr-namespace:System;assembly=mscorlib">快捷键设置</sys:String>
@@ -38,7 +38,7 @@
     <sys:String x:Key="Btn_Language" xmlns:sys="clr-namespace:System;assembly=mscorlib">OCR</sys:String>
     <sys:String x:Key="Btn_Convert" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕</sys:String>
     <sys:String x:Key="Btn_Video" xmlns:sys="clr-namespace:System;assembly=mscorlib">视频</sys:String>
-    <sys:String x:Key="Btn_Region" xmlns:sys="clr-namespace:System;assembly=mscorlib">区域</sys:String>
+    <sys:String x:Key="Btn_Region" xmlns:sys="clr-namespace:System;assembly=mscorlib">测试识别</sys:String>
     <sys:String x:Key="Btn_Save" xmlns:sys="clr-namespace:System;assembly=mscorlib">保存</sys:String>
     <sys:String x:Key="Btn_ResetDefault" xmlns:sys="clr-namespace:System;assembly=mscorlib">恢复默认</sys:String>
 
@@ -52,7 +52,7 @@
     <sys:String x:Key="Help_Language" xmlns:sys="clr-namespace:System;assembly=mscorlib">测试 OCR 识别功能，基于已有截图。</sys:String>
     <sys:String x:Key="Help_Convert" xmlns:sys="clr-namespace:System;assembly=mscorlib">用于转换srt字幕文件，请放置于srt文件夹中。</sys:String>
     <sys:String x:Key="Help_Video" xmlns:sys="clr-namespace:System;assembly=mscorlib">用于从视频生成srt字幕文件。</sys:String>
-    <sys:String x:Key="Help_Region" xmlns:sys="clr-namespace:System;assembly=mscorlib">测试当前所有屏幕的识别结果，存储到日志。</sys:String>
+    <sys:String x:Key="Help_Region" xmlns:sys="clr-namespace:System;assembly=mscorlib">对当前所有屏幕执行一次 OCR，并将识别结果写入日志。</sys:String>
     <sys:String x:Key="Help_Folder" xmlns:sys="clr-namespace:System;assembly=mscorlib">打开程序文件夹</sys:String>
     <sys:String x:Key="Github_Url_Label" xmlns:sys="clr-namespace:System;assembly=mscorlib">仓库地址</sys:String>
 
@@ -256,4 +256,40 @@
     <sys:String x:Key="SubtitleColor_SaveFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">保存字幕颜色失败：{0}</sys:String>
     <sys:String x:Key="SubtitleColor_InvalidSaved" xmlns:sys="clr-namespace:System;assembly=mscorlib">保存的字幕颜色“{0}”无效，已恢复为白色。你可以在设置中重新选择颜色。</sys:String>
     <sys:String x:Key="SubtitleColor_InvalidSavedTitle" xmlns:sys="clr-namespace:System;assembly=mscorlib">已重置字幕颜色</sys:String>
+
+    <!-- Text Search -->
+    <sys:String x:Key="Btn_TextSearch" xmlns:sys="clr-namespace:System;assembly=mscorlib">文本搜索</sys:String>
+    <sys:String x:Key="TextSearch_Title" xmlns:sys="clr-namespace:System;assembly=mscorlib">文本搜索</sys:String>
+    <sys:String x:Key="TextSearch_Description" xmlns:sys="clr-namespace:System;assembly=mscorlib">使用所选任一语言，在本机游戏文本表中查找双语对话。</sys:String>
+    <sys:String x:Key="TextSearch_Game" xmlns:sys="clr-namespace:System;assembly=mscorlib">游戏</sys:String>
+    <sys:String x:Key="TextSearch_SourceLanguage" xmlns:sys="clr-namespace:System;assembly=mscorlib">输入语言</sys:String>
+    <sys:String x:Key="TextSearch_TargetLanguage" xmlns:sys="clr-namespace:System;assembly=mscorlib">目标语言</sys:String>
+    <sys:String x:Key="TextSearch_Search" xmlns:sys="clr-namespace:System;assembly=mscorlib">搜索</sys:String>
+    <sys:String x:Key="TextSearch_Input" xmlns:sys="clr-namespace:System;assembly=mscorlib">待搜索文本</sys:String>
+    <sys:String x:Key="TextSearch_Clear" xmlns:sys="clr-namespace:System;assembly=mscorlib">清空</sys:String>
+    <sys:String x:Key="TextSearch_InputPlaceholder" xmlns:sys="clr-namespace:System;assembly=mscorlib">输入或粘贴所选任一语言的文本……</sys:String>
+    <sys:String x:Key="TextSearch_MultilineMode" xmlns:sys="clr-namespace:System;assembly=mscorlib">换行模式</sys:String>
+    <sys:String x:Key="TextSearch_MultilineModeHint" xmlns:sys="clr-namespace:System;assembly=mscorlib">默认回车搜索；勾选后回车换行，Ctrl+Enter 搜索。</sys:String>
+    <sys:String x:Key="TextSearch_EnterHint" xmlns:sys="clr-namespace:System;assembly=mscorlib">回车搜索；各行分别匹配所选两种语言，空行忽略。</sys:String>
+    <sys:String x:Key="TextSearch_MultilineEnterHint" xmlns:sys="clr-namespace:System;assembly=mscorlib">回车换行，Ctrl+Enter 搜索；各行分别匹配，空行忽略。</sys:String>
+    <sys:String x:Key="TextSearch_HistoryLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">历史</sys:String>
+    <sys:String x:Key="TextSearch_History" xmlns:sys="clr-namespace:System;assembly=mscorlib">最近搜索记录及上次搜索时间</sys:String>
+    <sys:String x:Key="TextSearch_HistoryLoadFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">无法读取搜索历史：{0}（{1}）。原文件已保留。</sys:String>
+    <sys:String x:Key="TextSearch_HistorySaveFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">搜索已完成，但无法保存历史记录：{0}</sys:String>
+    <sys:String x:Key="TextSearch_Results" xmlns:sys="clr-namespace:System;assembly=mscorlib">搜索结果</sys:String>
+    <sys:String x:Key="TextSearch_ColumnLine" xmlns:sys="clr-namespace:System;assembly=mscorlib">行</sys:String>
+    <sys:String x:Key="TextSearch_ColumnInput" xmlns:sys="clr-namespace:System;assembly=mscorlib">搜索文本</sys:String>
+    <sys:String x:Key="TextSearch_ColumnMatch" xmlns:sys="clr-namespace:System;assembly=mscorlib">匹配对话</sys:String>
+    <sys:String x:Key="TextSearch_ColumnTranslation" xmlns:sys="clr-namespace:System;assembly=mscorlib">译文</sys:String>
+    <sys:String x:Key="TextSearch_EmptyTitle" xmlns:sys="clr-namespace:System;assembly=mscorlib">搜索结果会显示在这里</sys:String>
+    <sys:String x:Key="TextSearch_EmptyDescription" xmlns:sys="clr-namespace:System;assembly=mscorlib">选择游戏和语言，输入一行或多行文本，然后开始搜索。</sys:String>
+    <sys:String x:Key="TextSearch_NoMatch" xmlns:sys="clr-namespace:System;assembly=mscorlib">没有匹配项</sys:String>
+    <sys:String x:Key="TextSearch_SelectSettings" xmlns:sys="clr-namespace:System;assembly=mscorlib">请先选择游戏、输入语言和目标语言。</sys:String>
+    <sys:String x:Key="TextSearch_EnterText" xmlns:sys="clr-namespace:System;assembly=mscorlib">请至少输入一行待搜索文本。</sys:String>
+    <sys:String x:Key="TextSearch_Loading" xmlns:sys="clr-namespace:System;assembly=mscorlib">正在加载本地搜索索引……</sys:String>
+    <sys:String x:Key="TextSearch_Searching" xmlns:sys="clr-namespace:System;assembly=mscorlib">正在搜索……</sys:String>
+    <sys:String x:Key="TextSearch_MissingMap" xmlns:sys="clr-namespace:System;assembly=mscorlib">缺少所选语言文本表：{0}。请前往设置下载所需语言包。</sys:String>
+    <sys:String x:Key="TextSearch_Failed" xmlns:sys="clr-namespace:System;assembly=mscorlib">搜索失败：{0}</sys:String>
+    <sys:String x:Key="TextSearch_ResultSummary" xmlns:sys="clr-namespace:System;assembly=mscorlib">找到 {0} 条对话，覆盖 {1}/{2} 行搜索文本。</sys:String>
+    <sys:String x:Key="TextSearch_ResultSummaryLimited" xmlns:sys="clr-namespace:System;assembly=mscorlib">显示 {0} 条对话（覆盖 {1}/{2} 行），每行最多显示 {3} 条结果。</sys:String>
 </ResourceDictionary>
