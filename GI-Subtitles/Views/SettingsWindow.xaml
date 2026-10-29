@@ -589,9 +589,9 @@
                             <Button x:Name="ConvertButton" Style="{StaticResource PrimaryButton}"
                                     Content="{DynamicResource Btn_Convert}" Click="ConvertButton_Click"
                                     ToolTip="{DynamicResource Help_Convert}"/>
-                            <Button x:Name="RegionButton" Style="{StaticResource PrimaryButton}"
-                                    Content="{DynamicResource Btn_Region}" Click="RegionButton_Click"
-                                    ToolTip="{DynamicResource Help_Region}"/>
+                            <Button x:Name="TextSearchButton" Style="{StaticResource PrimaryButton}"
+                                    Content="{DynamicResource Btn_TextSearch}" Click="TextSearch_Click"
+                                    ToolTip="{DynamicResource TextSearch_Description}"/>
                         </WrapPanel>
                     </Grid>
                 </ScrollViewer>
@@ -638,7 +638,7 @@
             <!-- Tab 3: Region pairs -->
             <TabItem Header="{DynamicResource Tab_RegionPairs}">
                 <DockPanel Margin="18">
-                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,14">
+                    <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,14">
                         <Button x:Name="AddRegionPairButton"
                                 Content="{DynamicResource Btn_AddRegionPair}"
                                 Style="{StaticResource PrimaryButton}"
@@ -646,7 +646,10 @@
                         <Button Content="{DynamicResource Btn_PreviewAll}"
                                  Style="{StaticResource PrimaryButton}"
                                  Click="PreviewAll_Click"/>
-                    </StackPanel>
+                        <Button x:Name="RegionButton" Style="{StaticResource PrimaryButton}"
+                                Content="{DynamicResource Btn_Region}" Click="RegionButton_Click"
+                                ToolTip="{DynamicResource Help_Region}"/>
+                    </WrapPanel>
                     <Border x:Name="RegionPairMigrationNotice"
                             DockPanel.Dock="Top"
                             Background="{StaticResource WarningSoftBrush}"
@@ -827,7 +830,6 @@
                             <Button Content="{DynamicResource Btn_ActivityLog}" Margin="0,0,8,0" Click="OpenActivityLog_Click"/>
                             <Button Content="{DynamicResource Btn_SubtitleFont}" Margin="0,0,8,0" Click="FontPreview_Click"/>
                             <Button Content="{DynamicResource Btn_SubtitleColor}" Margin="0,0,8,0" Click="SubtitleColor_Click"/>
-                            <Button Content="{DynamicResource Btn_TextSearch}" Click="TextSearch_Click"/>
                         </WrapPanel>
                     </Border>
 
