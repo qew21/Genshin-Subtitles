@@ -159,6 +159,33 @@
     <sys:String x:Key="Debug_MinimizeTooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Minimize debug panel</sys:String>
     <sys:String x:Key="Debug_RestoreTooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Restore debug panel</sys:String>
     <sys:String x:Key="Debug_SettingsTooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Open other settings</sys:String>
+    <sys:String x:Key="Debug_ProcessResourcesInitializing" xmlns:sys="clr-namespace:System;assembly=mscorlib">CPU -- | Memory --</sys:String>
+    <sys:String x:Key="Debug_TrayMenuOpen" xmlns:sys="clr-namespace:System;assembly=mscorlib">Paused while tray menu is open</sys:String>
+    <sys:String x:Key="Debug_OcrBusy" xmlns:sys="clr-namespace:System;assembly=mscorlib">OCR busy; sampling will resume</sys:String>
+    <sys:String x:Key="Debug_SamplingBusy" xmlns:sys="clr-namespace:System;assembly=mscorlib">Sampling busy; will retry</sys:String>
+    <sys:String x:Key="Debug_CaptureFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Capture failed; check the log</sys:String>
+    <sys:String x:Key="Debug_SettingsChanged" xmlns:sys="clr-namespace:System;assembly=mscorlib">Settings changed; old result ignored</sys:String>
+    <sys:String x:Key="Debug_NoReadableFrame" xmlns:sys="clr-namespace:System;assembly=mscorlib">No readable frame yet</sys:String>
+    <sys:String x:Key="Debug_FrameChangedOcr" xmlns:sys="clr-namespace:System;assembly=mscorlib">Frame changed; running OCR</sys:String>
+    <sys:String x:Key="Debug_FrameStateUnavailable" xmlns:sys="clr-namespace:System;assembly=mscorlib">Frame state unavailable</sys:String>
+    <sys:String x:Key="Debug_RegionFormat" xmlns:sys="clr-namespace:System;assembly=mscorlib">Region {0}</sys:String>
+    <sys:String x:Key="Debug_FrameDecisionFormat" xmlns:sys="clr-namespace:System;assembly=mscorlib">{0}: {1}</sys:String>
+    <sys:String x:Key="Debug_FrameDecisionSeparator" xmlns:sys="clr-namespace:System;assembly=mscorlib"> · </sys:String>
+    <sys:String x:Key="Debug_Screen" xmlns:sys="clr-namespace:System;assembly=mscorlib">Screen</sys:String>
+    <sys:String x:Key="Debug_NewText" xmlns:sys="clr-namespace:System;assembly=mscorlib">New text found</sys:String>
+    <sys:String x:Key="Debug_FrameChanging" xmlns:sys="clr-namespace:System;assembly=mscorlib">Frame changing</sys:String>
+    <sys:String x:Key="Debug_NoNewContent" xmlns:sys="clr-namespace:System;assembly=mscorlib">No new content</sys:String>
+    <sys:String x:Key="Debug_ContentCleared" xmlns:sys="clr-namespace:System;assembly=mscorlib">Content cleared</sys:String>
+    <sys:String x:Key="Debug_CannotRead" xmlns:sys="clr-namespace:System;assembly=mscorlib">Cannot read yet</sys:String>
+    <sys:String x:Key="Debug_ReadFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Read failed</sys:String>
+    <sys:String x:Key="Debug_StateUnavailable" xmlns:sys="clr-namespace:System;assembly=mscorlib">State unavailable</sys:String>
+    <sys:String x:Key="Debug_OcrStartRegionFormat" xmlns:sys="clr-namespace:System;assembly=mscorlib">OCR started: region {0}</sys:String>
+    <sys:String x:Key="Debug_OcrStartScreen" xmlns:sys="clr-namespace:System;assembly=mscorlib">OCR started: screen text</sys:String>
+    <sys:String x:Key="Debug_NoTextSecondsFormat" xmlns:sys="clr-namespace:System;assembly=mscorlib">No text · {0:F1}s</sys:String>
+    <sys:String x:Key="Debug_TextReadSecondsFormat" xmlns:sys="clr-namespace:System;assembly=mscorlib">Text read · {0:F1}s</sys:String>
+    <sys:String x:Key="Debug_ResultNoUpdate" xmlns:sys="clr-namespace:System;assembly=mscorlib">OCR done; subtitle unchanged</sys:String>
+    <sys:String x:Key="Debug_SubtitleUpdated" xmlns:sys="clr-namespace:System;assembly=mscorlib">Subtitle updated</sys:String>
+    <sys:String x:Key="Debug_NoMatchingSubtitle" xmlns:sys="clr-namespace:System;assembly=mscorlib">No matching subtitle</sys:String>
     <sys:String x:Key="Config_RecognizeDarkScreenSubtitles" xmlns:sys="clr-namespace:System;assembly=mscorlib">Recognize dark-screen subtitles</sys:String>
     <sys:String x:Key="Config_RecognizeDarkScreenSubtitles_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Detects the central subtitle band on a mostly-dark cutscene and shows the translation. This is not a region pair.</sys:String>
     <sys:String x:Key="Config_RecognizeDialogueOptions" xmlns:sys="clr-namespace:System;assembly=mscorlib">Recognize dialogue choices</sys:String>

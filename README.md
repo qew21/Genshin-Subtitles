@@ -12,7 +12,7 @@ Genshin-Subtitles is an OCR-based application that provides real-time multi-lang
 
 The screenshot shows the application recognizing Chinese dialogue in Genshin Impact and displaying its English translation alongside the original text.
 
-![Genshin-Subtitles displaying Chinese and English subtitles in Genshin Impact](images/demo.png)
+![Genshin-Subtitles displaying Chinese and English subtitles in Genshin Impact](images/demo.jpg)
 
 ### Core Functionality
 

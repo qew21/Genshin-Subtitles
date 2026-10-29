@@ -1445,7 +1445,7 @@ namespace GI_Subtitles.Views
                     int skipped = Interlocked.Increment(ref _samplingTicksSkippedMenu);
                     if (skipped == 1)
                     {
-                        AddDebugSamplingOverlayEntry("托盘菜单打开，暂时停止读取画面");
+                        AddDebugSamplingOverlayEntry(GetDebugSamplingText("Debug_TrayMenuOpen"));
                     }
                 }
                 return;
@@ -1456,7 +1456,7 @@ namespace GI_Subtitles.Views
                 if (ShouldCollectSamplingDiagnostics)
                 {
                     Interlocked.Increment(ref _samplingTicksSkippedOcrBusy);
-                    AddDebugSamplingOverlayEntry("正在识别文字，稍后继续读取");
+                    AddDebugSamplingOverlayEntry(GetDebugSamplingText("Debug_OcrBusy"));
                 }
                 return;
             }
@@ -1466,7 +1466,7 @@ namespace GI_Subtitles.Views
                 if (ShouldCollectSamplingDiagnostics)
                 {
                     Interlocked.Increment(ref _samplingTicksSkippedSamplerBusy);
-                    AddDebugSamplingOverlayEntry("正在读取画面，稍后继续");
+                    AddDebugSamplingOverlayEntry(GetDebugSamplingText("Debug_SamplingBusy"));
                 }
                 return;
             }
@@ -1785,8 +1785,7 @@ namespace GI_Subtitles.Views
                     Logger.Log.Error($"OCR frame sampling failed: {failure}");
                     if (ShouldCollectSamplingDiagnostics)
                     {
-                        AddDebugSamplingOverlayEntry(
-                            "画面读取失败，请查看日志");
+                        AddDebugSamplingOverlayEntry(GetDebugSamplingText("Debug_CaptureFailed"));
                     }
                     return;
                 }
@@ -1796,8 +1795,7 @@ namespace GI_Subtitles.Views
                 {
                     if (ShouldCollectSamplingDiagnostics)
                     {
-                        AddDebugSamplingOverlayEntry(
-                            "识别设置已变化，忽略旧结果");
+                        AddDebugSamplingOverlayEntry(GetDebugSamplingText("Debug_SettingsChanged"));
                     }
                     return;
                 }
@@ -1920,24 +1918,26 @@ namespace GI_Subtitles.Views
         {
             bool ocrPending = _overlaySession.BusyOcrSlot.HasValue || _overlaySession.OcrQueue.Count > 0;
             string frameDecisions = batch.PairFrameDecisions.Count == 0
-                ? "暂时没有可读取的画面"
-                : string.Join("；", batch.PairFrameDecisions.Select(FormatFrameDecisionForOverlay));
+                ? GetDebugSamplingText("Debug_NoReadableFrame")
+                : string.Join(
+                    GetDebugSamplingText("Debug_FrameDecisionSeparator"),
+                    batch.PairFrameDecisions.Select(FormatFrameDecisionForOverlay));
 
             if (ocrPending)
             {
-                AddDebugSamplingOverlayEntry("画面有变化，正在识别文字");
+                AddDebugSamplingOverlayEntry(GetDebugSamplingText("Debug_FrameChangedOcr"));
                 return;
             }
 
             AddDebugSamplingOverlayEntry(frameDecisions);
         }
 
-        private static string FormatFrameDecisionForOverlay(string value)
+        private string FormatFrameDecisionForOverlay(string value)
         {
             int separator = value?.IndexOf(':') ?? -1;
             if (separator < 0)
             {
-                return "画面状态暂不可用";
+                return GetDebugSamplingText("Debug_FrameStateUnavailable");
             }
 
             string source = value.Substring(0, separator);
@@ -1946,39 +1946,47 @@ namespace GI_Subtitles.Views
             {
                 int.TryParse(source.Substring(4), out pairIndex);
             }
-            string region = pairIndex >= 0 ? $"区域{pairIndex + 1}" : "画面";
+            string region = pairIndex >= 0
+                ? GetDebugSamplingText("Debug_RegionFormat", pairIndex + 1)
+                : GetDebugSamplingText("Debug_Screen");
             string decision = value.Substring(separator + 1);
             string description;
             if (decision == "queue-ocr")
             {
-                description = "发现新文字";
+                description = GetDebugSamplingText("Debug_NewText");
             }
             else if (decision == "wait-stable")
             {
-                description = "画面变化中";
+                description = GetDebugSamplingText("Debug_FrameChanging");
             }
             else if (decision == "unchanged")
             {
-                description = "没有新内容";
+                description = GetDebugSamplingText("Debug_NoNewContent");
             }
             else if (decision == "clear-empty")
             {
-                description = "内容已清除";
+                description = GetDebugSamplingText("Debug_ContentCleared");
             }
             else if (decision == "no-frame")
             {
-                description = "暂时无法读取";
+                description = GetDebugSamplingText("Debug_CannotRead");
             }
             else if (decision.StartsWith("capture-error", StringComparison.Ordinal))
             {
-                description = "读取失败";
+                description = GetDebugSamplingText("Debug_ReadFailed");
             }
             else
             {
-                description = "状态暂不可用";
+                description = GetDebugSamplingText("Debug_StateUnavailable");
             }
 
-            return $"{region}{description}";
+            return GetDebugSamplingText("Debug_FrameDecisionFormat", region, description);
+        }
+
+        private string GetDebugSamplingText(string key, params object[] args)
+        {
+            string format = (string)FindResource(key);
+            return string.Format(System.Globalization.CultureInfo.CurrentUICulture, format, args);
         }
 
         private void AddDebugSamplingOverlayEntry(string message)
@@ -3889,8 +3897,8 @@ namespace GI_Subtitles.Views
                         $"queueCount={_overlaySession.OcrQueue.Count}, matcherReady={data?.Matcher != null}");
                 }
                 string startMessage = pairIndex.HasValue
-                    ? $"开始识别区域{pairIndex.Value + 1}"
-                    : "开始识别画面文字";
+                    ? GetDebugSamplingText("Debug_OcrStartRegionFormat", pairIndex.Value + 1)
+                    : GetDebugSamplingText("Debug_OcrStartScreen");
                 AddDebugSamplingOverlayEntry(startMessage);
             }
             if (debug && pairIndex.HasValue)
@@ -4042,9 +4050,11 @@ namespace GI_Subtitles.Views
                     double workerElapsedMs =
                         (workerCompletedTimestamp - ocrStartedTimestamp) * 1000.0 / Stopwatch.Frequency;
                     AddDebugSamplingOverlayEntry(
-                        string.IsNullOrWhiteSpace(recognizedText)
-                            ? $"没有读到文字 · {workerElapsedMs / 1000.0:F1}秒"
-                            : $"已读到文字 · {workerElapsedMs / 1000.0:F1}秒");
+                        GetDebugSamplingText(
+                            string.IsNullOrWhiteSpace(recognizedText)
+                                ? "Debug_NoTextSecondsFormat"
+                                : "Debug_TextReadSecondsFormat",
+                            workerElapsedMs / 1000.0));
                     if (debug)
                     {
                         double workerToContinuationMs =
@@ -4111,10 +4121,10 @@ namespace GI_Subtitles.Views
                         if (ShouldCollectSamplingDiagnostics)
                         {
                             string resultMessage = !applyCompleted
-                                ? "识别完成，字幕没有更新"
+                                ? GetDebugSamplingText("Debug_ResultNoUpdate")
                                 : subtitleMatched
-                                    ? "字幕已更新"
-                                    : "没有找到对应字幕";
+                                    ? GetDebugSamplingText("Debug_SubtitleUpdated")
+                                    : GetDebugSamplingText("Debug_NoMatchingSubtitle");
                             AddDebugSamplingOverlayEntry(resultMessage);
                         }
                     }

@@ -218,7 +218,7 @@
                            FontSize="12"
                            FontWeight="Bold"
                            Margin="0,0,28,5"
-                           Text="CPU -- | Memory --"/>
+                           Text="{DynamicResource Debug_ProcessResourcesInitializing}"/>
                 <ScrollViewer x:Name="DebugSamplingScrollViewer"
                               Grid.Row="1"
                               VerticalScrollBarVisibility="Hidden"

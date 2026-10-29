@@ -167,6 +167,33 @@
     <sys:String x:Key="Debug_MinimizeTooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">最小化调试区域</sys:String>
     <sys:String x:Key="Debug_RestoreTooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">展开调试区域</sys:String>
     <sys:String x:Key="Debug_SettingsTooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">打开其他设置</sys:String>
+    <sys:String x:Key="Debug_ProcessResourcesInitializing" xmlns:sys="clr-namespace:System;assembly=mscorlib">CPU -- | 内存 --</sys:String>
+    <sys:String x:Key="Debug_TrayMenuOpen" xmlns:sys="clr-namespace:System;assembly=mscorlib">托盘菜单打开，暂时停止读取画面</sys:String>
+    <sys:String x:Key="Debug_OcrBusy" xmlns:sys="clr-namespace:System;assembly=mscorlib">正在识别文字，稍后继续读取</sys:String>
+    <sys:String x:Key="Debug_SamplingBusy" xmlns:sys="clr-namespace:System;assembly=mscorlib">正在读取画面，稍后继续</sys:String>
+    <sys:String x:Key="Debug_CaptureFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">画面读取失败，请查看日志</sys:String>
+    <sys:String x:Key="Debug_SettingsChanged" xmlns:sys="clr-namespace:System;assembly=mscorlib">识别设置已变化，忽略旧结果</sys:String>
+    <sys:String x:Key="Debug_NoReadableFrame" xmlns:sys="clr-namespace:System;assembly=mscorlib">暂时没有可读取的画面</sys:String>
+    <sys:String x:Key="Debug_FrameChangedOcr" xmlns:sys="clr-namespace:System;assembly=mscorlib">画面有变化，正在识别文字</sys:String>
+    <sys:String x:Key="Debug_FrameStateUnavailable" xmlns:sys="clr-namespace:System;assembly=mscorlib">画面状态暂不可用</sys:String>
+    <sys:String x:Key="Debug_RegionFormat" xmlns:sys="clr-namespace:System;assembly=mscorlib">区域{0}</sys:String>
+    <sys:String x:Key="Debug_FrameDecisionFormat" xmlns:sys="clr-namespace:System;assembly=mscorlib">{0}{1}</sys:String>
+    <sys:String x:Key="Debug_FrameDecisionSeparator" xmlns:sys="clr-namespace:System;assembly=mscorlib">；</sys:String>
+    <sys:String x:Key="Debug_Screen" xmlns:sys="clr-namespace:System;assembly=mscorlib">画面</sys:String>
+    <sys:String x:Key="Debug_NewText" xmlns:sys="clr-namespace:System;assembly=mscorlib">发现新文字</sys:String>
+    <sys:String x:Key="Debug_FrameChanging" xmlns:sys="clr-namespace:System;assembly=mscorlib">画面变化中</sys:String>
+    <sys:String x:Key="Debug_NoNewContent" xmlns:sys="clr-namespace:System;assembly=mscorlib">没有新内容</sys:String>
+    <sys:String x:Key="Debug_ContentCleared" xmlns:sys="clr-namespace:System;assembly=mscorlib">内容已清除</sys:String>
+    <sys:String x:Key="Debug_CannotRead" xmlns:sys="clr-namespace:System;assembly=mscorlib">暂时无法读取</sys:String>
+    <sys:String x:Key="Debug_ReadFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">读取失败</sys:String>
+    <sys:String x:Key="Debug_StateUnavailable" xmlns:sys="clr-namespace:System;assembly=mscorlib">状态暂不可用</sys:String>
+    <sys:String x:Key="Debug_OcrStartRegionFormat" xmlns:sys="clr-namespace:System;assembly=mscorlib">开始识别区域{0}</sys:String>
+    <sys:String x:Key="Debug_OcrStartScreen" xmlns:sys="clr-namespace:System;assembly=mscorlib">开始识别画面文字</sys:String>
+    <sys:String x:Key="Debug_NoTextSecondsFormat" xmlns:sys="clr-namespace:System;assembly=mscorlib">没有读到文字 · {0:F1}秒</sys:String>
+    <sys:String x:Key="Debug_TextReadSecondsFormat" xmlns:sys="clr-namespace:System;assembly=mscorlib">已读到文字 · {0:F1}秒</sys:String>
+    <sys:String x:Key="Debug_ResultNoUpdate" xmlns:sys="clr-namespace:System;assembly=mscorlib">识别完成，字幕没有更新</sys:String>
+    <sys:String x:Key="Debug_SubtitleUpdated" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕已更新</sys:String>
+    <sys:String x:Key="Debug_NoMatchingSubtitle" xmlns:sys="clr-namespace:System;assembly=mscorlib">没有找到对应字幕</sys:String>
     <sys:String x:Key="Config_RecognizeDarkScreenSubtitles" xmlns:sys="clr-namespace:System;assembly=mscorlib">识别暗屏字幕</sys:String>
     <sys:String x:Key="Config_RecognizeDarkScreenSubtitles_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">在暗屏过场中自动检测中央字幕带并显示翻译。不是区域对，也不占用对话选项的识别。</sys:String>
     <sys:String x:Key="Config_RecognizeDialogueOptions" xmlns:sys="clr-namespace:System;assembly=mscorlib">识别对话选项</sys:String>
