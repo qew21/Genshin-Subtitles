@@ -33,7 +33,7 @@
     <sys:String x:Key="Btn_Language" xmlns:sys="clr-namespace:System;assembly=mscorlib">OCR</sys:String>
     <sys:String x:Key="Btn_Convert" xmlns:sys="clr-namespace:System;assembly=mscorlib">SRT</sys:String>
     <sys:String x:Key="Btn_Video" xmlns:sys="clr-namespace:System;assembly=mscorlib">Video</sys:String>
-    <sys:String x:Key="Btn_Region" xmlns:sys="clr-namespace:System;assembly=mscorlib">Region</sys:String>
+    <sys:String x:Key="Btn_Region" xmlns:sys="clr-namespace:System;assembly=mscorlib">Test Recognition</sys:String>
     <sys:String x:Key="Btn_Save" xmlns:sys="clr-namespace:System;assembly=mscorlib">Save</sys:String>
     <sys:String x:Key="Btn_ResetDefault" xmlns:sys="clr-namespace:System;assembly=mscorlib">Default</sys:String>
 
@@ -45,7 +45,7 @@
     <sys:String x:Key="Help_Language" xmlns:sys="clr-namespace:System;assembly=mscorlib">Test the OCR recognition function using existing screenshots.</sys:String>
     <sys:String x:Key="Help_Convert" xmlns:sys="clr-namespace:System;assembly=mscorlib">Converting SRT Subtitle Files – Please Place in the "srt" Folder.</sys:String>
     <sys:String x:Key="Help_Video" xmlns:sys="clr-namespace:System;assembly=mscorlib">Generate subtitle file from video。</sys:String>
-    <sys:String x:Key="Help_Region" xmlns:sys="clr-namespace:System;assembly=mscorlib">Test the recognition results of all current screens and save them to the log.</sys:String>
+    <sys:String x:Key="Help_Region" xmlns:sys="clr-namespace:System;assembly=mscorlib">Run OCR once on all screens and write the recognition results to the log.</sys:String>
     <sys:String x:Key="Help_Folder" xmlns:sys="clr-namespace:System;assembly=mscorlib">Open application folder</sys:String>
     <sys:String x:Key="Github_Url_Label" xmlns:sys="clr-namespace:System;assembly=mscorlib">Github</sys:String>
 
