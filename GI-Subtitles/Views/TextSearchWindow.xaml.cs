@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -46,18 +47,13 @@ namespace GI_Subtitles.Views
             new LanguageOption("VI", "Tiếng Việt")
         };
 
-        private readonly string _dataDirectory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "GI-Subtitles");
         private readonly TextSearchLookup _lookup;
         private readonly string _noMatchText;
-        private readonly string _searchHistoryPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "GI-Subtitles",
-            SearchHistoryFileName);
+        private readonly string _searchHistoryPath;
         private bool _updatingLanguageSelectors;
         private bool _historyPersistenceAvailable = true;
         private bool _isClosed;
+        private CancellationTokenSource _searchCancellation;
 
         public ObservableCollection<TextSearchResult> Results { get; } =
             new ObservableCollection<TextSearchResult>();
@@ -65,6 +61,15 @@ namespace GI_Subtitles.Views
             new ObservableCollection<SearchHistoryEntry>();
 
         public TextSearchWindow(IEnumerable<GameMetadata> supportedGames)
+            : this(supportedGames,
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GI-Subtitles"),
+                Config.Get("UILang", "zh-CN"), Config.Get("Game", string.Empty),
+                Config.Get("Input", string.Empty), Config.Get("Output", string.Empty))
+        {
+        }
+
+        internal TextSearchWindow(IEnumerable<GameMetadata> supportedGames, string dataDirectory,
+            string uiLanguage, string game, string sourceLanguage, string targetLanguage)
         {
             if (supportedGames == null)
             {
@@ -72,34 +77,34 @@ namespace GI_Subtitles.Views
             }
 
             var games = supportedGames
-                .Where(game => game != null && !string.IsNullOrWhiteSpace(game.Name))
+                .Where(metadata => metadata != null && !string.IsNullOrWhiteSpace(metadata.Name))
                 .ToList();
             if (games.Count == 0)
             {
                 throw new ArgumentException("At least one supported game is required.", nameof(supportedGames));
             }
 
+            _lookup = new TextSearchLookup(dataDirectory);
+            _searchHistoryPath = Path.Combine(dataDirectory, SearchHistoryFileName);
             InitializeComponent();
             FitToWorkArea();
             DataContext = this;
-            _lookup = new TextSearchLookup(_dataDirectory);
             _noMatchText = FindResource("TextSearch_NoMatch") as string ?? "No match";
 
-            string uiLanguage = Config.Get("UILang", "zh-CN");
-            GameSelector.ItemsSource = games.Select(game => new GameOption
+            GameSelector.ItemsSource = games.Select(metadata => new GameOption
             {
-                Name = game.Name,
-                Display = game.DisplayNames != null && game.DisplayNames.TryGetValue(uiLanguage, out string displayName)
+                Name = metadata.Name,
+                Display = metadata.DisplayNames != null && metadata.DisplayNames.TryGetValue(uiLanguage, out string displayName)
                     ? displayName
-                    : game.Name
+                    : metadata.Name
             }).ToList();
 
             SourceLanguageSelector.ItemsSource = SourceLanguages;
             TargetLanguageSelector.ItemsSource = TargetLanguages;
 
-            GameSelector.SelectedValue = Config.Get("Game", string.Empty);
-            SourceLanguageSelector.SelectedValue = Config.Get("Input", string.Empty);
-            UpdateTargetLanguages(Config.Get("Output", string.Empty));
+            GameSelector.SelectedValue = game;
+            SourceLanguageSelector.SelectedValue = sourceLanguage;
+            UpdateTargetLanguages(targetLanguage);
             UpdateEmptyState();
             LoadSearchHistory();
         }
@@ -118,11 +123,19 @@ namespace GI_Subtitles.Views
         protected override void OnClosed(EventArgs e)
         {
             _isClosed = true;
+            _searchCancellation?.Cancel();
+            _searchCancellation = null;
             base.OnClosed(e);
         }
 
         private async void SearchButton_Click(object sender, RoutedEventArgs e)
         {
+            await SearchAsync();
+        }
+
+        internal async Task SearchAsync()
+        {
+            if (_isClosed || _searchCancellation != null) return;
             string game = GameSelector.SelectedValue as string;
             string sourceLanguage = SourceLanguageSelector.SelectedValue as string;
             string targetLanguage = TargetLanguageSelector.SelectedValue as string;
@@ -147,12 +160,10 @@ namespace GI_Subtitles.Views
                 return;
             }
 
-            SearchButton.IsEnabled = false;
-            GameSelector.IsEnabled = false;
-            SourceLanguageSelector.IsEnabled = false;
-            TargetLanguageSelector.IsEnabled = false;
-            InputTextBox.IsEnabled = false;
-            HistorySelector.IsEnabled = false;
+            var cancellation = new CancellationTokenSource();
+            CancellationToken token = cancellation.Token;
+            _searchCancellation = cancellation;
+            SetSearchBusy(true);
             try
             {
                 bool cached = _lookup.TryGetCachedMatcher(
@@ -161,9 +172,9 @@ namespace GI_Subtitles.Views
                     isError: false);
                 if (!cached)
                 {
-                    matcher = await Task.Run(() => _lookup.LoadMatcher(game, sourceLanguage, targetLanguage));
+                    matcher = await Task.Run(() => _lookup.LoadMatcher(game, sourceLanguage, targetLanguage), token);
                 }
-                if (_isClosed) return;
+                token.ThrowIfCancellationRequested();
                 SetStatus(FindResource("TextSearch_Searching") as string, isError: false);
 
                 var results = await Task.Run(() =>
@@ -172,6 +183,7 @@ namespace GI_Subtitles.Views
                     var foundResults = new List<TextSearchResult>();
                     foreach (var line in lines)
                     {
+                        token.ThrowIfCancellationRequested();
                         List<KeyValuePair<string, string>> matches = matcher.FindDialogueMatches(
                             line.Text,
                             MaxDialogueMatchesPerLine,
@@ -205,9 +217,9 @@ namespace GI_Subtitles.Views
                     }
 
                     return new SearchResults(foundResults, hasMoreMatches);
-                });
+                }, token);
 
-                if (_isClosed) return;
+                token.ThrowIfCancellationRequested();
                 Results.Clear();
                 foreach (TextSearchResult result in results.Items)
                 {
@@ -255,8 +267,13 @@ namespace GI_Subtitles.Views
                     SetStatus(string.Format(historyError, ex.Message), isError: true);
                 }
             }
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
+            {
+                // Clear/close invalidates this request, including its late errors and history.
+            }
             catch (FileNotFoundException ex)
             {
+                if (token.IsCancellationRequested || _isClosed) return;
                 string missingTemplate = FindResource("TextSearch_MissingMap") as string
                     ?? "A selected language file is missing: {0}. Download it from the Language Pack Manager.";
                 SetStatus(string.Format(missingTemplate, ex.FileName), isError: true);
@@ -265,6 +282,7 @@ namespace GI_Subtitles.Views
             }
             catch (Exception ex)
             {
+                if (token.IsCancellationRequested || _isClosed) return;
                 string errorTemplate = FindResource("TextSearch_Failed") as string
                     ?? "Search failed: {0}";
                 SetStatus(string.Format(errorTemplate, ex.Message), isError: true);
@@ -273,14 +291,25 @@ namespace GI_Subtitles.Views
             }
             finally
             {
-                SearchButton.IsEnabled = true;
-                GameSelector.IsEnabled = true;
-                SourceLanguageSelector.IsEnabled = true;
-                TargetLanguageSelector.IsEnabled = true;
-                InputTextBox.IsEnabled = true;
-                HistorySelector.IsEnabled = _historyPersistenceAvailable && SearchHistory.Count > 0;
-                if (!_isClosed && IsActive) InputTextBox.Focus();
+                // A cleared request may finish after the user starts another one.
+                if (ReferenceEquals(_searchCancellation, cancellation))
+                {
+                    _searchCancellation = null;
+                    SetSearchBusy(false);
+                    if (!_isClosed && IsActive) InputTextBox.Focus();
+                }
+                cancellation.Dispose();
             }
+        }
+
+        private void SetSearchBusy(bool busy)
+        {
+            SearchButton.IsEnabled = !busy;
+            GameSelector.IsEnabled = !busy;
+            SourceLanguageSelector.IsEnabled = !busy;
+            TargetLanguageSelector.IsEnabled = !busy;
+            InputTextBox.IsEnabled = !busy;
+            HistorySelector.IsEnabled = !busy && _historyPersistenceAvailable && SearchHistory.Count > 0;
         }
 
         private void LoadSearchHistory()
@@ -458,6 +487,9 @@ namespace GI_Subtitles.Views
 
         private void ClearButton_Click(object sender, RoutedEventArgs e)
         {
+            _searchCancellation?.Cancel();
+            _searchCancellation = null;
+            SetSearchBusy(false);
             InputTextBox.Clear();
             Results.Clear();
             UpdateEmptyState();

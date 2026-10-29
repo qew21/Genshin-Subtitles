@@ -321,11 +321,62 @@ namespace GI_Subtitles.Services.Translation
             }
 
             string normalizedInput = NormalizeInput(input, isEng);
-            if (normalizedInput.Length < _ngramSize)
+            if (normalizedInput.Length == 0)
             {
                 return new List<KeyValuePair<string, string>>();
             }
 
+            // Queries shorter than an indexed gram still need substring lookup.
+            // Enumerate entries directly instead of allocating a full candidate set.
+            IEnumerable<int> candidates = normalizedInput.Length < _ngramSize
+                ? Enumerable.Range(0, _entries.Length)
+                : FindDialogueCandidates(normalizedInput);
+            int minimumDialogueLength = isEng ? 12 : 6;
+            var comparer = Comparer<int>.Create((left, right) =>
+            {
+                ref readonly Entry leftEntry = ref _entries[left];
+                ref readonly Entry rightEntry = ref _entries[right];
+                bool leftExact = string.Equals(leftEntry.NormalizedKey, normalizedInput, StringComparison.Ordinal);
+                bool rightExact = string.Equals(rightEntry.NormalizedKey, normalizedInput, StringComparison.Ordinal);
+
+                if (leftExact != rightExact) return leftExact ? -1 : 1;
+                int lengthOrder = leftEntry.Length.CompareTo(rightEntry.Length);
+                return lengthOrder != 0
+                    ? lengthOrder
+                    : StringComparer.Ordinal.Compare(leftEntry.OriginalKey, rightEntry.OriginalKey);
+            });
+            var matches = new SortedSet<int>(comparer);
+            foreach (int id in candidates)
+            {
+                ref readonly Entry entry = ref _entries[id];
+                if (entry.NormalizedKey.IndexOf(normalizedInput, StringComparison.Ordinal) < 0 ||
+                    (entry.Length < minimumDialogueLength && !HasSentencePunctuation(entry.OriginalKey)))
+                {
+                    continue;
+                }
+
+                // Keep only the best results, even when a short query matches a
+                // large part of the map. Exact matches retain their first position.
+                if (matches.Count == maxResults)
+                {
+                    hasMore = true;
+                    if (comparer.Compare(id, matches.Max) >= 0) continue;
+                    matches.Remove(matches.Max);
+                }
+                matches.Add(id);
+            }
+
+            var results = new List<KeyValuePair<string, string>>(matches.Count);
+            foreach (int id in matches)
+            {
+                Entry entry = _entries[id];
+                results.Add(new KeyValuePair<string, string>(entry.OriginalKey, entry.Value));
+            }
+            return results;
+        }
+
+        private HashSet<int> FindDialogueCandidates(string normalizedInput)
+        {
             var candidates = new HashSet<int>();
             const int maxCandidatesPerGram = 2000;
             bool foundRareGram = false;
@@ -361,52 +412,7 @@ namespace GI_Subtitles.Services.Translation
                 }
             }
 
-            int minimumDialogueLength = isEng ? 12 : 6;
-            var matches = new List<int>();
-            foreach (int id in candidates)
-            {
-                ref readonly Entry entry = ref _entries[id];
-                bool isExact = string.Equals(entry.NormalizedKey, normalizedInput, StringComparison.Ordinal);
-                if (!isExact &&
-                    (entry.Length < minimumDialogueLength ||
-                     entry.NormalizedKey.IndexOf(normalizedInput, StringComparison.Ordinal) < 0))
-                {
-                    continue;
-                }
-
-                if (entry.Length < minimumDialogueLength && !HasSentencePunctuation(entry.OriginalKey))
-                {
-                    continue;
-                }
-
-                matches.Add(id);
-            }
-
-            matches.Sort((left, right) =>
-            {
-                ref readonly Entry leftEntry = ref _entries[left];
-                ref readonly Entry rightEntry = ref _entries[right];
-                bool leftExact = leftEntry.Length == normalizedInput.Length &&
-                    string.Equals(leftEntry.NormalizedKey, normalizedInput, StringComparison.Ordinal);
-                bool rightExact = rightEntry.Length == normalizedInput.Length &&
-                    string.Equals(rightEntry.NormalizedKey, normalizedInput, StringComparison.Ordinal);
-
-                if (leftExact != rightExact) return leftExact ? -1 : 1;
-                int lengthOrder = leftEntry.Length.CompareTo(rightEntry.Length);
-                return lengthOrder != 0
-                    ? lengthOrder
-                    : StringComparer.Ordinal.Compare(leftEntry.OriginalKey, rightEntry.OriginalKey);
-            });
-
-            hasMore = matches.Count > maxResults;
-            var results = new List<KeyValuePair<string, string>>(Math.Min(matches.Count, maxResults));
-            for (int i = 0; i < matches.Count && i < maxResults; i++)
-            {
-                Entry entry = _entries[matches[i]];
-                results.Add(new KeyValuePair<string, string>(entry.OriginalKey, entry.Value));
-            }
-
-            return results;
+            return candidates;
         }
 
         private static bool HasSentencePunctuation(string text)

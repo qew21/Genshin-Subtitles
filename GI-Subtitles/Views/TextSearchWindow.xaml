@@ -223,7 +223,7 @@
                                   ItemsSource="{Binding SearchHistory}" DisplayMemberPath="DisplayLabel"
                                   SelectionChanged="HistorySelector_SelectionChanged"
                                   IsEnabled="False"/>
-                        <Button Grid.Column="4" ToolTip="{DynamicResource TextSearch_Clear}"
+                        <Button x:Name="ClearButton" Grid.Column="4" ToolTip="{DynamicResource TextSearch_Clear}"
                                 AutomationProperties.Name="{DynamicResource TextSearch_Clear}"
                                 Style="{StaticResource ModernButton}" Width="30" Height="30" MinHeight="30"
                                 Padding="0" Click="ClearButton_Click">
