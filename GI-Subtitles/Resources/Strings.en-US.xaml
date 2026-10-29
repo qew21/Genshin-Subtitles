@@ -259,8 +259,11 @@
     <sys:String x:Key="TextSearch_Search" xmlns:sys="clr-namespace:System;assembly=mscorlib">Search</sys:String>
     <sys:String x:Key="TextSearch_Input" xmlns:sys="clr-namespace:System;assembly=mscorlib">Text to search</sys:String>
     <sys:String x:Key="TextSearch_Clear" xmlns:sys="clr-namespace:System;assembly=mscorlib">Clear</sys:String>
-    <sys:String x:Key="TextSearch_InputPlaceholder" xmlns:sys="clr-namespace:System;assembly=mscorlib">Paste or type text in either selected language…&#10;Each non-empty line is searched separately.</sys:String>
-    <sys:String x:Key="TextSearch_ParagraphHint" xmlns:sys="clr-namespace:System;assembly=mscorlib">Each line can use either selected language; blank lines are ignored. Results follow the language order above.</sys:String>
+    <sys:String x:Key="TextSearch_InputPlaceholder" xmlns:sys="clr-namespace:System;assembly=mscorlib">Type or paste text in either selected language…</sys:String>
+    <sys:String x:Key="TextSearch_MultilineMode" xmlns:sys="clr-namespace:System;assembly=mscorlib">Multiline mode</sys:String>
+    <sys:String x:Key="TextSearch_MultilineModeHint" xmlns:sys="clr-namespace:System;assembly=mscorlib">Enter searches by default. Enable for new lines; Ctrl+Enter searches.</sys:String>
+    <sys:String x:Key="TextSearch_EnterHint" xmlns:sys="clr-namespace:System;assembly=mscorlib">Enter to search. Each non-empty line is matched in both selected languages.</sys:String>
+    <sys:String x:Key="TextSearch_MultilineEnterHint" xmlns:sys="clr-namespace:System;assembly=mscorlib">Enter for a new line; Ctrl+Enter to search. Each non-empty line is matched separately.</sys:String>
     <sys:String x:Key="TextSearch_HistoryLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">History</sys:String>
     <sys:String x:Key="TextSearch_History" xmlns:sys="clr-namespace:System;assembly=mscorlib">Recent searches with their last search time</sys:String>
     <sys:String x:Key="TextSearch_HistoryLoadFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Search history could not be read from {0}: {1}. The file was left unchanged.</sys:String>

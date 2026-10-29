@@ -200,23 +200,30 @@
                     </Grid.RowDefinitions>
                     <Grid Grid.Row="0" Margin="0,0,0,10">
                         <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <TextBlock Text="{DynamicResource TextSearch_Input}" FontSize="16" FontWeight="SemiBold"
-                                   Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
-                        <TextBlock Grid.Column="1" Text="{DynamicResource TextSearch_HistoryLabel}"
+                                   Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="0,0,20,0"/>
+                        <CheckBox x:Name="MultilineModeCheckBox" Grid.Column="1" IsChecked="False"
+                                  Content="{DynamicResource TextSearch_MultilineMode}"
+                                  ToolTip="{DynamicResource TextSearch_MultilineModeHint}"
+                                  Foreground="{StaticResource TextPrimaryBrush}"
+                                  VerticalAlignment="Center" VerticalContentAlignment="Center" Margin="0,0,20,0"/>
+                        <TextBlock Grid.Column="2" Text="{DynamicResource TextSearch_HistoryLabel}"
                                    Foreground="{StaticResource TextSecondaryBrush}"
                                    VerticalAlignment="Center" Margin="0,0,8,0"/>
-                        <ComboBox x:Name="HistorySelector" Grid.Column="2" Width="230" Height="30"
+                        <ComboBox x:Name="HistorySelector" Grid.Column="3" MinWidth="230" Height="30"
+                                  HorizontalAlignment="Stretch"
                                   Margin="0,0,8,0" Padding="8,3" MaxDropDownHeight="280"
                                   ToolTip="{DynamicResource TextSearch_History}"
                                   ItemsSource="{Binding SearchHistory}" DisplayMemberPath="DisplayLabel"
                                   SelectionChanged="HistorySelector_SelectionChanged"
                                   IsEnabled="False"/>
-                        <Button Grid.Column="3" ToolTip="{DynamicResource TextSearch_Clear}"
+                        <Button Grid.Column="4" ToolTip="{DynamicResource TextSearch_Clear}"
                                 AutomationProperties.Name="{DynamicResource TextSearch_Clear}"
                                 Style="{StaticResource ModernButton}" Width="30" Height="30" MinHeight="30"
                                 Padding="0" Click="ClearButton_Click">
@@ -229,14 +236,26 @@
                         <TextBox x:Name="InputTextBox" AcceptsReturn="True" TextWrapping="Wrap"
                                  VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                                  FontFamily="Consolas" FontSize="14" Height="78"
+                                 PreviewKeyDown="InputTextBox_PreviewKeyDown"
                                  TextChanged="InputTextBox_TextChanged"/>
                         <TextBlock x:Name="InputPlaceholder" Text="{DynamicResource TextSearch_InputPlaceholder}"
                                    Margin="14,12,14,0" VerticalAlignment="Top"
                                    Foreground="{StaticResource TextSecondaryBrush}" Opacity="0.8"
                                    IsHitTestVisible="False"/>
                     </Grid>
-                    <TextBlock Grid.Row="2" Margin="0,6,0,0" Text="{DynamicResource TextSearch_ParagraphHint}"
-                               Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
+                    <TextBlock Grid.Row="2" Margin="0,6,0,0" TextWrapping="Wrap"
+                               Foreground="{StaticResource TextSecondaryBrush}" FontSize="12">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Text" Value="{DynamicResource TextSearch_EnterHint}"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsChecked, ElementName=MultilineModeCheckBox}" Value="True">
+                                        <Setter Property="Text" Value="{DynamicResource TextSearch_MultilineEnterHint}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                 </Grid>
             </Border>
 
@@ -267,8 +286,8 @@
                                                     ElementStyle="{StaticResource WrappedResultText}"/>
                             </DataGrid.Columns>
                         </DataGrid>
-                        <StackPanel x:Name="EmptyResultsPanel" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                    MaxWidth="320" IsHitTestVisible="False">
+                        <StackPanel x:Name="EmptyResultsPanel" HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                                    Margin="24,0" IsHitTestVisible="False">
                             <TextBlock Text="{DynamicResource TextSearch_EmptyTitle}" FontSize="15" FontWeight="SemiBold"
                                        Foreground="{StaticResource TextPrimaryBrush}" TextAlignment="Center"/>
                             <TextBlock Text="{DynamicResource TextSearch_EmptyDescription}" Margin="0,6,0,0"

@@ -7,6 +7,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using Newtonsoft.Json;
 using GI_Subtitles.Core.Config;
@@ -278,6 +279,7 @@ namespace GI_Subtitles.Views
                 TargetLanguageSelector.IsEnabled = true;
                 InputTextBox.IsEnabled = true;
                 HistorySelector.IsEnabled = _historyPersistenceAvailable && SearchHistory.Count > 0;
+                if (!_isClosed && IsActive) InputTextBox.Focus();
             }
         }
 
@@ -470,6 +472,21 @@ namespace GI_Subtitles.Views
                 InputPlaceholder.Visibility = string.IsNullOrEmpty(InputTextBox.Text)
                     ? Visibility.Visible
                     : Visibility.Collapsed;
+            }
+        }
+
+        private void InputTextBox_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            // IME confirmation arrives as ImeProcessed, so it must not submit a search.
+            if (e.Key != Key.Enter) return;
+            ModifierKeys modifiers = Keyboard.Modifiers;
+            bool controlEnter = modifiers == ModifierKeys.Control;
+            if (!controlEnter && (modifiers != ModifierKeys.None || MultilineModeCheckBox.IsChecked == true)) return;
+
+            e.Handled = true;
+            if (!e.IsRepeat && SearchButton.IsEnabled)
+            {
+                SearchButton_Click(sender, new RoutedEventArgs());
             }
         }
 
