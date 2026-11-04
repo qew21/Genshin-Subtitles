@@ -246,27 +246,6 @@ namespace GI_Subtitles.Views
         [DllImport("user32.dll", SetLastError = true)]
         private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
 
-        [DllImport("user32.dll", SetLastError = true)]
-        private static extern bool SetWindowDisplayAffinity(IntPtr hWnd, uint affinity);
-
-        [DllImport("ntdll.dll")]
-        private static extern int RtlGetVersion(ref NativeOsVersionInfo versionInfo);
-
-        private const uint WdaExcludeFromCapture = 0x00000011;
-
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-        private struct NativeOsVersionInfo
-        {
-            public int Size;
-            public int MajorVersion;
-            public int MinorVersion;
-            public int BuildNumber;
-            public int PlatformId;
-
-            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
-            public string ServicePack;
-        }
-
         private const int GwlExStyle = -20;
         private const int WsExTransparent = 0x00000020;
         private const int WsExToolWindow = 0x00000080;
@@ -565,11 +544,7 @@ namespace GI_Subtitles.Views
             this.Opacity = 0;
             Loaded += MainWindow_Loaded;
             DragButton.Visibility = Visibility.Collapsed;
-            SourceInitialized += (s, e) =>
-            {
-                ApplyOverlayClickThrough();
-                ExcludeOverlayFromCapture();
-            };
+            SourceInitialized += (s, e) => ApplyOverlayClickThrough();
         }
 
         public event EventHandler DebugSamplingOverlayEnabledChanged;
@@ -1036,9 +1011,8 @@ namespace GI_Subtitles.Views
                 format);
             try
             {
-                // SetWindowDisplayAffinity may already have removed the overlay
-                // from a capture. Only adjust the panel background when its
-                // reserved color key proves the overlay pixels are present.
+                // Only adjust the panel background when its reserved color key
+                // proves the overlay pixels are present.
                 bool overlayPixelsPresent = false;
                 bool panelPixelsPresent = false;
                 bool panelCoversScan = !panelBounds.IsEmpty && panelBounds.Contains(scanBounds);
@@ -2177,37 +2151,6 @@ namespace GI_Subtitles.Views
         private void ApplyOverlayClickThrough()
         {
             ApplyOverlayHitMode();
-        }
-
-        private void ExcludeOverlayFromCapture()
-        {
-            var version = new NativeOsVersionInfo
-            {
-                Size = Marshal.SizeOf(typeof(NativeOsVersionInfo)),
-                ServicePack = new string('\0', 128)
-            };
-            if (RtlGetVersion(ref version) != 0 ||
-                version.MajorVersion < 10 ||
-                (version.MajorVersion == 10 && version.BuildNumber < 19041))
-            {
-                Logger.Log.Info(
-                    "Overlay capture exclusion requires Windows 10 version 2004 or later; " +
-                    "the desktop capture may include the subtitle overlay on this Windows version.");
-                return;
-            }
-
-            IntPtr hwnd = new WindowInteropHelper(this).Handle;
-            if (hwnd == IntPtr.Zero)
-            {
-                return;
-            }
-
-            if (!SetWindowDisplayAffinity(hwnd, WdaExcludeFromCapture))
-            {
-                Logger.Log.Warn(
-                    "Windows could not exclude the subtitle overlay from screen capture: " +
-                    new Win32Exception(Marshal.GetLastWin32Error()).Message);
-            }
         }
 
         private void ApplyOverlayHitMode()
