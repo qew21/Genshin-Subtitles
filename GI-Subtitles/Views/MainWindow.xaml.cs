@@ -2347,6 +2347,8 @@ namespace GI_Subtitles.Views
             HeaderText.Text = body.Header;
             HeaderText.Visibility = _overlaySession.RecognitionRunning &&
                 _overlaySession.SubtitlesVisible &&
+                body.Visible &&
+                !string.IsNullOrWhiteSpace(body.Content) &&
                 !string.IsNullOrEmpty(body.Header)
                 ? Visibility.Visible
                 : Visibility.Collapsed;
@@ -4321,7 +4323,13 @@ namespace GI_Subtitles.Views
                         $"[OCR timing #{diagnosticId}] subtitleMatch=overlay-cache, " +
                         $"elapsedMs={matchStopwatch.Elapsed.TotalMilliseconds:F1}, textLength={recognizedText.Length}");
                 }
-                return !string.IsNullOrEmpty(header) || !string.IsNullOrEmpty(content);
+                if (string.IsNullOrWhiteSpace(content))
+                {
+                    _overlaySession.NoteMatchMiss();
+                    return false;
+                }
+
+                return true;
             }
 
             if (data == null || data.Matcher == null)
@@ -4347,17 +4355,18 @@ namespace GI_Subtitles.Views
                 original = key ?? "";
             }
 
+            if (string.IsNullOrWhiteSpace(content))
+            {
+                _overlaySession.NoteMatchMiss();
+                Logger.Log.Debug(
+                    $"Ignore header-only subtitle match for {recognizedText}: header={header}, key={key}");
+                return false;
+            }
+
             string res = string.IsNullOrEmpty(header) ? content : (header + "\n\n" + content);
             Logger.Log.Debug($"Convert ocrResult for {recognizedText}: header={header}, content={content}, key={key}");
             _overlaySession.RememberMatch(recognizedText, res, key);
-
-            bool matched = !string.IsNullOrEmpty(header) || !string.IsNullOrEmpty(content);
-            if (!matched)
-            {
-                _overlaySession.NoteMatchMiss();
-            }
-
-            return matched;
+            return true;
         }
 
         private static string JoinSubtitleParts(string header, string content)
