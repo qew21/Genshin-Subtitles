@@ -25,6 +25,13 @@ namespace GI_Subtitles
         protected override void OnStartup(StartupEventArgs e)
         {
             string appDir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
+#if BORDERLESS_CAPTURE_PREVIEW
+            if (Core.Screen.BorderlessCapturePreview.BootstrapIfUnpackaged(appDir))
+            {
+                Shutdown();
+                return;
+            }
+#endif
             Directory.SetCurrentDirectory(appDir);
             const string appName = "GI-Subtitles";
             bool createdNew;

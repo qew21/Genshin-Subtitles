@@ -153,7 +153,7 @@
     <sys:String x:Key="Config_DebugSamplingOverlay" xmlns:sys="clr-namespace:System;assembly=mscorlib">Show recognition debug panel</sys:String>
     <sys:String x:Key="Config_DebugSamplingOverlay_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Shows sampling and skipped-frame reasons, plus process CPU and memory while recognition is running. It hides when recognition is paused.</sys:String>
     <sys:String x:Key="Config_SubtitleBackground" xmlns:sys="clr-namespace:System;assembly=mscorlib">Show semi-transparent subtitle background</sys:String>
-    <sys:String x:Key="Config_SubtitleBackground_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Adds a dark background behind subtitles to improve readability. Enabled by default.</sys:String>
+    <sys:String x:Key="Config_SubtitleBackground_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Adds a dark, translucent background behind subtitles to improve readability. Disabled by default.</sys:String>
     <sys:String x:Key="Debug_ProcessResources" xmlns:sys="clr-namespace:System;assembly=mscorlib">App use {0:F1}% · Memory {1:F0} MB</sys:String>
     <sys:String x:Key="Debug_ProcessResourcesUnavailable" xmlns:sys="clr-namespace:System;assembly=mscorlib">App status unavailable</sys:String>
     <sys:String x:Key="Debug_MinimizeTooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Minimize debug panel</sys:String>
@@ -187,12 +187,11 @@
     <sys:String x:Key="Debug_SubtitleUpdated" xmlns:sys="clr-namespace:System;assembly=mscorlib">Subtitle updated</sys:String>
     <sys:String x:Key="Debug_NoMatchingSubtitle" xmlns:sys="clr-namespace:System;assembly=mscorlib">No matching subtitle</sys:String>
     <sys:String x:Key="Config_RecognizeDarkScreenSubtitles" xmlns:sys="clr-namespace:System;assembly=mscorlib">Recognize dark-screen subtitles</sys:String>
-    <sys:String x:Key="Config_RecognizeDarkScreenSubtitles_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Detects the central subtitle band on a mostly-dark cutscene and shows the translation. This is not a region pair.</sys:String>
+    <sys:String x:Key="Config_RecognizeDarkScreenSubtitles_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">On dark cutscenes, detects the horizontal area containing the original subtitles and shows the translation. Without a fixed display area, the translation follows this detected band. This is separate from region pairs and dialogue-option recognition.</sys:String>
     <sys:String x:Key="Config_RecognizeDialogueOptions" xmlns:sys="clr-namespace:System;assembly=mscorlib">Recognize dialogue choices</sys:String>
     <sys:String x:Key="Config_RecognizeDialogueOptions_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Automatically locates dialogue choices and voices the option selected with the mouse.</sys:String>
     <sys:String x:Key="ExtraPath_BoxDisplay" xmlns:sys="clr-namespace:System;assembly=mscorlib">Box display region</sys:String>
     <sys:String x:Key="ExtraPath_ClearDefault" xmlns:sys="clr-namespace:System;assembly=mscorlib">Reset to default</sys:String>
-    <sys:String x:Key="ExtraPath_DarkScreenFollowBand" xmlns:sys="clr-namespace:System;assembly=mscorlib">Follows the candidate band</sys:String>
     <sys:String x:Key="ExtraPath_DialogueFollowVoicePrimary" xmlns:sys="clr-namespace:System;assembly=mscorlib">Follows the voice source</sys:String>
     <sys:String x:Key="ExtraPath_DisplaySet" xmlns:sys="clr-namespace:System;assembly=mscorlib">Display region set</sys:String>
     <sys:String x:Key="ExtraPath_BoxDarkScreenMask" xmlns:sys="clr-namespace:System;assembly=mscorlib">Box dark-screen display</sys:String>
@@ -311,4 +310,8 @@
     <sys:String x:Key="TextSearch_Failed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Search failed: {0}</sys:String>
     <sys:String x:Key="TextSearch_ResultSummary" xmlns:sys="clr-namespace:System;assembly=mscorlib">Found {0} dialogue matches for {1} of {2} input lines.</sys:String>
     <sys:String x:Key="TextSearch_ResultSummaryLimited" xmlns:sys="clr-namespace:System;assembly=mscorlib">Showing {0} dialogue matches for {1} of {2} input lines (up to {3} per line).</sys:String>
+    <sys:String x:Key="SubtitleOverlap_Title" xmlns:sys="clr-namespace:System;assembly=mscorlib">Subtitle display overlaps the OCR area</sys:String>
+    <sys:String x:Key="SubtitleOverlap_Message" xmlns:sys="clr-namespace:System;assembly=mscorlib">The translation may cover the original text or be read back by OCR, causing missing or incorrect translations. Click to preview or adjust the regions.</sys:String>
+    <sys:String x:Key="SubtitleOverlap_Preview" xmlns:sys="clr-namespace:System;assembly=mscorlib">Preview regions</sys:String>
+    <sys:String x:Key="SubtitleOverlap_Adjust" xmlns:sys="clr-namespace:System;assembly=mscorlib">Adjust subtitle region</sys:String>
 </ResourceDictionary>

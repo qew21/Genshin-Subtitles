@@ -281,7 +281,7 @@ namespace GI_Subtitles.Views
             // Boolean flags
             AutoStartCheckBox.IsChecked = Config.Get("AutoStart", false);
             PlayVoiceCheckBox.IsChecked = Config.Get("PlayVoice", true);
-            SubtitleBackgroundCheckBox.IsChecked = Config.Get("SubtitleBackgroundEnabled", true);
+            SubtitleBackgroundCheckBox.IsChecked = Config.Get("SubtitleBackgroundEnabled", false);
             LogDenoiseCheckBox.IsChecked = Config.Get("LogDenoise", true);
             DebugSamplingOverlayCheckBox.IsChecked = _mainWindow.DebugSamplingOverlayEnabled;
             BindOcrIntervalSettings();
@@ -2844,10 +2844,6 @@ namespace GI_Subtitles.Views
                 DarkScreenDisplayRow.Visibility = darkScanOn ? Visibility.Visible : Visibility.Collapsed;
             }
 
-            UpdateExtraPathStatus(
-                DarkScreenDisplayStatus,
-                _overlaySession.DarkScreenDisplay,
-                "ExtraPath_DarkScreenFollowBand");
             UpdateExtraPathAdjustButton(
                 AdjustDarkScreenDisplayButton,
                 _overlaySession.DarkScreenDisplay.IsValid,

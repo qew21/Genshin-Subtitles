@@ -14,5 +14,5 @@
   "Update": "https://2langs.com/data/update.json",
   "Font": "Arial",
   "SubtitleColor": "#FFFFFF",
-  "SubtitleBackgroundEnabled": true
+  "SubtitleBackgroundEnabled": false
 }

@@ -909,8 +909,6 @@
                                                   ToolTip="{DynamicResource Config_SubtitleBackground_Tooltip}"
                                                   Margin="0,0,0,6"/>
                                         <StackPanel x:Name="DarkScreenDisplayRow" Margin="22,0,0,4" Visibility="Collapsed">
-                                            <TextBlock x:Name="DarkScreenDisplayStatus" Margin="0,0,0,4" TextWrapping="Wrap"
-                                                       Foreground="{StaticResource TextSecondaryBrush}"/>
                                             <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
                                                 <Button Content="{DynamicResource ExtraPath_BoxDisplay}" Click="BoxDarkScreenDisplay_Click"
                                                         Padding="10,2" Margin="0,0,8,0"/>

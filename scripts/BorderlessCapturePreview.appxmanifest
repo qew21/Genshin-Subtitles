@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+         xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+         xmlns:uap11="http://schemas.microsoft.com/appx/manifest/uap/windows10/11"
+         xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+         IgnorableNamespaces="uap uap11 rescap">
+  <Identity Name="GISubtitles.BorderlessCapturePreview" Publisher="CN=GI-Subtitles Preview"
+            Version="1.0.0.0" ProcessorArchitecture="x64" />
+  <Properties>
+    <DisplayName>GI-Subtitles Borderless Capture Preview</DisplayName>
+    <PublisherDisplayName>GI-Subtitles Preview</PublisherDisplayName>
+    <Logo>PreviewAssets\StoreLogo.png</Logo>
+  </Properties>
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.22000.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+  <Applications>
+    <Application Id="Preview" Executable="GI-Subtitles.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements DisplayName="GI-Subtitles Borderless Capture Preview"
+                          Description="GI-Subtitles game window capture preview"
+                          BackgroundColor="transparent"
+                          Square150x150Logo="PreviewAssets\Square150x150Logo.png"
+                          Square44x44Logo="PreviewAssets\Square44x44Logo.png" />
+    </Application>
+  </Applications>
+  <Capabilities>
+    <uap11:Capability Name="graphicsCaptureWithoutBorder" />
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>

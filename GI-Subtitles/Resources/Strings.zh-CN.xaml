@@ -161,7 +161,7 @@
     <sys:String x:Key="Config_DebugSamplingOverlay" xmlns:sys="clr-namespace:System;assembly=mscorlib">显示识别调试面板</sys:String>
     <sys:String x:Key="Config_DebugSamplingOverlay_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">识别运行时显示采样与跳帧原因、进程 CPU 和内存；暂停识别时自动隐藏。</sys:String>
     <sys:String x:Key="Config_SubtitleBackground" xmlns:sys="clr-namespace:System;assembly=mscorlib">显示半透明字幕底色</sys:String>
-    <sys:String x:Key="Config_SubtitleBackground_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">在字幕后显示深色背景以提高可读性，默认开启。</sys:String>
+    <sys:String x:Key="Config_SubtitleBackground_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">在字幕后显示深色半透明底色以提高可读性，默认关闭。</sys:String>
     <sys:String x:Key="Debug_ProcessResources" xmlns:sys="clr-namespace:System;assembly=mscorlib">程序占用 {0:F1}% · 内存 {1:F0} MB</sys:String>
     <sys:String x:Key="Debug_ProcessResourcesUnavailable" xmlns:sys="clr-namespace:System;assembly=mscorlib">程序状态暂不可用</sys:String>
     <sys:String x:Key="Debug_MinimizeTooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">最小化调试区域</sys:String>
@@ -195,12 +195,11 @@
     <sys:String x:Key="Debug_SubtitleUpdated" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕已更新</sys:String>
     <sys:String x:Key="Debug_NoMatchingSubtitle" xmlns:sys="clr-namespace:System;assembly=mscorlib">没有找到对应字幕</sys:String>
     <sys:String x:Key="Config_RecognizeDarkScreenSubtitles" xmlns:sys="clr-namespace:System;assembly=mscorlib">识别暗屏字幕</sys:String>
-    <sys:String x:Key="Config_RecognizeDarkScreenSubtitles_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">在暗屏过场中自动检测中央字幕带并显示翻译。不是区域对，也不占用对话选项的识别。</sys:String>
+    <sys:String x:Key="Config_RecognizeDarkScreenSubtitles_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">暗屏过场时会自动定位原字幕所在的横向区域（检测带）并显示翻译。未框选固定显示区时，翻译会跟随检测带；这不是区域对，也不占用对话选项识别。</sys:String>
     <sys:String x:Key="Config_RecognizeDialogueOptions" xmlns:sys="clr-namespace:System;assembly=mscorlib">识别对话选项</sys:String>
     <sys:String x:Key="Config_RecognizeDialogueOptions_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">自动定位右侧对话选项；鼠标选择后识别实际点击的选项并触发翻译和 AI 配音。</sys:String>
     <sys:String x:Key="ExtraPath_BoxDisplay" xmlns:sys="clr-namespace:System;assembly=mscorlib">框选显示区</sys:String>
     <sys:String x:Key="ExtraPath_ClearDefault" xmlns:sys="clr-namespace:System;assembly=mscorlib">清回默认</sys:String>
-    <sys:String x:Key="ExtraPath_DarkScreenFollowBand" xmlns:sys="clr-namespace:System;assembly=mscorlib">跟候选带</sys:String>
     <sys:String x:Key="ExtraPath_DialogueFollowVoicePrimary" xmlns:sys="clr-namespace:System;assembly=mscorlib">跟随配音来源</sys:String>
     <sys:String x:Key="ExtraPath_DisplaySet" xmlns:sys="clr-namespace:System;assembly=mscorlib">已指定显示区</sys:String>
     <sys:String x:Key="ExtraPath_BoxDarkScreenMask" xmlns:sys="clr-namespace:System;assembly=mscorlib">框选暗屏显示区</sys:String>
@@ -319,4 +318,8 @@
     <sys:String x:Key="TextSearch_Failed" xmlns:sys="clr-namespace:System;assembly=mscorlib">搜索失败：{0}</sys:String>
     <sys:String x:Key="TextSearch_ResultSummary" xmlns:sys="clr-namespace:System;assembly=mscorlib">找到 {0} 条对话，覆盖 {1}/{2} 行搜索文本。</sys:String>
     <sys:String x:Key="TextSearch_ResultSummaryLimited" xmlns:sys="clr-namespace:System;assembly=mscorlib">显示 {0} 条对话（覆盖 {1}/{2} 行），每行最多显示 {3} 条结果。</sys:String>
+    <sys:String x:Key="SubtitleOverlap_Title" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕展示区与识别区重叠</sys:String>
+    <sys:String x:Key="SubtitleOverlap_Message" xmlns:sys="clr-namespace:System;assembly=mscorlib">译文可能挡住游戏原字，或被再次识别，造成漏译或错译。点击预览或调整区域。</sys:String>
+    <sys:String x:Key="SubtitleOverlap_Preview" xmlns:sys="clr-namespace:System;assembly=mscorlib">预览区域</sys:String>
+    <sys:String x:Key="SubtitleOverlap_Adjust" xmlns:sys="clr-namespace:System;assembly=mscorlib">调整字幕区域</sys:String>
 </ResourceDictionary>

@@ -543,6 +543,9 @@ namespace GI_Subtitles.Views
             // Using Opacity instead of Visibility to ensure Loaded is still raised and initialization runs as usual.
             this.Opacity = 0;
             Loaded += MainWindow_Loaded;
+#if BORDERLESS_CAPTURE_PREVIEW
+            Loaded += AuthorizeBorderlessCapturePreview;
+#endif
             DragButton.Visibility = Visibility.Collapsed;
             SourceInitialized += (s, e) => ApplyOverlayClickThrough();
         }
@@ -1289,6 +1292,7 @@ namespace GI_Subtitles.Views
             notify = new INotifyIcon();
             notify.SetSession(_overlaySession);
             notifyIcon = notify.InitializeNotifyIcon(Scale);
+            notifyIcon.BalloonTipClicked += SubtitleOverlapNotificationClicked;
             Stopwatch settingsInitStopwatch = debug ? Stopwatch.StartNew() : null;
             data = new SettingsWindow(version, notify, Scale, _overlaySession, this);
             if (debug)
@@ -2306,6 +2310,193 @@ namespace GI_Subtitles.Views
             UpdateHeaderPosition();
         }
 
+        private readonly HashSet<string> _warnedSubtitleOverlaps = new HashSet<string>();
+        private string _overlapNotificationGame;
+        private int _overlapNotificationPairId;
+
+        private void CheckSubtitleOverlap(int? recognizedPairIndex, string recognizedText)
+        {
+            if (notifyIcon == null || !_overlaySession.RecognitionRunning || _dragHandleDragging ||
+                _overlaySession.ArmedTarget != OverlayAdjustTarget.None)
+            {
+                return;
+            }
+
+            var pairs = _overlaySession.Pairs;
+            int count = Math.Min(pairs.Count, LiveOverlaySession.EnginePairCap);
+            var bodies = _overlaySession.PairBodies;
+            for (int displayIndex = 0; displayIndex < count; displayIndex++)
+            {
+                RegionPair displayPair = pairs[displayIndex];
+                OverlayRect display = displayPair.Display;
+                if (!display.IsValid)
+                {
+                    continue;
+                }
+
+                for (int captureIndex = 0; captureIndex < count; captureIndex++)
+                {
+                    OverlayRect capture = pairs[captureIndex].Capture;
+                    if (!capture.IsValid)
+                    {
+                        continue;
+                    }
+
+                    bool readOwnSubtitle = recognizedPairIndex == captureIndex && displayIndex < bodies.Count &&
+                        bodies[displayIndex].Visible && ContainsDisplayedSubtitleLine(recognizedText, bodies[displayIndex]);
+                    if (readOwnSubtitle)
+                    {
+                        NotifySubtitleOverlap(capture, displayPair);
+                    }
+                }
+            }
+        }
+
+        private readonly Dictionary<string, System.Drawing.Rectangle> _lastCleanSubtitleBounds =
+            new Dictionary<string, System.Drawing.Rectangle>();
+
+        private OpenCvSharp.Rect GetSubtitleEdgeCrop(int pairIndex, int width, int height,
+            out string captureKey, out RegionPair overlappingDisplay)
+        {
+            captureKey = null;
+            overlappingDisplay = null;
+            var full = new OpenCvSharp.Rect(0, 0, width, height);
+            var pairs = _overlaySession.Pairs;
+            if (pairIndex < 0 || pairIndex >= pairs.Count)
+            {
+                return full;
+            }
+
+            OverlayRect capture = pairs[pairIndex].Capture;
+            if (capture.Width != width || capture.Height != height)
+            {
+                return full;
+            }
+
+            captureKey = $"{pairs[pairIndex].Id}:{capture.ToCsv()}";
+            var captureBounds = new System.Drawing.Rectangle(capture.X, capture.Y, width, height);
+            bool hasSource = _lastCleanSubtitleBounds.TryGetValue(captureKey, out var source);
+            int margin = Math.Max(4, (int)Math.Ceiling(height * 0.06));
+            source.Inflate(0, margin);
+            int top = 0;
+            int bottom = height;
+            for (int i = 0; i < Math.Min(pairs.Count, _extraPairBodies.Count + 1); i++)
+            {
+                FrameworkElement body = i == 0 ? (FrameworkElement)SubtitleText : _extraPairBodies[i - 1];
+                FrameworkElement header = i == 0 ? HeaderText : null;
+                foreach (var element in new[] { body, header })
+                {
+                    if (element == null || !element.IsVisible || element.ActualHeight <= 0 ||
+                        !TryGetDebugCaptureBounds(element, out var visibleBounds) || visibleBounds.IsEmpty)
+                    {
+                        continue;
+                    }
+
+                    visibleBounds.Inflate(3, 3);
+                    var overlap = System.Drawing.Rectangle.Intersect(captureBounds, visibleBounds);
+                    if (overlap.Width <= 0 || overlap.Height <= 0)
+                    {
+                        continue;
+                    }
+
+                    overlappingDisplay = pairs[i];
+                    if (!hasSource)
+                    {
+                        return full;
+                    }
+
+                    var local = new System.Drawing.Rectangle(overlap.X - capture.X,
+                        overlap.Y - capture.Y, overlap.Width, overlap.Height);
+                    if (local.Top <= margin && local.Bottom <= source.Top)
+                    {
+                        top = Math.Max(top, local.Bottom);
+                    }
+                    else if (local.Bottom >= height - margin && local.Top >= source.Bottom)
+                    {
+                        bottom = Math.Min(bottom, local.Top);
+                    }
+                    else
+                    {
+                        if (local.Top < source.Bottom && local.Bottom > source.Top)
+                        {
+                            NotifySubtitleOverlap(capture, pairs[i]);
+                        }
+                        return full;
+                    }
+                }
+            }
+
+            return new OpenCvSharp.Rect(0, top, width, bottom - top);
+        }
+
+        private void NotifySubtitleOverlap(OverlayRect capture, RegionPair displayPair)
+        {
+            if (notifyIcon == null || _dragHandleDragging || _overlaySession.ArmedTarget != OverlayAdjustTarget.None)
+            {
+                return;
+            }
+
+            string game = _overlaySession.AppliedGame;
+            if (!_warnedSubtitleOverlaps.Add($"{game}:{capture.ToCsv()}:{displayPair.Display.ToCsv()}"))
+            {
+                return;
+            }
+
+            _overlapNotificationGame = game;
+            _overlapNotificationPairId = displayPair.Id;
+            notifyIcon.BalloonTipTitle = (string)FindResource("SubtitleOverlap_Title");
+            notifyIcon.BalloonTipText = (string)FindResource("SubtitleOverlap_Message");
+            notifyIcon.BalloonTipIcon = ToolTipIcon.Warning;
+            notifyIcon.ShowBalloonTip(6000);
+        }
+
+        private static bool ContainsDisplayedSubtitleLine(string recognizedText, PairSubtitleBody body)
+        {
+            if (string.IsNullOrWhiteSpace(recognizedText))
+            {
+                return false;
+            }
+
+            var displayed = new HashSet<string>(SubtitleOverlapLines(body.Header + "\n" + body.Content),
+                StringComparer.OrdinalIgnoreCase);
+            var recognized = SubtitleOverlapLines(recognizedText).ToArray();
+            return recognized.Any(displayed.Contains) && recognized.Any(line => !displayed.Contains(line));
+        }
+
+        private static IEnumerable<string> SubtitleOverlapLines(string text)
+        {
+            return text.Split('\n').Select(line => Regex.Replace(line, @"\s+", ""))
+                .Where(line => line.Length >= 4);
+        }
+
+        private void SubtitleOverlapNotificationClicked(object sender, EventArgs e)
+        {
+            if (notifyIcon?.BalloonTipTitle != (string)FindResource("SubtitleOverlap_Title"))
+            {
+                return;
+            }
+
+            string game = _overlapNotificationGame;
+            int pairId = _overlapNotificationPairId;
+            var menu = new System.Windows.Controls.ContextMenu
+            {
+                Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint
+            };
+            var preview = new System.Windows.Controls.MenuItem { Header = FindResource("SubtitleOverlap_Preview") };
+            preview.Click += (_, args) => PreviewCaptureRegion();
+            var adjust = new System.Windows.Controls.MenuItem { Header = FindResource("SubtitleOverlap_Adjust") };
+            adjust.Click += (_, args) =>
+            {
+                if (_overlaySession.AppliedGame == game && _overlaySession.ArmedPairId != pairId)
+                {
+                    _overlaySession.TryToggleRegionAdjust(pairId);
+                }
+            };
+            menu.Items.Add(preview);
+            menu.Items.Add(adjust);
+            menu.IsOpen = true;
+        }
+
         private void HidePairZeroOverlay()
         {
             SubtitleText.Visibility = Visibility.Collapsed;
@@ -2362,7 +2553,7 @@ namespace GI_Subtitles.Views
 
         public void ApplySubtitleBackgroundSetting()
         {
-            System.Windows.Media.Brush background = Config.Get("SubtitleBackgroundEnabled", true)
+            System.Windows.Media.Brush background = Config.Get("SubtitleBackgroundEnabled", false)
                 ? EnabledSubtitleBackgroundBrush
                 : System.Windows.Media.Brushes.Transparent;
 
@@ -2379,7 +2570,7 @@ namespace GI_Subtitles.Views
         private static System.Windows.Media.Brush CreateSubtitleBackgroundBrush()
         {
             var brush = new System.Windows.Media.SolidColorBrush(
-                System.Windows.Media.Color.FromArgb(160, 0, 0, 0));
+                System.Windows.Media.Color.FromArgb(128, 0, 0, 0));
             brush.Freeze();
             return brush;
         }
@@ -2621,7 +2812,7 @@ namespace GI_Subtitles.Views
                     TextWrapping = TextWrapping.Wrap,
                     TextAlignment = TextAlignment.Center,
                     FontWeight = FontWeights.Bold,
-                    Background = Config.Get("SubtitleBackgroundEnabled", true)
+                    Background = Config.Get("SubtitleBackgroundEnabled", false)
                         ? EnabledSubtitleBackgroundBrush
                         : System.Windows.Media.Brushes.Transparent,
                     Padding = new Thickness(8, 4, 8, 4),
@@ -2722,6 +2913,32 @@ namespace GI_Subtitles.Views
                 changeRatio = (double)nonZero / (diff.Rows * diff.Cols);
                 return changeRatio > ChangeThreshold;
             }
+        }
+
+        private static System.Drawing.Rectangle GetRecognizedSubtitleBounds(OCRResult result)
+        {
+            var bounds = System.Drawing.Rectangle.Empty;
+            if (result?.TextBlocks == null)
+            {
+                return bounds;
+            }
+
+            foreach (var block in result.TextBlocks)
+            {
+                if (block == null || block.Score < 0.4f || block.BoxPoints == null || block.BoxPoints.Length == 0)
+                {
+                    continue;
+                }
+
+                var box = System.Drawing.Rectangle.FromLTRB(
+                    (int)Math.Floor(block.BoxPoints.Min(point => point.X)),
+                    (int)Math.Floor(block.BoxPoints.Min(point => point.Y)),
+                    (int)Math.Ceiling(block.BoxPoints.Max(point => point.X)),
+                    (int)Math.Ceiling(block.BoxPoints.Max(point => point.Y)));
+                bounds = bounds.IsEmpty ? box : System.Drawing.Rectangle.Union(bounds, box);
+            }
+
+            return bounds;
         }
 
         private static bool TextMayBeClipped(OCRResult result, int width, int height)
@@ -3880,8 +4097,34 @@ namespace GI_Subtitles.Views
             double subtitleSelectionMs = 0;
             double textRecognitionMs = 0;
             long workerCompletedTimestamp = 0;
+            string captureKey = null;
+            RegionPair overlappingDisplay = null;
+            bool croppedTop = false;
+            bool croppedBottom = false;
+            System.Drawing.Rectangle recognizedBounds = System.Drawing.Rectangle.Empty;
             try
             {
+#if !BORDERLESS_CAPTURE_PREVIEW
+                if (pairIndex.HasValue && frameToProcess != null && !frameToProcess.Empty())
+                {
+                    var crop = GetSubtitleEdgeCrop(pairIndex.Value, frameToProcess.Width, frameToProcess.Height,
+                        out captureKey, out overlappingDisplay);
+                    if (crop.Height > 0 && crop.Height < frameToProcess.Height)
+                    {
+                        Mat cropped;
+                        using (var view = new Mat(frameToProcess, crop))
+                        {
+                            cropped = view.Clone();
+                        }
+                        croppedTop = crop.Y > 0;
+                        croppedBottom = crop.Bottom < frameToProcess.Height;
+                        frameToProcess.Dispose();
+                        frameToProcess = cropped;
+                    }
+                }
+#endif
+                bool needCleanBounds = captureKey != null && overlappingDisplay == null &&
+                    !_lastCleanSubtitleBounds.ContainsKey(captureKey);
                 await Task.Run(() =>
                 {
                     Stopwatch workerStopwatch = debug ? Stopwatch.StartNew() : null;
@@ -3897,7 +4140,7 @@ namespace GI_Subtitles.Views
                         string bitStr = ImageProcessor.ComputeRobustHash(frameToProcess);
                         hashMs = hashStopwatch?.Elapsed.TotalMilliseconds ?? 0;
 
-                        if (!forceRefresh &&
+                        if (!forceRefresh && !needCleanBounds &&
                             imageTextCache.TryGetValue(bitStr, out string cachedOcrText) &&
                             !string.IsNullOrWhiteSpace(cachedOcrText))
                         {
@@ -3943,6 +4186,10 @@ namespace GI_Subtitles.Views
                                     ocrResult,
                                     frameToProcess.Width,
                                     frameToProcess.Height);
+                                if (captureKey != null)
+                                {
+                                    recognizedBounds = GetRecognizedSubtitleBounds(ocrResult);
+                                }
                                 recognitionCompleted = true;
 
                                 if (debug)
@@ -4037,6 +4284,19 @@ namespace GI_Subtitles.Views
                                 recognizedTextMayBeClipped,
                                 diagnosticId,
                                 out subtitleMatched);
+                            if (overlappingDisplay == null && subtitleMatched &&
+                                !recognizedBounds.IsEmpty && !recognizedTextMayBeClipped)
+                            {
+                                _lastCleanSubtitleBounds[captureKey] = recognizedBounds;
+                            }
+                            int cropMargin = Math.Max(3, (int)Math.Ceiling((frameToProcess?.Height ?? 0) * 0.06));
+                            if (!recognizedBounds.IsEmpty &&
+                                ((croppedTop && recognizedBounds.Top <= cropMargin) ||
+                                 (croppedBottom && recognizedBounds.Bottom >= frameToProcess.Height - cropMargin)) &&
+                                pairIndex.Value < _overlaySession.Pairs.Count)
+                            {
+                                NotifySubtitleOverlap(_overlaySession.Pairs[pairIndex.Value].Capture, overlappingDisplay);
+                            }
                             applyRecognizedTextMs = applyStopwatch?.Elapsed.TotalMilliseconds ?? 0;
                             applyCompleted = true;
                         }
@@ -4131,6 +4391,10 @@ namespace GI_Subtitles.Views
                     out original,
                     diagnosticId);
                 subtitleMatched = !matchMiss;
+                if (matchMiss)
+                {
+                    CheckSubtitleOverlap(pairIndex, recognizedText);
+                }
             }
 
             if (pairIndex.HasValue && pairIndex.Value < _overlaySession.Pairs.Count)
@@ -5186,6 +5450,26 @@ namespace GI_Subtitles.Views
             return dx * dx + dy * dy;
         }
 
+#if BORDERLESS_CAPTURE_PREVIEW
+        private readonly GI_Subtitles.Core.Screen.BorderlessCapturePreview _borderlessCapture =
+            new GI_Subtitles.Core.Screen.BorderlessCapturePreview();
+
+        private async void AuthorizeBorderlessCapturePreview(object sender, RoutedEventArgs e)
+        {
+            Loaded -= AuthorizeBorderlessCapturePreview;
+            try
+            {
+                await _borderlessCapture.AuthorizeAsync();
+                Logger.Log.Info("Borderless capture preview authorized.");
+            }
+            catch (Exception ex)
+            {
+                Logger.Log.Error("Borderless capture preview authorization failed: " + ex);
+                System.Windows.MessageBox.Show(ex.Message, "GI-Subtitles 无边框采集测试");
+            }
+        }
+#endif
+
         private Bitmap CaptureRectangle(System.Drawing.Rectangle bounds)
         {
             if (bounds.Width <= 0 || bounds.Height <= 0)
@@ -5193,6 +5477,9 @@ namespace GI_Subtitles.Views
                 throw new ArgumentException("The requested capture area is invalid.", nameof(bounds));
             }
 
+#if BORDERLESS_CAPTURE_PREVIEW
+            return _borderlessCapture.Capture(_overlaySession.AppliedGame, bounds);
+#else
             // Capture the configured desktop region directly; no window discovery or HWND capture is used.
             Bitmap bitmap = CaptureDesktopRectangle(bounds);
             try
@@ -5205,6 +5492,7 @@ namespace GI_Subtitles.Views
                 bitmap.Dispose();
                 throw;
             }
+#endif
         }
 
         private static Bitmap CaptureDesktopRectangle(System.Drawing.Rectangle bounds)
@@ -5248,6 +5536,12 @@ namespace GI_Subtitles.Views
             double scale = maxSide / (double)longSide;
             int targetWidth = Math.Max(1, (int)Math.Round(bounds.Width * scale));
             int targetHeight = Math.Max(1, (int)Math.Round(bounds.Height * scale));
+#if BORDERLESS_CAPTURE_PREVIEW
+            using (Bitmap crop = CaptureRectangle(bounds))
+            {
+                return new Bitmap(crop, targetWidth, targetHeight);
+            }
+#else
             var bitmap = new Bitmap(
                 targetWidth,
                 targetHeight,
@@ -5319,6 +5613,7 @@ namespace GI_Subtitles.Views
             bitmap.Dispose();
             Logger.Log.Warn($"Scaled screen capture failed; falling back to CopyFromScreen: {captureFailure.Message}");
             return CaptureRectangle(bounds);
+#endif
         }
 
         /// <summary>
@@ -5522,6 +5817,9 @@ namespace GI_Subtitles.Views
 
         private void MainWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
+#if BORDERLESS_CAPTURE_PREVIEW
+            _borderlessCapture.Dispose();
+#endif
             if (debug)
             {
                 Dispatcher.Hooks.OperationStarted -= OnDispatcherOperationStarted;
@@ -5640,6 +5938,7 @@ namespace GI_Subtitles.Views
 
         private void DisposePairBuffers()
         {
+            _lastCleanSubtitleBounds.Clear();
             for (int i = 0; i < _pairLastBinary.Count; i++)
             {
                 _pairLastBinary[i]?.Dispose();
@@ -5882,6 +6181,7 @@ namespace GI_Subtitles.Views
                 return;
             }
 
+            ApplyOutlines();
             e.Handled = true;
         }
 
@@ -6080,6 +6380,7 @@ namespace GI_Subtitles.Views
             _dragHandleStartMouseScreen = new System.Windows.Point();
             DragButton.ReleaseMouseCapture();
             _dragHandleFinishing = false;
+            ApplyOutlines();
             ApplyPairOverlay();
             data?.RefreshPairPage();
             UpdateDragHandle();
@@ -6125,6 +6426,14 @@ namespace GI_Subtitles.Views
             foreach (RegionOutline outline in _overlaySession.PreviewOutlines)
             {
                 AddOutlineElement(outline, takesMouse: false);
+            }
+
+            if (_dragHandleDragging && _dragHandlePairIndex >= 0 &&
+                _dragHandlePairIndex < _overlaySession.Pairs.Count)
+            {
+                OverlayRect capture = _overlaySession.Pairs[_dragHandlePairIndex].Capture;
+                AddOutlineElement(new RegionOutline(_dragHandlePairIndex + 1, capture, isDisplay: false),
+                    takesMouse: false);
             }
 
             // Every armed frame is draggable: a pair's capture and display
