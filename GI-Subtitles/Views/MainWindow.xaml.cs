@@ -3540,6 +3540,7 @@ namespace GI_Subtitles.Views
                     {
                         DisposePairBuffers();
                         ApplyPairOverlay();
+                        data?.RefreshPairPage();
                         Logger.Log.Info(
                             $"Automatic subtitle region updated: game={ocrGame}, capture={capture.ToCsv()}");
                     }
