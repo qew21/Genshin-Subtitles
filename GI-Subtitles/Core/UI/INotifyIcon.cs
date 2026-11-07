@@ -21,7 +21,6 @@ namespace GI_Subtitles.Core.UI
     public class INotifyIcon
     {
         System.Windows.Forms.ContextMenuStrip contextMenuStrip;
-        ToolStripMenuItem fontSizeSelector;
         ToolStripMenuItem languageSelector;
         ToolStripMenuItem settingItem;
         ToolStripMenuItem activityLogItem;
@@ -32,7 +31,6 @@ namespace GI_Subtitles.Core.UI
         private string availableUpdateTextResource = "Tray_UpdateAvailable";
         private string availableUpdateTextFallback = "New version {0}";
         private object[] availableUpdateTextArguments = Array.Empty<object>();
-        private int Size = Config.Config.Get<int>("Size");
         private bool AutoStart = Config.Config.Get("AutoStart", false);
         private LiveOverlaySession _overlaySession;
         string version = Assembly.GetExecutingAssembly().GetName().Version.ToString();
@@ -45,19 +43,10 @@ namespace GI_Subtitles.Core.UI
             NotifyIcon notifyIcon;
             contextMenuStrip = new ContextMenuStrip();
             // Localized tray menu texts (fallback to Chinese)
-            string trayFontSize = GetLocalizedString("Tray_FontSize", "字号选择");
             string trayLanguage = GetLocalizedString("Tray_Language", "Language");
             string trayActivityLog = GetLocalizedString("Tray_ActivityLog", "活动日志");
             string traySettings = GetLocalizedString("Tray_Settings", "程序设定");
             string trayExit = GetLocalizedString("Tray_Exit", "退出程序");
-
-            fontSizeSelector = new ToolStripMenuItem(trayFontSize);
-            fontSizeSelector.DropDownItems.Add(CreateSizeItem("14"));
-            fontSizeSelector.DropDownItems.Add(CreateSizeItem("16"));
-            fontSizeSelector.DropDownItems.Add(CreateSizeItem("18"));
-            fontSizeSelector.DropDownItems.Add(CreateSizeItem("20"));
-            fontSizeSelector.DropDownItems.Add(CreateSizeItem("22"));
-            fontSizeSelector.DropDownItems.Add(CreateSizeItem("24"));
 
             // Language selector submenu in tray area
             languageSelector = new ToolStripMenuItem(trayLanguage);
@@ -87,7 +76,6 @@ namespace GI_Subtitles.Core.UI
             contextMenuStrip.Items.Add(availableUpdateItem);
             contextMenuStrip.Items.Add(new ToolStripSeparator());
             contextMenuStrip.Items.Add(languageSelector);
-            contextMenuStrip.Items.Add(fontSizeSelector);
             contextMenuStrip.Items.Add(activityLogItem);
             contextMenuStrip.Items.Add(settingItem);
             contextMenuStrip.Items.Add(exitItem);
@@ -269,15 +257,11 @@ namespace GI_Subtitles.Core.UI
         /// </summary>
         public void RefreshMenuTexts()
         {
-            if (contextMenuStrip == null || fontSizeSelector == null || settingItem == null || exitItem == null)
+            if (contextMenuStrip == null || settingItem == null || exitItem == null)
                 return;
 
             try
             {
-                // Update font size selector text
-                string trayFontSize = GetLocalizedString("Tray_FontSize", "字号选择");
-                fontSizeSelector.Text = trayFontSize;
-
                 // Update language selector text
                 if (languageSelector != null)
                 {
@@ -678,21 +662,6 @@ namespace GI_Subtitles.Core.UI
             }
         }
 
-        private ToolStripMenuItem CreateSizeItem(string code)
-        {
-            ToolStripMenuItem item = new ToolStripMenuItem(code)
-            {
-                Tag = code,
-                CheckOnClick = true
-            };
-            item.CheckedChanged += SizeItem_CheckedChanged;
-            if (Size == Convert.ToInt32(code))
-            {
-                item.Checked = true;
-            }
-            return item;
-        }
-
         /// <summary>
         /// Create a language menu item for the tray language selector.
         /// </summary>
@@ -748,27 +717,6 @@ namespace GI_Subtitles.Core.UI
                 if (data != null)
                 {
                     data.SetUILanguage(cultureTag);
-                }
-            }
-        }
-
-        private void SizeItem_CheckedChanged(object sender, EventArgs e)
-        {
-            if (sender is ToolStripMenuItem selectedSize && selectedSize.Checked)
-            {
-                int newSize = Convert.ToInt32(selectedSize.Tag.ToString());
-                if (Size != newSize)
-                {
-                    Size = newSize;
-
-                    foreach (ToolStripMenuItem langItem in fontSizeSelector.DropDownItems)
-                    {
-                        if (langItem != selectedSize)
-                        {
-                            langItem.Checked = false;
-                        }
-                    }
-                    Config.Config.Set("Size", Size);
                 }
             }
         }

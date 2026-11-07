@@ -93,6 +93,7 @@ namespace GI_Subtitles.Views
         private SubtitleIdleTimeoutSettingsView _subtitleIdleTimeoutView;
         private bool _subtitleIdleTimeoutBinding;
         private bool _syncingLayoutUi;
+        private bool _subtitleStyleInitializing;
         private TextSearchWindow _textSearchWindow;
 
         public RegionPairSettings PairSettings
@@ -282,6 +283,32 @@ namespace GI_Subtitles.Views
             AutoStartCheckBox.IsChecked = Config.Get("AutoStart", false);
             PlayVoiceCheckBox.IsChecked = Config.Get("PlayVoice", true);
             SubtitleBackgroundCheckBox.IsChecked = Config.Get("SubtitleBackgroundEnabled", false);
+            SubtitleOutlineCheckBox.IsChecked = Config.Get("SubtitleOutlineEnabled", true);
+            _subtitleStyleInitializing = true;
+            SubtitleFontComboBox.ItemsSource = System.Windows.Media.Fonts.SystemFontFamilies
+                .OrderBy(font => font.Source, StringComparer.CurrentCultureIgnoreCase)
+                .ToList();
+            string configuredFont = App.ResolveSubtitleFontName(Config.Get("Font", "Arial"));
+            SubtitleFontComboBox.SelectedItem = SubtitleFontComboBox.Items
+                .Cast<System.Windows.Media.FontFamily>()
+                .FirstOrDefault(font => string.Equals(font.Source, configuredFont, StringComparison.OrdinalIgnoreCase));
+            InitializeSubtitleBackgroundChoices();
+            SubtitleBackgroundOpacitySlider.Value = Math.Max(10, Math.Min(90, Config.Get("SubtitleBackgroundOpacity", 50)));
+            SubtitleBackgroundOpacityValue.Text = $"{(int)SubtitleBackgroundOpacitySlider.Value}%";
+            SubtitleSizeSlider.Value = Math.Max(12, Math.Min(48, Config.Get("Size", 20)));
+            SubtitleSizeValue.Text = ((int)SubtitleSizeSlider.Value).ToString();
+            SubtitleStylePreview.FontSize = Config.Get("Size", 20);
+            SubtitleStylePreview.Effect = Config.Get("SubtitleOutlineEnabled", true)
+                ? new System.Windows.Media.Effects.DropShadowEffect
+                {
+                    Color = Colors.Black,
+                    Opacity = 0.9,
+                    BlurRadius = 2,
+                    ShadowDepth = 1
+                }
+                : null;
+            UpdateSubtitleStylePreviewBackground();
+            _subtitleStyleInitializing = false;
             LogDenoiseCheckBox.IsChecked = Config.Get("LogDenoise", true);
             DebugSamplingOverlayCheckBox.IsChecked = _mainWindow.DebugSamplingOverlayEnabled;
             BindOcrIntervalSettings();
@@ -692,6 +719,13 @@ namespace GI_Subtitles.Views
                 // Apply language resources and persist configuration
                 ApplyLanguage(cultureTag);
                 Config.Set("UILang", cultureTag);
+                if (SubtitleBackgroundColorComboBox != null)
+                {
+                    _subtitleStyleInitializing = true;
+                    InitializeSubtitleBackgroundChoices();
+                    _subtitleStyleInitializing = false;
+                    UpdateSubtitleStylePreviewBackground();
+                }
 
                 // Sync combo box selection if it exists (even if hidden)
                 if (UILangSelector != null)
@@ -2752,7 +2786,7 @@ namespace GI_Subtitles.Views
 
         private void SubtitleBackgroundCheckBox_Changed(object sender, RoutedEventArgs e)
         {
-            if (!_uiLangInitialized)
+            if (!_uiLangInitialized || _subtitleStyleInitializing)
             {
                 return;
             }
@@ -2760,6 +2794,136 @@ namespace GI_Subtitles.Views
             bool enabled = SubtitleBackgroundCheckBox.IsChecked == true;
             Config.Set("SubtitleBackgroundEnabled", enabled);
             _mainWindow.ApplySubtitleBackgroundSetting();
+            UpdateSubtitleStylePreviewBackground();
+        }
+
+        private void InitializeSubtitleBackgroundChoices()
+        {
+            if (!Config.Contains("SubtitleBackgroundColor"))
+            {
+                Config.Set("SubtitleBackgroundColor", "#000000");
+            }
+            if (!Config.Contains("SubtitleBackgroundOpacity"))
+            {
+                Config.Set("SubtitleBackgroundOpacity", 50);
+            }
+            SubtitleBackgroundColorComboBox.Items.Clear();
+            AddSubtitleBackgroundChoice("SubtitleStyle_Background_Black", "#000000");
+            AddSubtitleBackgroundChoice("SubtitleStyle_Background_Charcoal", "#202124");
+            AddSubtitleBackgroundChoice("SubtitleStyle_Background_Navy", "#101B2A");
+            AddSubtitleBackgroundChoice("SubtitleStyle_Background_Warm", "#30241C");
+
+            string savedColor = Config.Get("SubtitleBackgroundColor", "#000000");
+            var selected = SubtitleBackgroundColorComboBox.Items
+                .OfType<ComboBoxItem>()
+                .FirstOrDefault(item => string.Equals(item.Tag as string, savedColor, StringComparison.OrdinalIgnoreCase));
+            if (selected == null)
+            {
+                Logger.Log.Error($"Saved subtitle background color '{savedColor}' is not one of the available presets. Resetting it to black.");
+                selected = SubtitleBackgroundColorComboBox.Items.OfType<ComboBoxItem>().First();
+                Config.Set("SubtitleBackgroundColor", "#000000");
+            }
+            SubtitleBackgroundColorComboBox.SelectedItem = selected;
+            SubtitleBackgroundOpacityValue.Text = $"{(int)SubtitleBackgroundOpacitySlider.Value}%";
+        }
+
+        private void AddSubtitleBackgroundChoice(string resourceKey, string color)
+        {
+            SubtitleBackgroundColorComboBox.Items.Add(new ComboBoxItem
+            {
+                Content = TryFindResource(resourceKey) as string ?? color,
+                Tag = color
+            });
+        }
+
+        private void UpdateSubtitleStylePreviewBackground()
+        {
+            var selected = SubtitleBackgroundColorComboBox?.SelectedItem as ComboBoxItem;
+            string hex = selected?.Tag as string ?? Config.Get("SubtitleBackgroundColor", "#000000");
+            if (!App.TryParseSubtitleColor(hex, out var color))
+            {
+                Logger.Log.Error($"Subtitle background preview color '{hex}' is invalid; using black.");
+                color = Colors.Black;
+            }
+            byte alpha = (byte)Math.Round(255 * Math.Max(0, Math.Min(100, Config.Get("SubtitleBackgroundOpacity", 50))) / 100.0);
+            SubtitleStylePreviewBorder.Background = SubtitleBackgroundCheckBox.IsChecked == true
+                ? new SolidColorBrush(System.Windows.Media.Color.FromArgb(alpha, color.R, color.G, color.B))
+                : new SolidColorBrush(System.Windows.Media.Color.FromRgb(48, 52, 58));
+        }
+
+        private void SubtitleBackgroundColorComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            ComboBoxItem selected = SubtitleBackgroundColorComboBox.SelectedItem as ComboBoxItem;
+            if (_subtitleStyleInitializing || selected == null)
+            {
+                return;
+            }
+
+            Config.Set("SubtitleBackgroundColor", selected.Tag as string);
+            _mainWindow.ApplySubtitleBackgroundSetting();
+            UpdateSubtitleStylePreviewBackground();
+        }
+
+        private void SubtitleBackgroundOpacitySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (_subtitleStyleInitializing || SubtitleBackgroundOpacityValue == null)
+            {
+                return;
+            }
+
+            int opacity = (int)Math.Round(e.NewValue);
+            SubtitleBackgroundOpacityValue.Text = $"{opacity}%";
+            Config.Set("SubtitleBackgroundOpacity", opacity);
+            _mainWindow.ApplySubtitleBackgroundSetting();
+            UpdateSubtitleStylePreviewBackground();
+        }
+
+        private void SubtitleFontComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            System.Windows.Media.FontFamily font = SubtitleFontComboBox.SelectedItem as System.Windows.Media.FontFamily;
+            if (_subtitleStyleInitializing || font == null)
+            {
+                return;
+            }
+
+            Config.Set("Font", font.Source);
+            App.ApplySubtitleFont(font.Source);
+            SubtitleStylePreview.FontFamily = font;
+        }
+
+        private void SubtitleSizeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (!_uiLangInitialized || SubtitleSizeValue == null || SubtitleStylePreview == null)
+            {
+                return;
+            }
+
+            int size = (int)Math.Round(e.NewValue);
+            SubtitleSizeValue.Text = size.ToString();
+            SubtitleStylePreview.FontSize = size;
+            Config.Set("Size", size);
+            _mainWindow.ApplySubtitleSize(size);
+        }
+
+        private void SubtitleOutlineCheckBox_Changed(object sender, RoutedEventArgs e)
+        {
+            if (!_uiLangInitialized)
+            {
+                return;
+            }
+
+            bool enabled = SubtitleOutlineCheckBox.IsChecked == true;
+            Config.Set("SubtitleOutlineEnabled", enabled);
+            _mainWindow.ApplySubtitleOutlineSetting();
+            SubtitleStylePreview.Effect = enabled
+                ? new System.Windows.Media.Effects.DropShadowEffect
+                {
+                    Color = Colors.Black,
+                    Opacity = 0.9,
+                    BlurRadius = 2,
+                    ShadowDepth = 1
+                }
+                : null;
         }
 
         private void RecognizeDialogueOptionsCheckBox_Checked(object sender, RoutedEventArgs e)
@@ -2935,16 +3099,6 @@ namespace GI_Subtitles.Views
             e.Handled = true;
         }
 
-        private void FontPreview_Click(object sender, RoutedEventArgs e)
-        {
-            Font font = new Font
-            {
-                Owner = this,
-                WindowStartupLocation = WindowStartupLocation.CenterOwner
-            };
-            font.ShowDialog();
-        }
-
         private void SubtitleColor_Click(object sender, RoutedEventArgs e)
         {
             var colorWindow = new SubtitleColor
@@ -2953,6 +3107,7 @@ namespace GI_Subtitles.Views
                 WindowStartupLocation = WindowStartupLocation.CenterOwner
             };
             colorWindow.ShowDialog();
+            SubtitleStylePreview.Foreground = (System.Windows.Media.Brush)System.Windows.Application.Current.Resources["SubtitleForegroundBrush"];
         }
 
         private void TextSearch_Click(object sender, RoutedEventArgs e)

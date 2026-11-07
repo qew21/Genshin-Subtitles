@@ -223,7 +223,6 @@
     <sys:String x:Key="Btn_SubtitleColor" xmlns:sys="clr-namespace:System;assembly=mscorlib">更改字幕颜色</sys:String>
 
     <!-- Notify Icon Menu -->
-    <sys:String x:Key="Tray_FontSize" xmlns:sys="clr-namespace:System;assembly=mscorlib">字号选择</sys:String>
     <sys:String x:Key="Tray_Settings" xmlns:sys="clr-namespace:System;assembly=mscorlib">程序设定</sys:String>
     <sys:String x:Key="Tray_Exit" xmlns:sys="clr-namespace:System;assembly=mscorlib">退出程序</sys:String>
     <sys:String x:Key="Tray_UpdateAvailable" xmlns:sys="clr-namespace:System;assembly=mscorlib">发现新版本 {0}</sys:String>
@@ -322,4 +321,16 @@
     <sys:String x:Key="SubtitleOverlap_Message" xmlns:sys="clr-namespace:System;assembly=mscorlib">译文可能挡住游戏原字，或被再次识别，造成漏译或错译。点击预览或调整区域。</sys:String>
     <sys:String x:Key="SubtitleOverlap_Preview" xmlns:sys="clr-namespace:System;assembly=mscorlib">预览区域</sys:String>
     <sys:String x:Key="SubtitleOverlap_Adjust" xmlns:sys="clr-namespace:System;assembly=mscorlib">调整字幕区域</sys:String>
+    <sys:String x:Key="Tab_SubtitleStyle" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕样式</sys:String>
+    <sys:String x:Key="SubtitleStyle_PreviewLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">预览</sys:String>
+    <sys:String x:Key="SubtitleStyle_Font" xmlns:sys="clr-namespace:System;assembly=mscorlib">字体与颜色</sys:String>
+    <sys:String x:Key="SubtitleStyle_Size" xmlns:sys="clr-namespace:System;assembly=mscorlib">字号</sys:String>
+    <sys:String x:Key="SubtitleStyle_BackgroundColor" xmlns:sys="clr-namespace:System;assembly=mscorlib">底色</sys:String>
+    <sys:String x:Key="SubtitleStyle_BackgroundOpacity" xmlns:sys="clr-namespace:System;assembly=mscorlib">不透明度</sys:String>
+    <sys:String x:Key="SubtitleStyle_Background_Black" xmlns:sys="clr-namespace:System;assembly=mscorlib">黑色</sys:String>
+    <sys:String x:Key="SubtitleStyle_Background_Charcoal" xmlns:sys="clr-namespace:System;assembly=mscorlib">炭灰</sys:String>
+    <sys:String x:Key="SubtitleStyle_Background_Navy" xmlns:sys="clr-namespace:System;assembly=mscorlib">深蓝</sys:String>
+    <sys:String x:Key="SubtitleStyle_Background_Warm" xmlns:sys="clr-namespace:System;assembly=mscorlib">暖棕</sys:String>
+    <sys:String x:Key="SubtitleStyle_Contrast" xmlns:sys="clr-namespace:System;assembly=mscorlib">对比度</sys:String>
+    <sys:String x:Key="SubtitleStyle_Outline" xmlns:sys="clr-namespace:System;assembly=mscorlib">显示深色描边与阴影</sys:String>
 </ResourceDictionary>

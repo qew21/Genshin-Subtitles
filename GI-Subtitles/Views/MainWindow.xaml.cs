@@ -94,8 +94,6 @@ namespace GI_Subtitles.Views
         private int _samplingTicksSkippedSamplerBusy;
         private const int DebugSamplingOverlayEntryLimit = 8;
         private const int DebugSamplingMaxLineCells = 46;
-        private static readonly System.Windows.Media.Brush EnabledSubtitleBackgroundBrush =
-            CreateSubtitleBackgroundBrush();
         private const long DebugOverlayMaxFilterPixels = 220000;
         private const long DebugOverlayMaxFastFilterPixels = 400000;
         private const double DebugSamplingHorizontalMargin = 8;
@@ -480,6 +478,7 @@ namespace GI_Subtitles.Views
             Task.Run(() => CleanupOldAudioTempFiles());
             InitializeComponent();
             ApplySubtitleBackgroundSetting();
+            ApplySubtitleOutlineSetting();
             DragButton.RenderTransform = _dragHandleRenderTransform;
             SubtitleText.RenderTransform = _subtitleDragRenderTransform;
             _headerRenderTransformGroup.Children.Add(_headerPositionRenderTransform);
@@ -2554,7 +2553,7 @@ namespace GI_Subtitles.Views
         public void ApplySubtitleBackgroundSetting()
         {
             System.Windows.Media.Brush background = Config.Get("SubtitleBackgroundEnabled", false)
-                ? EnabledSubtitleBackgroundBrush
+                ? CreateSubtitleBackgroundBrush()
                 : System.Windows.Media.Brushes.Transparent;
 
             SubtitleText.Background = background;
@@ -2567,10 +2566,40 @@ namespace GI_Subtitles.Views
             }
         }
 
+        public void ApplySubtitleSize(int size)
+        {
+            Config.Set("Size", size);
+            ApplyPairOverlay();
+            ApplyDarkScreenOverlay();
+            ApplyDialogueChoiceEchoOverlay();
+        }
+
+        public void ApplySubtitleOutlineSetting()
+        {
+            System.Windows.Media.Effects.Effect effect = Config.Get("SubtitleOutlineEnabled", true)
+                ? TryFindResource("SubtitleTextShadow") as System.Windows.Media.Effects.Effect
+                : null;
+            SubtitleText.Effect = effect;
+            DarkScreenText.Effect = effect;
+            DialogueChoiceText.Effect = effect;
+            HeaderText.Effect = effect;
+            foreach (System.Windows.Controls.TextBlock block in _extraPairBodies)
+            {
+                block.Effect = effect;
+            }
+        }
+
         private static System.Windows.Media.Brush CreateSubtitleBackgroundBrush()
         {
-            var brush = new System.Windows.Media.SolidColorBrush(
-                System.Windows.Media.Color.FromArgb(128, 0, 0, 0));
+            string configuredColor = Config.Get("SubtitleBackgroundColor", "#000000");
+            if (!App.TryParseSubtitleColor(configuredColor, out var color))
+            {
+                color = System.Windows.Media.Colors.Black;
+                Logger.Log.Error($"Invalid subtitle background color '{configuredColor}', using black.");
+            }
+            int opacity = Math.Max(10, Math.Min(90, Config.Get("SubtitleBackgroundOpacity", 50)));
+            var brush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(
+                (byte)Math.Round(255 * opacity / 100.0), color.R, color.G, color.B));
             brush.Freeze();
             return brush;
         }
@@ -2813,16 +2842,12 @@ namespace GI_Subtitles.Views
                     TextAlignment = TextAlignment.Center,
                     FontWeight = FontWeights.Bold,
                     Background = Config.Get("SubtitleBackgroundEnabled", false)
-                        ? EnabledSubtitleBackgroundBrush
+                        ? CreateSubtitleBackgroundBrush()
                         : System.Windows.Media.Brushes.Transparent,
                     Padding = new Thickness(8, 4, 8, 4),
-                    Effect = new System.Windows.Media.Effects.DropShadowEffect
-                    {
-                        Color = System.Windows.Media.Colors.Black,
-                        Opacity = 0.85,
-                        BlurRadius = 3,
-                        ShadowDepth = 1
-                    },
+                    Effect = Config.Get("SubtitleOutlineEnabled", true)
+                        ? TryFindResource("SubtitleTextShadow") as System.Windows.Media.Effects.Effect
+                        : null,
                     Visibility = Visibility.Collapsed,
                     IsHitTestVisible = false,
                     RenderTransform = new TranslateTransform()

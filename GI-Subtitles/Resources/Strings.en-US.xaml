@@ -215,7 +215,6 @@
     <sys:String x:Key="Btn_SubtitleColor" xmlns:sys="clr-namespace:System;assembly=mscorlib">Change Subtitle Color</sys:String>
 
     <!-- Tray menu -->
-    <sys:String x:Key="Tray_FontSize" xmlns:sys="clr-namespace:System;assembly=mscorlib">Font Size</sys:String>
     <sys:String x:Key="Tray_Settings" xmlns:sys="clr-namespace:System;assembly=mscorlib">Settings</sys:String>
     <sys:String x:Key="Tray_Exit" xmlns:sys="clr-namespace:System;assembly=mscorlib">Exit</sys:String>
     <sys:String x:Key="Tray_UpdateAvailable" xmlns:sys="clr-namespace:System;assembly=mscorlib">New version {0}</sys:String>
@@ -314,4 +313,16 @@
     <sys:String x:Key="SubtitleOverlap_Message" xmlns:sys="clr-namespace:System;assembly=mscorlib">The translation may cover the original text or be read back by OCR, causing missing or incorrect translations. Click to preview or adjust the regions.</sys:String>
     <sys:String x:Key="SubtitleOverlap_Preview" xmlns:sys="clr-namespace:System;assembly=mscorlib">Preview regions</sys:String>
     <sys:String x:Key="SubtitleOverlap_Adjust" xmlns:sys="clr-namespace:System;assembly=mscorlib">Adjust subtitle region</sys:String>
+    <sys:String x:Key="Tab_SubtitleStyle" xmlns:sys="clr-namespace:System;assembly=mscorlib">Subtitle style</sys:String>
+    <sys:String x:Key="SubtitleStyle_PreviewLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">Preview</sys:String>
+    <sys:String x:Key="SubtitleStyle_Font" xmlns:sys="clr-namespace:System;assembly=mscorlib">Font and color</sys:String>
+    <sys:String x:Key="SubtitleStyle_Size" xmlns:sys="clr-namespace:System;assembly=mscorlib">Font size</sys:String>
+    <sys:String x:Key="SubtitleStyle_BackgroundColor" xmlns:sys="clr-namespace:System;assembly=mscorlib">Background color</sys:String>
+    <sys:String x:Key="SubtitleStyle_BackgroundOpacity" xmlns:sys="clr-namespace:System;assembly=mscorlib">Opacity</sys:String>
+    <sys:String x:Key="SubtitleStyle_Background_Black" xmlns:sys="clr-namespace:System;assembly=mscorlib">Black</sys:String>
+    <sys:String x:Key="SubtitleStyle_Background_Charcoal" xmlns:sys="clr-namespace:System;assembly=mscorlib">Charcoal</sys:String>
+    <sys:String x:Key="SubtitleStyle_Background_Navy" xmlns:sys="clr-namespace:System;assembly=mscorlib">Navy</sys:String>
+    <sys:String x:Key="SubtitleStyle_Background_Warm" xmlns:sys="clr-namespace:System;assembly=mscorlib">Warm brown</sys:String>
+    <sys:String x:Key="SubtitleStyle_Contrast" xmlns:sys="clr-namespace:System;assembly=mscorlib">Contrast</sys:String>
+    <sys:String x:Key="SubtitleStyle_Outline" xmlns:sys="clr-namespace:System;assembly=mscorlib">Show dark outline and shadow</sys:String>
 </ResourceDictionary>
