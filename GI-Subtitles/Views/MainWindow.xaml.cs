@@ -294,6 +294,7 @@ namespace GI_Subtitles.Views
         private VoiceAudioSource _pendingDialogueOptionSource;
         private bool _audioPlaybackQueueActive;
         private int _audioPlaybackGeneration;
+        private int _currentAudioPlayerGeneration;
         private EventHandler<StoppedEventArgs> _playbackStoppedHandler;
         private static readonly double[] VoicePlaybackSpeeds = { 0.75, 1.0, 1.25, 1.5, 1.75, 2.0 };
         private double _voicePlaybackSpeed = NormalizePlaybackSpeed(Config.Get<double>("VoicePlaybackSpeed", 1.0));
@@ -7416,6 +7417,7 @@ namespace GI_Subtitles.Views
                 }
 
                 waveOut = new WaveOutEvent();
+                _currentAudioPlayerGeneration = generation;
                 IWavePlayer currentPlayer = waveOut;
                 _playbackStoppedHandler = (sender, args) =>
                 {
@@ -7514,7 +7516,8 @@ namespace GI_Subtitles.Views
                             generation,
                             allowTempoProcessing: false,
                             logActivity: logActivity,
-                            requestLabel: requestLabel).ConfigureAwait(false);
+                            requestLabel: requestLabel,
+                            expectedPlayer: stoppedPlayer).ConfigureAwait(false);
                         return;
                     }
 
@@ -7597,11 +7600,21 @@ namespace GI_Subtitles.Views
                             await CompleteVoiceSourceAsync(source, false, "superseded").ConfigureAwait(false);
                             return;
                         }
-                        bool started = await StartAudioPlaybackAsync(
-                            source.LocalFilePath,
-                            generation,
-                            logActivity: source.LogActivity,
-                            requestLabel: source.RequestLabel).ConfigureAwait(false);
+                        bool started;
+                        try
+                        {
+                            started = await StartAudioPlaybackAsync(
+                                source.LocalFilePath,
+                                generation,
+                                logActivity: source.LogActivity,
+                                requestLabel: source.RequestLabel).ConfigureAwait(false);
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Log.Error($"Local voice playback failed: {ex}");
+                            await CompleteVoiceSourceAsync(source, false, ex.Message).ConfigureAwait(false);
+                            continue;
+                        }
                         if (!started)
                         {
                             await CompleteVoiceSourceAsync(source, false, "superseded").ConfigureAwait(false);
@@ -7704,13 +7717,15 @@ namespace GI_Subtitles.Views
             int generation,
             bool allowTempoProcessing = true,
             bool logActivity = false,
-            string requestLabel = "subtitle")
+            string requestLabel = "subtitle",
+            IWavePlayer expectedPlayer = null)
         {
             return Task.Run(() =>
             {
                 lock (_audioPlaybackDeviceLock)
                 {
-                    if (!IsAudioGenerationCurrent(generation))
+                    if (!IsAudioGenerationCurrent(generation) ||
+                        (expectedPlayer != null && !ReferenceEquals(waveOut, expectedPlayer)))
                     {
                         return false;
                     }
@@ -7798,7 +7813,7 @@ namespace GI_Subtitles.Views
             double newSpeed;
             string currentFile;
             int generation;
-            bool restartCurrentAudio;
+            IWavePlayer currentPlayer;
             lock (_audioPlaybackDeviceLock)
             {
                 int currentIndex = Array.FindIndex(
@@ -7808,24 +7823,33 @@ namespace GI_Subtitles.Views
                 _voicePlaybackSpeed = VoicePlaybackSpeeds[nextIndex];
                 newSpeed = _voicePlaybackSpeed;
                 currentFile = tempFilePath;
-                restartCurrentAudio = waveOut?.PlaybackState == PlaybackState.Playing &&
-                                      !string.IsNullOrEmpty(currentFile) &&
-                                      File.Exists(currentFile);
+                currentPlayer = waveOut?.PlaybackState == PlaybackState.Playing ? waveOut : null;
+                generation = _currentAudioPlayerGeneration;
             }
 
             Config.Set("VoicePlaybackSpeed", newSpeed);
             UpdatePlaybackSpeedIndicator();
 
-            if (restartCurrentAudio)
+            if (currentPlayer != null && !string.IsNullOrEmpty(currentFile))
             {
-                lock (_audioPlaybackQueueLock)
-                {
-                    generation = _audioPlaybackGeneration;
-                }
-                _ = StartAudioPlaybackAsync(currentFile, generation, requestLabel: "subtitle");
+                _ = RestartVoiceAtNewSpeedAsync(currentFile, generation, currentPlayer);
             }
 
             _overlaySession.ChangeVoiceSpeed(newSpeed);
+        }
+
+        private async Task RestartVoiceAtNewSpeedAsync(string filePath, int generation, IWavePlayer expectedPlayer)
+        {
+            try
+            {
+                await StartAudioPlaybackAsync(filePath, generation, expectedPlayer: expectedPlayer)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                Logger.Log.Error($"Could not restart voice playback at the new speed: {ex}");
+                await StartAudioQueueAsync(generation, stopCurrentPlayback: false).ConfigureAwait(false);
+            }
         }
 
         private void UpdatePlaybackSpeedIndicator()
