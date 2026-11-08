@@ -28,11 +28,21 @@ env:
 jobs:
   release:
     runs-on: windows-2022
+    outputs:
+      prerelease: ${{ steps.release-channel.outputs.prerelease }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive
+
+      - name: Determine release channel
+        id: release-channel
+        shell: pwsh
+        run: |
+          # 1.6.14 is a pre-release with an intentionally unsuffixed tag.
+          $prerelease = $env:RELEASE_TAG -eq '1.6.14' -or $env:RELEASE_TAG.Contains('-')
+          "prerelease=$($prerelease.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
 
       - uses: microsoft/setup-msbuild@v2
       - uses: NuGet/setup-nuget@v2
@@ -267,7 +277,7 @@ jobs:
         with:
           tag_name: ${{ env.RELEASE_TAG }}
           target_commitish: ${{ github.sha }}
-          prerelease: ${{ contains(env.RELEASE_TAG, '-') }}
+          prerelease: ${{ steps.release-channel.outputs.prerelease == 'true' }}
           body_path: github-release-notes.md
           fail_on_unmatched_files: true
           files: |
@@ -277,9 +287,8 @@ jobs:
 
   deploy-website:
     name: Deploy website downloads
-    # Upstream only: forks lack the deploy secrets and must never touch the
-    # stable channel, even if a bare (un-hyphenated) tag is pushed by accident.
-    if: ${{ github.repository == 'qew21/Genshin-Subtitles' && (github.event_name == 'push' || inputs.publish) && !contains(github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name, '-') }}
+    # Deploy stable releases from the upstream repository only.
+    if: ${{ github.repository == 'qew21/Genshin-Subtitles' && (github.event_name == 'push' || inputs.publish) && needs.release.outputs.prerelease == 'false' }}
     needs: release
     runs-on: ubuntu-24.04
     environment: production
