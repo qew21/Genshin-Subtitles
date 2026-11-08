@@ -94,13 +94,13 @@ namespace GI_Subtitles.Views
         private int _samplingTicksSkippedSamplerBusy;
         private const int DebugSamplingOverlayEntryLimit = 8;
         private const int DebugSamplingMaxLineCells = 46;
-        private static readonly System.Windows.Media.Brush EnabledSubtitleBackgroundBrush =
-            CreateSubtitleBackgroundBrush();
         private const long DebugOverlayMaxFilterPixels = 220000;
         private const long DebugOverlayMaxFastFilterPixels = 400000;
         private const double DebugSamplingHorizontalMargin = 8;
         private const double DebugSamplingBottomMargin = 5;
         private const double DebugSamplingPanelWidth = 350;
+        // Sampling runs every ~400 ms here; leave margin for timer jitter so each changed frame is eligible.
+        private const int UnstableSubtitleOcrIntervalMs = 300;
         private static int _debugOverlayFilteringDisabled;
         private static int _debugOverlayFilterWarningLogged;
         private static int _debugOverlayFilterSlowWarningLogged;
@@ -246,27 +246,6 @@ namespace GI_Subtitles.Views
         [DllImport("user32.dll", SetLastError = true)]
         private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
 
-        [DllImport("user32.dll", SetLastError = true)]
-        private static extern bool SetWindowDisplayAffinity(IntPtr hWnd, uint affinity);
-
-        [DllImport("ntdll.dll")]
-        private static extern int RtlGetVersion(ref NativeOsVersionInfo versionInfo);
-
-        private const uint WdaExcludeFromCapture = 0x00000011;
-
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-        private struct NativeOsVersionInfo
-        {
-            public int Size;
-            public int MajorVersion;
-            public int MinorVersion;
-            public int BuildNumber;
-            public int PlatformId;
-
-            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
-            public string ServicePack;
-        }
-
         private const int GwlExStyle = -20;
         private const int WsExTransparent = 0x00000020;
         private const int WsExToolWindow = 0x00000080;
@@ -309,11 +288,13 @@ namespace GI_Subtitles.Views
         private MediaFoundationReader mediaReader;
         private SoundTouchWaveProvider soundTouchProvider;
         private string tempFilePath;
+        private readonly object _audioPlaybackDeviceLock = new object();
         private readonly Queue<VoiceAudioSource> _audioPlaybackQueue = new Queue<VoiceAudioSource>();
         private readonly object _audioPlaybackQueueLock = new object();
         private VoiceAudioSource _pendingDialogueOptionSource;
         private bool _audioPlaybackQueueActive;
         private int _audioPlaybackGeneration;
+        private int _currentAudioPlayerGeneration;
         private EventHandler<StoppedEventArgs> _playbackStoppedHandler;
         private static readonly double[] VoicePlaybackSpeeds = { 0.75, 1.0, 1.25, 1.5, 1.75, 2.0 };
         private double _voicePlaybackSpeed = NormalizePlaybackSpeed(Config.Get<double>("VoicePlaybackSpeed", 1.0));
@@ -353,6 +334,7 @@ namespace GI_Subtitles.Views
         private sealed class VoiceAudioSource
         {
             public string LocalFilePath { get; set; }
+            public bool ResolveLocalFile { get; set; }
             public string RemoteUrl { get; set; }
             public bool LogActivity { get; set; }
             public Action<bool, string> Completion { get; set; }
@@ -387,6 +369,7 @@ namespace GI_Subtitles.Views
             public OverlayRect Capture { get; set; }
             public Mat PreviousBinary { get; set; }
             public Mat PreviousOcrBinary { get; set; }
+            public long LastUnstableOcrTicks { get; set; }
         }
 
         private sealed class SamplingSetupTiming
@@ -422,6 +405,9 @@ namespace GI_Subtitles.Views
             public long FirstPixelChangeSampleId { get; set; }
             public long QualifiedTicks { get; set; }
             public long QualifiedSampleId { get; set; }
+            public long LastUnstableOcrTicks { get; set; }
+            public long LatestSampleId { get; set; }
+            public bool LatestFrameStable { get; set; }
 
             public void Reset()
             {
@@ -429,6 +415,21 @@ namespace GI_Subtitles.Views
                 FirstPixelChangeSampleId = 0;
                 QualifiedTicks = 0;
                 QualifiedSampleId = 0;
+                LastUnstableOcrTicks = 0;
+                LatestSampleId = 0;
+                LatestFrameStable = false;
+            }
+
+            public void ResetAfterOcrStart(bool frameStable)
+            {
+                QualifiedTicks = 0;
+                QualifiedSampleId = 0;
+                if (frameStable)
+                {
+                    FirstPixelChangeTicks = 0;
+                    FirstPixelChangeSampleId = 0;
+                    LastUnstableOcrTicks = 0;
+                }
             }
         }
 
@@ -501,6 +502,7 @@ namespace GI_Subtitles.Views
             Task.Run(() => CleanupOldAudioTempFiles());
             InitializeComponent();
             ApplySubtitleBackgroundSetting();
+            ApplySubtitleOutlineSetting();
             DragButton.RenderTransform = _dragHandleRenderTransform;
             SubtitleText.RenderTransform = _subtitleDragRenderTransform;
             _headerRenderTransformGroup.Children.Add(_headerPositionRenderTransform);
@@ -564,12 +566,11 @@ namespace GI_Subtitles.Views
             // Using Opacity instead of Visibility to ensure Loaded is still raised and initialization runs as usual.
             this.Opacity = 0;
             Loaded += MainWindow_Loaded;
+#if BORDERLESS_CAPTURE_PREVIEW
+            Loaded += AuthorizeBorderlessCapturePreview;
+#endif
             DragButton.Visibility = Visibility.Collapsed;
-            SourceInitialized += (s, e) =>
-            {
-                ApplyOverlayClickThrough();
-                ExcludeOverlayFromCapture();
-            };
+            SourceInitialized += (s, e) => ApplyOverlayClickThrough();
         }
 
         public event EventHandler DebugSamplingOverlayEnabledChanged;
@@ -1036,9 +1037,8 @@ namespace GI_Subtitles.Views
                 format);
             try
             {
-                // SetWindowDisplayAffinity may already have removed the overlay
-                // from a capture. Only adjust the panel background when its
-                // reserved color key proves the overlay pixels are present.
+                // Only adjust the panel background when its reserved color key
+                // proves the overlay pixels are present.
                 bool overlayPixelsPresent = false;
                 bool panelPixelsPresent = false;
                 bool panelCoversScan = !panelBounds.IsEmpty && panelBounds.Contains(scanBounds);
@@ -1311,10 +1311,14 @@ namespace GI_Subtitles.Views
             // Listen to window messages
             HwndSource source = HwndSource.FromHwnd(handle);
             source.AddHook(WndProc);
+            // Software rendering avoids delayed presentation of the transparent subtitle window.
+            source.CompositionTarget.RenderMode = RenderMode.SoftwareOnly;
+            Logger.Log.Info($"Subtitle overlay render mode: {source.CompositionTarget.RenderMode}");
 
             notify = new INotifyIcon();
             notify.SetSession(_overlaySession);
             notifyIcon = notify.InitializeNotifyIcon(Scale);
+            notifyIcon.BalloonTipClicked += SubtitleOverlapNotificationClicked;
             Stopwatch settingsInitStopwatch = debug ? Stopwatch.StartNew() : null;
             data = new SettingsWindow(version, notify, Scale, _overlaySession, this);
             if (debug)
@@ -1524,13 +1528,16 @@ namespace GI_Subtitles.Views
                         continue;
                     }
 
+                    PairOcrDiagnosticContext diagnosticContext = _pairOcrDiagnosticContexts[i];
+
                     requests.Add(new PairSamplingRequest
                     {
                         PairIndex = i,
                         IsPrimary = i == primaryPairIndex,
                         Capture = capture,
                         PreviousBinary = _pairLastBinary[i]?.Clone(),
-                        PreviousOcrBinary = _pairLastOcrBinary[i]?.Clone()
+                        PreviousOcrBinary = _pairLastOcrBinary[i]?.Clone(),
+                        LastUnstableOcrTicks = diagnosticContext.LastUnstableOcrTicks
                     });
                 }
                 setupTiming.PreviousFrameCloneMs = stageStopwatch?.Elapsed.TotalMilliseconds ?? 0;
@@ -1699,16 +1706,32 @@ namespace GI_Subtitles.Views
                         out double changeRatioFromLastOcr);
                     result.CompareMs += stageStopwatch?.Elapsed.TotalMilliseconds ?? 0;
 
-                    PairFrameSample sample = empty && stable
-                        ? PairFrameSample.StableNoText()
-                        : changed && stable && !empty
-                            ? PairFrameSample.ChangedAndStable()
-                            : PairFrameSample.Unchanged();
-                    string decision = empty && stable
-                        ? "clear-empty"
-                        : changed && stable
-                            ? "queue-ocr"
-                            : stable ? "unchanged" : "wait-stable";
+                    bool queueUnstableOcr = !empty && changed && !stable &&
+                        (request.LastUnstableOcrTicks == 0 ||
+                         Stopwatch.GetTimestamp() - request.LastUnstableOcrTicks >=
+                         Stopwatch.Frequency * UnstableSubtitleOcrIntervalMs / 1000L);
+                    PairFrameSample sample;
+                    string decision;
+                    if (empty && stable)
+                    {
+                        sample = PairFrameSample.StableNoText();
+                        decision = "clear-empty";
+                    }
+                    else if (changed && !empty && stable)
+                    {
+                        sample = PairFrameSample.ChangedAndStable();
+                        decision = "queue-ocr";
+                    }
+                    else if (queueUnstableOcr)
+                    {
+                        sample = PairFrameSample.ChangedWhileUnstable();
+                        decision = "queue-ocr-unstable";
+                    }
+                    else
+                    {
+                        sample = PairFrameSample.Unchanged();
+                        decision = stable ? "unchanged" : "wait-stable";
+                    }
 
                     result.Pairs.Add(new PairSamplingResult
                     {
@@ -1846,11 +1869,11 @@ namespace GI_Subtitles.Views
                     _pendingExtraPathVoiceKey = null;
                 }
 
+                ApplyPairOverlay();
                 MaybePlayPairVoice(
                     extraVoiceKey,
                     batch.Extra != null ? batch.Extra.DialogueChoiceContent : string.Empty,
                     string.Empty);
-                ApplyPairOverlay();
             }
             catch (Exception ex)
             {
@@ -1951,7 +1974,7 @@ namespace GI_Subtitles.Views
                 : GetDebugSamplingText("Debug_Screen");
             string decision = value.Substring(separator + 1);
             string description;
-            if (decision == "queue-ocr")
+            if (decision.StartsWith("queue-ocr", StringComparison.Ordinal))
             {
                 description = GetDebugSamplingText("Debug_NewText");
             }
@@ -2179,37 +2202,6 @@ namespace GI_Subtitles.Views
             ApplyOverlayHitMode();
         }
 
-        private void ExcludeOverlayFromCapture()
-        {
-            var version = new NativeOsVersionInfo
-            {
-                Size = Marshal.SizeOf(typeof(NativeOsVersionInfo)),
-                ServicePack = new string('\0', 128)
-            };
-            if (RtlGetVersion(ref version) != 0 ||
-                version.MajorVersion < 10 ||
-                (version.MajorVersion == 10 && version.BuildNumber < 19041))
-            {
-                Logger.Log.Info(
-                    "Overlay capture exclusion requires Windows 10 version 2004 or later; " +
-                    "the desktop capture may include the subtitle overlay on this Windows version.");
-                return;
-            }
-
-            IntPtr hwnd = new WindowInteropHelper(this).Handle;
-            if (hwnd == IntPtr.Zero)
-            {
-                return;
-            }
-
-            if (!SetWindowDisplayAffinity(hwnd, WdaExcludeFromCapture))
-            {
-                Logger.Log.Warn(
-                    "Windows could not exclude the subtitle overlay from screen capture: " +
-                    new Win32Exception(Marshal.GetLastWin32Error()).Message);
-            }
-        }
-
         private void ApplyOverlayHitMode()
         {
             SizeOverlayToVirtualScreen();
@@ -2355,12 +2347,202 @@ namespace GI_Subtitles.Views
 
             for (int i = Math.Max(0, bodies.Count - 1); i < _extraPairBodies.Count; i++)
             {
-                _extraPairBodies[i].Visibility = Visibility.Collapsed;
+                if (_extraPairBodies[i].Visibility != Visibility.Collapsed)
+                {
+                    _extraPairBodies[i].Visibility = Visibility.Collapsed;
+                }
             }
 
             ApplyDarkScreenOverlay();
             ApplyDialogueChoiceEchoOverlay();
             UpdateHeaderPosition();
+        }
+
+        private readonly HashSet<string> _warnedSubtitleOverlaps = new HashSet<string>();
+        private string _overlapNotificationGame;
+        private int _overlapNotificationPairId;
+
+        private void CheckSubtitleOverlap(int? recognizedPairIndex, string recognizedText)
+        {
+            if (notifyIcon == null || !_overlaySession.RecognitionRunning || _dragHandleDragging ||
+                _overlaySession.ArmedTarget != OverlayAdjustTarget.None)
+            {
+                return;
+            }
+
+            var pairs = _overlaySession.Pairs;
+            int count = Math.Min(pairs.Count, LiveOverlaySession.EnginePairCap);
+            var bodies = _overlaySession.PairBodies;
+            for (int displayIndex = 0; displayIndex < count; displayIndex++)
+            {
+                RegionPair displayPair = pairs[displayIndex];
+                OverlayRect display = displayPair.Display;
+                if (!display.IsValid)
+                {
+                    continue;
+                }
+
+                for (int captureIndex = 0; captureIndex < count; captureIndex++)
+                {
+                    OverlayRect capture = pairs[captureIndex].Capture;
+                    if (!capture.IsValid)
+                    {
+                        continue;
+                    }
+
+                    bool readOwnSubtitle = recognizedPairIndex == captureIndex && displayIndex < bodies.Count &&
+                        bodies[displayIndex].Visible && ContainsDisplayedSubtitleLine(recognizedText, bodies[displayIndex]);
+                    if (readOwnSubtitle)
+                    {
+                        NotifySubtitleOverlap(capture, displayPair);
+                    }
+                }
+            }
+        }
+
+        private readonly Dictionary<string, System.Drawing.Rectangle> _lastCleanSubtitleBounds =
+            new Dictionary<string, System.Drawing.Rectangle>();
+
+        private OpenCvSharp.Rect GetSubtitleEdgeCrop(int pairIndex, int width, int height,
+            out string captureKey, out RegionPair overlappingDisplay)
+        {
+            captureKey = null;
+            overlappingDisplay = null;
+            var full = new OpenCvSharp.Rect(0, 0, width, height);
+            var pairs = _overlaySession.Pairs;
+            if (pairIndex < 0 || pairIndex >= pairs.Count)
+            {
+                return full;
+            }
+
+            OverlayRect capture = pairs[pairIndex].Capture;
+            if (capture.Width != width || capture.Height != height)
+            {
+                return full;
+            }
+
+            captureKey = $"{pairs[pairIndex].Id}:{capture.ToCsv()}";
+            var captureBounds = new System.Drawing.Rectangle(capture.X, capture.Y, width, height);
+            bool hasSource = _lastCleanSubtitleBounds.TryGetValue(captureKey, out var source);
+            int margin = Math.Max(4, (int)Math.Ceiling(height * 0.06));
+            source.Inflate(0, margin);
+            int top = 0;
+            int bottom = height;
+            for (int i = 0; i < Math.Min(pairs.Count, _extraPairBodies.Count + 1); i++)
+            {
+                FrameworkElement body = i == 0 ? (FrameworkElement)SubtitleText : _extraPairBodies[i - 1];
+                FrameworkElement header = i == 0 ? HeaderText : null;
+                foreach (var element in new[] { body, header })
+                {
+                    if (element == null || !element.IsVisible || element.ActualHeight <= 0 ||
+                        !TryGetDebugCaptureBounds(element, out var visibleBounds) || visibleBounds.IsEmpty)
+                    {
+                        continue;
+                    }
+
+                    visibleBounds.Inflate(3, 3);
+                    var overlap = System.Drawing.Rectangle.Intersect(captureBounds, visibleBounds);
+                    if (overlap.Width <= 0 || overlap.Height <= 0)
+                    {
+                        continue;
+                    }
+
+                    overlappingDisplay = pairs[i];
+                    if (!hasSource)
+                    {
+                        return full;
+                    }
+
+                    var local = new System.Drawing.Rectangle(overlap.X - capture.X,
+                        overlap.Y - capture.Y, overlap.Width, overlap.Height);
+                    if (local.Top <= margin && local.Bottom <= source.Top)
+                    {
+                        top = Math.Max(top, local.Bottom);
+                    }
+                    else if (local.Bottom >= height - margin && local.Top >= source.Bottom)
+                    {
+                        bottom = Math.Min(bottom, local.Top);
+                    }
+                    else
+                    {
+                        if (local.Top < source.Bottom && local.Bottom > source.Top)
+                        {
+                            NotifySubtitleOverlap(capture, pairs[i]);
+                        }
+                        return full;
+                    }
+                }
+            }
+
+            return new OpenCvSharp.Rect(0, top, width, bottom - top);
+        }
+
+        private void NotifySubtitleOverlap(OverlayRect capture, RegionPair displayPair)
+        {
+            if (notifyIcon == null || _dragHandleDragging || _overlaySession.ArmedTarget != OverlayAdjustTarget.None)
+            {
+                return;
+            }
+
+            string game = _overlaySession.AppliedGame;
+            if (!_warnedSubtitleOverlaps.Add($"{game}:{capture.ToCsv()}:{displayPair.Display.ToCsv()}"))
+            {
+                return;
+            }
+
+            _overlapNotificationGame = game;
+            _overlapNotificationPairId = displayPair.Id;
+            notifyIcon.BalloonTipTitle = (string)FindResource("SubtitleOverlap_Title");
+            notifyIcon.BalloonTipText = (string)FindResource("SubtitleOverlap_Message");
+            notifyIcon.BalloonTipIcon = ToolTipIcon.Warning;
+            notifyIcon.ShowBalloonTip(6000);
+        }
+
+        private static bool ContainsDisplayedSubtitleLine(string recognizedText, PairSubtitleBody body)
+        {
+            if (string.IsNullOrWhiteSpace(recognizedText))
+            {
+                return false;
+            }
+
+            var displayed = new HashSet<string>(SubtitleOverlapLines(body.Header + "\n" + body.Content),
+                StringComparer.OrdinalIgnoreCase);
+            var recognized = SubtitleOverlapLines(recognizedText).ToArray();
+            return recognized.Any(displayed.Contains) && recognized.Any(line => !displayed.Contains(line));
+        }
+
+        private static IEnumerable<string> SubtitleOverlapLines(string text)
+        {
+            return text.Split('\n').Select(line => Regex.Replace(line, @"\s+", ""))
+                .Where(line => line.Length >= 4);
+        }
+
+        private void SubtitleOverlapNotificationClicked(object sender, EventArgs e)
+        {
+            if (notifyIcon?.BalloonTipTitle != (string)FindResource("SubtitleOverlap_Title"))
+            {
+                return;
+            }
+
+            string game = _overlapNotificationGame;
+            int pairId = _overlapNotificationPairId;
+            var menu = new System.Windows.Controls.ContextMenu
+            {
+                Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint
+            };
+            var preview = new System.Windows.Controls.MenuItem { Header = FindResource("SubtitleOverlap_Preview") };
+            preview.Click += (_, args) => PreviewCaptureRegion();
+            var adjust = new System.Windows.Controls.MenuItem { Header = FindResource("SubtitleOverlap_Adjust") };
+            adjust.Click += (_, args) =>
+            {
+                if (_overlaySession.AppliedGame == game && _overlaySession.ArmedPairId != pairId)
+                {
+                    _overlaySession.TryToggleRegionAdjust(pairId);
+                }
+            };
+            menu.Items.Add(preview);
+            menu.Items.Add(adjust);
+            menu.IsOpen = true;
         }
 
         private void HidePairZeroOverlay()
@@ -2386,14 +2568,16 @@ namespace GI_Subtitles.Views
             System.Windows.Point canvasPoint = DisplayToCanvas(display, displayScale);
             double width = display.Width / displayScale;
             double height = display.Height / displayScale;
+            int fontSize = Config.Get<int>("Size");
+            Visibility subtitleVisibility = body.Visible ? Visibility.Visible : Visibility.Collapsed;
             Canvas.SetLeft(SubtitleText, canvasPoint.X);
             Canvas.SetTop(SubtitleText, canvasPoint.Y);
             SubtitleText.Width = width;
             SubtitleText.Height = height;
             SubtitleText.MaxHeight = height;
             SubtitleText.Text = body.Content;
-            SubtitleText.FontSize = Config.Get<int>("Size");
-            SubtitleText.Visibility = body.Visible ? Visibility.Visible : Visibility.Collapsed;
+            SubtitleText.FontSize = fontSize;
+            SubtitleText.Visibility = subtitleVisibility;
             System.Windows.Controls.Panel.SetZIndex(SubtitleText, body.RecognitionOrder);
 
             Canvas.SetLeft(HeaderPanel, canvasPoint.X);
@@ -2401,12 +2585,15 @@ namespace GI_Subtitles.Views
             HeaderPanel.Width = width;
             System.Windows.Controls.Panel.SetZIndex(HeaderPanel, body.RecognitionOrder);
 
-            HeaderText.Text = body.Header;
-            HeaderText.Visibility = _overlaySession.RecognitionRunning &&
+            Visibility headerVisibility = _overlaySession.RecognitionRunning &&
                 _overlaySession.SubtitlesVisible &&
+                body.Visible &&
+                !string.IsNullOrWhiteSpace(body.Content) &&
                 !string.IsNullOrEmpty(body.Header)
                 ? Visibility.Visible
                 : Visibility.Collapsed;
+            HeaderText.Text = body.Header;
+            HeaderText.Visibility = headerVisibility;
 
             bool headerChromeVisible = _overlaySession.RecognitionRunning &&
                 _overlaySession.SubtitlesVisible &&
@@ -2417,8 +2604,8 @@ namespace GI_Subtitles.Views
 
         public void ApplySubtitleBackgroundSetting()
         {
-            System.Windows.Media.Brush background = Config.Get("SubtitleBackgroundEnabled", true)
-                ? EnabledSubtitleBackgroundBrush
+            System.Windows.Media.Brush background = Config.Get("SubtitleBackgroundEnabled", false)
+                ? CreateSubtitleBackgroundBrush()
                 : System.Windows.Media.Brushes.Transparent;
 
             SubtitleText.Background = background;
@@ -2431,10 +2618,40 @@ namespace GI_Subtitles.Views
             }
         }
 
+        public void ApplySubtitleSize(int size)
+        {
+            Config.Set("Size", size);
+            ApplyPairOverlay();
+            ApplyDarkScreenOverlay();
+            ApplyDialogueChoiceEchoOverlay();
+        }
+
+        public void ApplySubtitleOutlineSetting()
+        {
+            System.Windows.Media.Effects.Effect effect = Config.Get("SubtitleOutlineEnabled", true)
+                ? TryFindResource("SubtitleTextShadow") as System.Windows.Media.Effects.Effect
+                : null;
+            SubtitleText.Effect = effect;
+            DarkScreenText.Effect = effect;
+            DialogueChoiceText.Effect = effect;
+            HeaderText.Effect = effect;
+            foreach (System.Windows.Controls.TextBlock block in _extraPairBodies)
+            {
+                block.Effect = effect;
+            }
+        }
+
         private static System.Windows.Media.Brush CreateSubtitleBackgroundBrush()
         {
-            var brush = new System.Windows.Media.SolidColorBrush(
-                System.Windows.Media.Color.FromArgb(160, 0, 0, 0));
+            string configuredColor = Config.Get("SubtitleBackgroundColor", "#000000");
+            if (!App.TryParseSubtitleColor(configuredColor, out var color))
+            {
+                color = System.Windows.Media.Colors.Black;
+                Logger.Log.Error($"Invalid subtitle background color '{configuredColor}', using black.");
+            }
+            int opacity = Math.Max(10, Math.Min(90, Config.Get("SubtitleBackgroundOpacity", 50)));
+            var brush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(
+                (byte)Math.Round(255 * opacity / 100.0), color.R, color.G, color.B));
             brush.Freeze();
             return brush;
         }
@@ -2539,14 +2756,16 @@ namespace GI_Subtitles.Views
 
             double displayScale = GetDisplayScale(body.Display);
             System.Windows.Point canvasPoint = DisplayToCanvas(body.Display, displayScale);
+            int fontSize = Config.Get<int>("Size");
+            string text = string.IsNullOrEmpty(body.Header)
+                ? body.Content
+                : body.Header + Environment.NewLine + body.Content;
             Canvas.SetLeft(block, canvasPoint.X);
             Canvas.SetTop(block, canvasPoint.Y);
             block.Width = body.Display.Width / displayScale;
             block.Height = body.Display.Height / displayScale;
-            block.FontSize = Config.Get<int>("Size");
-            block.Text = string.IsNullOrEmpty(body.Header)
-                ? body.Content
-                : body.Header + Environment.NewLine + body.Content;
+            block.FontSize = fontSize;
+            block.Text = text;
             block.Visibility = Visibility.Visible;
             System.Windows.Controls.Panel.SetZIndex(block, body.RecognitionOrder);
         }
@@ -2603,43 +2822,52 @@ namespace GI_Subtitles.Views
             long samplingId,
             long sampleStartedTimestamp)
         {
-            if (!debug || pairIndex < 0 || pairIndex >= _pairOcrDiagnosticContexts.Count || sample == null)
+            if (pairIndex < 0 || pairIndex >= _pairOcrDiagnosticContexts.Count || sample == null)
             {
                 return;
             }
 
             PairOcrDiagnosticContext context = _pairOcrDiagnosticContexts[pairIndex];
-            if (!sample.Empty && sample.ChangeRatioFromPrevious > ChangeThreshold &&
+            context.LatestSampleId = samplingId;
+            context.LatestFrameStable = sample.Sample != null && sample.Sample.Stable;
+            if (sample.Decision == "clear-empty")
+            {
+                context.Reset();
+                return;
+            }
+
+            if (debug && !sample.Empty && sample.ChangeRatioFromPrevious > ChangeThreshold &&
                 context.FirstPixelChangeTicks == 0)
             {
                 context.FirstPixelChangeTicks = sampleStartedTimestamp;
                 context.FirstPixelChangeSampleId = samplingId;
             }
 
-            if (sample.Sample != null && sample.Sample.Empty && sample.Sample.Stable)
+            if (sample.Decision == "queue-ocr-unstable")
+            {
+                context.LastUnstableOcrTicks = sampleStartedTimestamp;
+            }
+            else if (sample.Decision == "unchanged" && context.QualifiedTicks == 0)
             {
                 context.Reset();
                 return;
             }
 
-            if (sample.Sample != null && sample.Sample.Changed && sample.Sample.Stable && !sample.Empty)
+            if (!debug || sample.Decision != "queue-ocr")
             {
-                if (context.FirstPixelChangeTicks == 0)
-                {
-                    context.FirstPixelChangeTicks = sampleStartedTimestamp;
-                    context.FirstPixelChangeSampleId = samplingId;
-                }
-
-                if (context.QualifiedTicks == 0)
-                {
-                    context.QualifiedTicks = sampleStartedTimestamp;
-                    context.QualifiedSampleId = samplingId;
-                }
+                return;
             }
-            else if (sample.Sample != null && sample.Sample.Stable && !sample.Sample.Changed &&
-                     context.QualifiedTicks == 0)
+
+            if (context.FirstPixelChangeTicks == 0)
             {
-                context.Reset();
+                context.FirstPixelChangeTicks = sampleStartedTimestamp;
+                context.FirstPixelChangeSampleId = samplingId;
+            }
+
+            if (context.QualifiedTicks == 0)
+            {
+                context.QualifiedTicks = sampleStartedTimestamp;
+                context.QualifiedSampleId = samplingId;
             }
         }
 
@@ -2676,17 +2904,13 @@ namespace GI_Subtitles.Views
                     TextWrapping = TextWrapping.Wrap,
                     TextAlignment = TextAlignment.Center,
                     FontWeight = FontWeights.Bold,
-                    Background = Config.Get("SubtitleBackgroundEnabled", true)
-                        ? EnabledSubtitleBackgroundBrush
+                    Background = Config.Get("SubtitleBackgroundEnabled", false)
+                        ? CreateSubtitleBackgroundBrush()
                         : System.Windows.Media.Brushes.Transparent,
                     Padding = new Thickness(8, 4, 8, 4),
-                    Effect = new System.Windows.Media.Effects.DropShadowEffect
-                    {
-                        Color = System.Windows.Media.Colors.Black,
-                        Opacity = 0.85,
-                        BlurRadius = 3,
-                        ShadowDepth = 1
-                    },
+                    Effect = Config.Get("SubtitleOutlineEnabled", true)
+                        ? TryFindResource("SubtitleTextShadow") as System.Windows.Media.Effects.Effect
+                        : null,
                     Visibility = Visibility.Collapsed,
                     IsHitTestVisible = false,
                     RenderTransform = new TranslateTransform()
@@ -2777,6 +3001,32 @@ namespace GI_Subtitles.Views
                 changeRatio = (double)nonZero / (diff.Rows * diff.Cols);
                 return changeRatio > ChangeThreshold;
             }
+        }
+
+        private static System.Drawing.Rectangle GetRecognizedSubtitleBounds(OCRResult result)
+        {
+            var bounds = System.Drawing.Rectangle.Empty;
+            if (result?.TextBlocks == null)
+            {
+                return bounds;
+            }
+
+            foreach (var block in result.TextBlocks)
+            {
+                if (block == null || block.Score < 0.4f || block.BoxPoints == null || block.BoxPoints.Length == 0)
+                {
+                    continue;
+                }
+
+                var box = System.Drawing.Rectangle.FromLTRB(
+                    (int)Math.Floor(block.BoxPoints.Min(point => point.X)),
+                    (int)Math.Floor(block.BoxPoints.Min(point => point.Y)),
+                    (int)Math.Ceiling(block.BoxPoints.Max(point => point.X)),
+                    (int)Math.Ceiling(block.BoxPoints.Max(point => point.Y)));
+                bounds = bounds.IsEmpty ? box : System.Drawing.Rectangle.Union(bounds, box);
+            }
+
+            return bounds;
         }
 
         private static bool TextMayBeClipped(OCRResult result, int width, int height)
@@ -2887,7 +3137,11 @@ namespace GI_Subtitles.Views
             long firstPixelChangeSampleId = diagnosticContext.FirstPixelChangeSampleId;
             long qualifiedTicks = diagnosticContext.QualifiedTicks;
             long qualifiedSampleId = diagnosticContext.QualifiedSampleId;
-            diagnosticContext.Reset();
+            long sourceSampleId = diagnosticContext.LatestSampleId != 0
+                ? diagnosticContext.LatestSampleId
+                : qualifiedSampleId;
+            bool frameStable = diagnosticContext.LatestFrameStable;
+            diagnosticContext.ResetAfterOcrStart(frameStable);
             _pairPendingOcrBinary[idx]?.Dispose();
             _pairPendingOcrBinary[idx] = lastBinary?.Clone();
 
@@ -2900,10 +3154,11 @@ namespace GI_Subtitles.Views
                 frame,
                 bitmap,
                 pairIndex: idx,
-                sourceSampleId: qualifiedSampleId,
+                sourceSampleId: sourceSampleId,
                 firstPixelChangeSampleId: firstPixelChangeSampleId,
                 firstPixelChangeTicks: firstPixelChangeTicks,
-                qualifiedTicks: qualifiedTicks);
+                qualifiedTicks: qualifiedTicks,
+                isStableFrame: frameStable);
         }
 
         private void ContinueOcrPipeline()
@@ -3353,6 +3608,7 @@ namespace GI_Subtitles.Views
                     {
                         DisposePairBuffers();
                         ApplyPairOverlay();
+                        data?.RefreshPairPage();
                         Logger.Log.Info(
                             $"Automatic subtitle region updated: game={ocrGame}, capture={capture.ToCsv()}");
                     }
@@ -3868,7 +4124,8 @@ namespace GI_Subtitles.Views
             long sourceSampleId = 0,
             long firstPixelChangeSampleId = 0,
             long firstPixelChangeTicks = 0,
-            long qualifiedTicks = 0)
+            long qualifiedTicks = 0,
+            bool isStableFrame = true)
         {
             _isOcrRunning = true;
             string ocrGame = _overlaySession.AppliedGame;
@@ -3913,6 +4170,7 @@ namespace GI_Subtitles.Views
                     $"[OCR lifecycle #{diagnosticId}] source=pair, pair={pairIndex.Value}, " +
                     $"sourceSample=#{sourceSampleId}, firstChangeSample=#{firstPixelChangeSampleId}, " +
                     $"firstChangeToStartMs={firstChangeToStartMs:F1}, stableToStartMs={stableToStartMs:F1}, " +
+                    $"frameStable={isStableFrame}, " +
                     $"frame={frameToProcess?.Width ?? 0}x{frameToProcess?.Height ?? 0}");
             }
             if (debug && previousOcrStartedUtc != DateTime.MinValue)
@@ -3935,8 +4193,34 @@ namespace GI_Subtitles.Views
             double subtitleSelectionMs = 0;
             double textRecognitionMs = 0;
             long workerCompletedTimestamp = 0;
+            string captureKey = null;
+            RegionPair overlappingDisplay = null;
+            bool croppedTop = false;
+            bool croppedBottom = false;
+            System.Drawing.Rectangle recognizedBounds = System.Drawing.Rectangle.Empty;
             try
             {
+#if !BORDERLESS_CAPTURE_PREVIEW
+                if (pairIndex.HasValue && frameToProcess != null && !frameToProcess.Empty())
+                {
+                    var crop = GetSubtitleEdgeCrop(pairIndex.Value, frameToProcess.Width, frameToProcess.Height,
+                        out captureKey, out overlappingDisplay);
+                    if (crop.Height > 0 && crop.Height < frameToProcess.Height)
+                    {
+                        Mat cropped;
+                        using (var view = new Mat(frameToProcess, crop))
+                        {
+                            cropped = view.Clone();
+                        }
+                        croppedTop = crop.Y > 0;
+                        croppedBottom = crop.Bottom < frameToProcess.Height;
+                        frameToProcess.Dispose();
+                        frameToProcess = cropped;
+                    }
+                }
+#endif
+                bool needCleanBounds = captureKey != null && overlappingDisplay == null &&
+                    !_lastCleanSubtitleBounds.ContainsKey(captureKey);
                 await Task.Run(() =>
                 {
                     Stopwatch workerStopwatch = debug ? Stopwatch.StartNew() : null;
@@ -3952,7 +4236,7 @@ namespace GI_Subtitles.Views
                         string bitStr = ImageProcessor.ComputeRobustHash(frameToProcess);
                         hashMs = hashStopwatch?.Elapsed.TotalMilliseconds ?? 0;
 
-                        if (!forceRefresh &&
+                        if (!forceRefresh && !needCleanBounds &&
                             imageTextCache.TryGetValue(bitStr, out string cachedOcrText) &&
                             !string.IsNullOrWhiteSpace(cachedOcrText))
                         {
@@ -3998,6 +4282,10 @@ namespace GI_Subtitles.Views
                                     ocrResult,
                                     frameToProcess.Width,
                                     frameToProcess.Height);
+                                if (captureKey != null)
+                                {
+                                    recognizedBounds = GetRecognizedSubtitleBounds(ocrResult);
+                                }
                                 recognitionCompleted = true;
 
                                 if (debug)
@@ -4091,7 +4379,21 @@ namespace GI_Subtitles.Views
                                 pairIndex,
                                 recognizedTextMayBeClipped,
                                 diagnosticId,
+                                isStableFrame,
                                 out subtitleMatched);
+                            if (overlappingDisplay == null && subtitleMatched &&
+                                !recognizedBounds.IsEmpty && !recognizedTextMayBeClipped)
+                            {
+                                _lastCleanSubtitleBounds[captureKey] = recognizedBounds;
+                            }
+                            int cropMargin = Math.Max(3, (int)Math.Ceiling((frameToProcess?.Height ?? 0) * 0.06));
+                            if (!recognizedBounds.IsEmpty &&
+                                ((croppedTop && recognizedBounds.Top <= cropMargin) ||
+                                 (croppedBottom && recognizedBounds.Bottom >= frameToProcess.Height - cropMargin)) &&
+                                pairIndex.Value < _overlaySession.Pairs.Count)
+                            {
+                                NotifySubtitleOverlap(_overlaySession.Pairs[pairIndex.Value].Capture, overlappingDisplay);
+                            }
                             applyRecognizedTextMs = applyStopwatch?.Elapsed.TotalMilliseconds ?? 0;
                             applyCompleted = true;
                         }
@@ -4167,6 +4469,7 @@ namespace GI_Subtitles.Views
             int? pairIndex,
             bool textMayBeClipped,
             long diagnosticId,
+            bool stableFrame,
             out bool subtitleMatched)
         {
             subtitleMatched = false;
@@ -4176,6 +4479,7 @@ namespace GI_Subtitles.Views
             string key = "";
             string original = "";
             bool matchMiss = false;
+            bool provisionalMatchRejected = false;
             if (usable)
             {
                 matchMiss = !TryMatchOcrText(
@@ -4185,7 +4489,18 @@ namespace GI_Subtitles.Views
                     out key,
                     out original,
                     diagnosticId);
+                if (!matchMiss && !stableFrame &&
+                    !IsReliableProvisionalSubtitleMatch(recognizedText, original))
+                {
+                    matchMiss = true;
+                    provisionalMatchRejected = true;
+                    _overlaySession.NoteMatchMiss();
+                }
                 subtitleMatched = !matchMiss;
+                if (matchMiss && !provisionalMatchRejected)
+                {
+                    CheckSubtitleOverlap(pairIndex, recognizedText);
+                }
             }
 
             if (pairIndex.HasValue && pairIndex.Value < _overlaySession.Pairs.Count)
@@ -4193,14 +4508,14 @@ namespace GI_Subtitles.Views
                 RegionPair pair = _overlaySession.Pairs[pairIndex.Value];
                 if (pair.Id == _overlaySession.VoicePrimaryId)
                 {
-                    if (textMayBeClipped || (usable && matchMiss))
+                    if (stableFrame && (textMayBeClipped || (usable && matchMiss)))
                     {
                         string repairReason = textMayBeClipped
                             ? "primary-text-clipped"
                             : "primary-ocr-match-miss";
                         QueueAutoRegionRepairFromEvidence(repairReason, recognizedText);
                     }
-                    else if (usable)
+                    else if (stableFrame && usable)
                     {
                         if (pair.Display.IsValid)
                         {
@@ -4251,8 +4566,8 @@ namespace GI_Subtitles.Views
                         original,
                         matchMiss,
                         force: true);
-                    MaybePlayPairVoice(key, content, header);
                     ApplyPairOverlay();
+                    MaybePlayPairVoice(key, content, header);
                     _overlaySession.Refresh(hasCaptureRegion: true, foundText: true);
                 }
                 else
@@ -4281,8 +4596,8 @@ namespace GI_Subtitles.Views
                     recognizedText,
                     original,
                     matchMiss);
-                MaybePlayPairVoice(key, content, header);
                 ApplyPairOverlay();
+                MaybePlayPairVoice(key, content, header);
                 return;
             }
 
@@ -4293,7 +4608,7 @@ namespace GI_Subtitles.Views
 
             if (!usable)
             {
-                bool clearedEmptySecondaryPair = recognitionCompleted &&
+                bool clearedEmptySecondaryPair = recognitionCompleted && stableFrame &&
                     string.IsNullOrWhiteSpace(recognizedText) &&
                     pairIndex.Value != FindPrimaryPairIndex(_overlaySession.Pairs);
                 if (clearedEmptySecondaryPair)
@@ -4304,7 +4619,7 @@ namespace GI_Subtitles.Views
                     _overlaySession.ClearPairSubtitleContent(pairIndex.Value);
                 }
 
-                if (recognitionCompleted)
+                if (recognitionCompleted && stableFrame)
                 {
                     // An empty but completed OCR result is still the result for this
                     // exact frame. Commit it so an unchanged blank frame is not sent
@@ -4313,6 +4628,8 @@ namespace GI_Subtitles.Views
                 }
                 else
                 {
+                    // Unstable frames are provisional: leave the last confirmed
+                    // baseline intact so the final stable frame is always OCR'd.
                     DiscardPairOcrBaseline(pairIndex.Value);
                 }
                 _overlaySession.NoteOcrMiss();
@@ -4334,9 +4651,71 @@ namespace GI_Subtitles.Views
             // OCR and matching are deterministic for an unchanged frame. Keep its
             // baseline even when the recognized text has no subtitle match; a later
             // visual change will still exceed the threshold and schedule fresh OCR.
-            CommitPairOcrBaseline(pairIndex.Value);
-            MaybePlayPairVoice(key, content, header);
+            if (stableFrame)
+            {
+                CommitPairOcrBaseline(pairIndex.Value);
+            }
+            else
+            {
+                // A provisional match may update the visible translation early, but
+                // it must not become the baseline that suppresses final verification.
+                DiscardPairOcrBaseline(pairIndex.Value);
+            }
             ApplyPairOverlay();
+            MaybePlayPairVoice(key, content, header);
+        }
+
+        private static bool IsReliableProvisionalSubtitleMatch(string recognizedText, string matchedSourceText)
+        {
+            string recognized = NormalizeProvisionalSubtitleText(recognizedText);
+            string matched = NormalizeProvisionalSubtitleText(matchedSourceText);
+            if (recognized.Length < 12 || matched.Length < 12)
+            {
+                return false;
+            }
+
+            int minimumLength = Math.Max(12, (int)Math.Ceiling(matched.Length * 0.75));
+            if (recognized.Length >= minimumLength &&
+                matched.StartsWith(recognized, StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            string[] lines = (recognizedText ?? string.Empty)
+                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(NormalizeProvisionalSubtitleText)
+                .Where(line => line.Length > 0)
+                .ToArray();
+            for (int start = 0; start < lines.Length; start++)
+            {
+                string suffix = string.Concat(lines.Skip(start));
+                if (suffix.Length >= minimumLength && matched.StartsWith(suffix, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static string NormalizeProvisionalSubtitleText(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return string.Empty;
+            }
+
+            string normalized = text.Normalize(NormalizationForm.FormKC);
+            var builder = new StringBuilder(normalized.Length);
+            foreach (char character in normalized)
+            {
+                if (char.IsLetterOrDigit(character))
+                {
+                    builder.Append(char.ToUpperInvariant(character));
+                }
+            }
+
+            return builder.ToString();
         }
 
         private bool TryMatchOcrText(
@@ -4378,7 +4757,13 @@ namespace GI_Subtitles.Views
                         $"[OCR timing #{diagnosticId}] subtitleMatch=overlay-cache, " +
                         $"elapsedMs={matchStopwatch.Elapsed.TotalMilliseconds:F1}, textLength={recognizedText.Length}");
                 }
-                return !string.IsNullOrEmpty(header) || !string.IsNullOrEmpty(content);
+                if (string.IsNullOrWhiteSpace(content))
+                {
+                    _overlaySession.NoteMatchMiss();
+                    return false;
+                }
+
+                return true;
             }
 
             if (data == null || data.Matcher == null)
@@ -4404,17 +4789,18 @@ namespace GI_Subtitles.Views
                 original = key ?? "";
             }
 
+            if (string.IsNullOrWhiteSpace(content))
+            {
+                _overlaySession.NoteMatchMiss();
+                Logger.Log.Debug(
+                    $"Ignore header-only subtitle match for {recognizedText}: header={header}, key={key}");
+                return false;
+            }
+
             string res = string.IsNullOrEmpty(header) ? content : (header + "\n\n" + content);
             Logger.Log.Debug($"Convert ocrResult for {recognizedText}: header={header}, content={content}, key={key}");
             _overlaySession.RememberMatch(recognizedText, res, key);
-
-            bool matched = !string.IsNullOrEmpty(header) || !string.IsNullOrEmpty(content);
-            if (!matched)
-            {
-                _overlaySession.NoteMatchMiss();
-            }
-
-            return matched;
+            return true;
         }
 
         private static string JoinSubtitleParts(string header, string content)
@@ -5234,6 +5620,26 @@ namespace GI_Subtitles.Views
             return dx * dx + dy * dy;
         }
 
+#if BORDERLESS_CAPTURE_PREVIEW
+        private readonly GI_Subtitles.Core.Screen.BorderlessCapturePreview _borderlessCapture =
+            new GI_Subtitles.Core.Screen.BorderlessCapturePreview();
+
+        private async void AuthorizeBorderlessCapturePreview(object sender, RoutedEventArgs e)
+        {
+            Loaded -= AuthorizeBorderlessCapturePreview;
+            try
+            {
+                await _borderlessCapture.AuthorizeAsync();
+                Logger.Log.Info("Borderless capture preview authorized.");
+            }
+            catch (Exception ex)
+            {
+                Logger.Log.Error("Borderless capture preview authorization failed: " + ex);
+                System.Windows.MessageBox.Show(ex.Message, "GI-Subtitles 无边框采集测试");
+            }
+        }
+#endif
+
         private Bitmap CaptureRectangle(System.Drawing.Rectangle bounds)
         {
             if (bounds.Width <= 0 || bounds.Height <= 0)
@@ -5241,6 +5647,9 @@ namespace GI_Subtitles.Views
                 throw new ArgumentException("The requested capture area is invalid.", nameof(bounds));
             }
 
+#if BORDERLESS_CAPTURE_PREVIEW
+            return _borderlessCapture.Capture(_overlaySession.AppliedGame, bounds);
+#else
             // Capture the configured desktop region directly; no window discovery or HWND capture is used.
             Bitmap bitmap = CaptureDesktopRectangle(bounds);
             try
@@ -5253,6 +5662,7 @@ namespace GI_Subtitles.Views
                 bitmap.Dispose();
                 throw;
             }
+#endif
         }
 
         private static Bitmap CaptureDesktopRectangle(System.Drawing.Rectangle bounds)
@@ -5296,6 +5706,12 @@ namespace GI_Subtitles.Views
             double scale = maxSide / (double)longSide;
             int targetWidth = Math.Max(1, (int)Math.Round(bounds.Width * scale));
             int targetHeight = Math.Max(1, (int)Math.Round(bounds.Height * scale));
+#if BORDERLESS_CAPTURE_PREVIEW
+            using (Bitmap crop = CaptureRectangle(bounds))
+            {
+                return new Bitmap(crop, targetWidth, targetHeight);
+            }
+#else
             var bitmap = new Bitmap(
                 targetWidth,
                 targetHeight,
@@ -5367,6 +5783,7 @@ namespace GI_Subtitles.Views
             bitmap.Dispose();
             Logger.Log.Warn($"Scaled screen capture failed; falling back to CopyFromScreen: {captureFailure.Message}");
             return CaptureRectangle(bounds);
+#endif
         }
 
         /// <summary>
@@ -5570,6 +5987,12 @@ namespace GI_Subtitles.Views
 
         private void MainWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
+            OCRTimer.Stop();
+            UITimer.Stop();
+            _overlaySession.StopRecognition();
+#if BORDERLESS_CAPTURE_PREVIEW
+            _borderlessCapture.Dispose();
+#endif
             if (debug)
             {
                 Dispatcher.Hooks.OperationStarted -= OnDispatcherOperationStarted;
@@ -5688,6 +6111,7 @@ namespace GI_Subtitles.Views
 
         private void DisposePairBuffers()
         {
+            _lastCleanSubtitleBounds.Clear();
             for (int i = 0; i < _pairLastBinary.Count; i++)
             {
                 _pairLastBinary[i]?.Dispose();
@@ -5930,6 +6354,7 @@ namespace GI_Subtitles.Views
                 return;
             }
 
+            ApplyOutlines();
             e.Handled = true;
         }
 
@@ -6013,16 +6438,10 @@ namespace GI_Subtitles.Views
             {
                 contentElement = SubtitleText;
                 SubtitleText.UpdateLayout();
-                string text = SubtitleText.Text ?? string.Empty;
-                int lastCharacter = text.Length - 1;
-                while (lastCharacter >= 0 && (text[lastCharacter] == '\r' || text[lastCharacter] == '\n'))
+                if (!string.IsNullOrEmpty(SubtitleText.Text))
                 {
-                    lastCharacter--;
-                }
-
-                if (lastCharacter >= 0)
-                {
-                    contentBounds = SubtitleText.GetRectFromCharacterIndex(lastCharacter, true);
+                    contentBounds = SubtitleText.ContentEnd.GetCharacterRect(
+                        System.Windows.Documents.LogicalDirection.Backward);
                 }
             }
             else
@@ -6128,6 +6547,7 @@ namespace GI_Subtitles.Views
             _dragHandleStartMouseScreen = new System.Windows.Point();
             DragButton.ReleaseMouseCapture();
             _dragHandleFinishing = false;
+            ApplyOutlines();
             ApplyPairOverlay();
             data?.RefreshPairPage();
             UpdateDragHandle();
@@ -6173,6 +6593,14 @@ namespace GI_Subtitles.Views
             foreach (RegionOutline outline in _overlaySession.PreviewOutlines)
             {
                 AddOutlineElement(outline, takesMouse: false);
+            }
+
+            if (_dragHandleDragging && _dragHandlePairIndex >= 0 &&
+                _dragHandlePairIndex < _overlaySession.Pairs.Count)
+            {
+                OverlayRect capture = _overlaySession.Pairs[_dragHandlePairIndex].Capture;
+                AddOutlineElement(new RegionOutline(_dragHandlePairIndex + 1, capture, isDisplay: false),
+                    takesMouse: false);
             }
 
             // Every armed frame is draggable: a pair's capture and display
@@ -6607,7 +7035,6 @@ namespace GI_Subtitles.Views
                 _hintChrome.Hide();
             }
         }
-
         private System.Windows.Rect ResolveHintScreen()
         {
             System.Windows.Forms.Screen[] screens = System.Windows.Forms.Screen.AllScreens;
@@ -6807,15 +7234,9 @@ namespace GI_Subtitles.Views
             Action<bool, string> completion = null,
             string requestLabel = null)
         {
-            string localFilePath = null;
-            if (_overlaySession.AllowsGenshinLocalVoice)
-            {
-                _genshinVoiceFileResolver.TryResolve(audioKey, out localFilePath);
-            }
-
             return new VoiceAudioSource
             {
-                LocalFilePath = localFilePath,
+                ResolveLocalFile = _overlaySession.AllowsGenshinLocalVoice,
                 RemoteUrl = $"{server}?md5={audioKey}&token={token}",
                 LogActivity = logActivity,
                 Completion = completion,
@@ -6845,12 +7266,12 @@ namespace GI_Subtitles.Views
                 _audioPlaybackQueue.Enqueue(source);
                 shouldStart = !_audioPlaybackQueueActive;
                 _audioPlaybackQueueActive = true;
-                generation = _audioPlaybackGeneration;
+                generation = ++_audioPlaybackGeneration;
             }
 
             if (shouldStart)
             {
-                _ = ProcessNextAudioAsync(generation);
+                _ = StartAudioQueueAsync(generation, stopCurrentPlayback: false);
             }
         }
 
@@ -6875,33 +7296,93 @@ namespace GI_Subtitles.Views
                 generation = ++_audioPlaybackGeneration;
             }
 
-            DisposeCurrentAudioPlayback();
-            _ = ProcessNextAudioAsync(generation);
+            _ = StartAudioQueueAsync(generation, stopCurrentPlayback: true);
+        }
+
+        private async Task StartAudioQueueAsync(int generation, bool stopCurrentPlayback)
+        {
+            try
+            {
+                if (stopCurrentPlayback)
+                {
+                    await Task.Run(() => TryDisposeCurrentAudioPlayback(generation))
+                        .ConfigureAwait(false);
+                }
+
+                await ProcessNextAudioAsync(generation).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                Logger.Log.Error($"Voice playback queue failed: {ex}");
+                NoteVoicePlaybackEndedOnUi(generation);
+            }
+        }
+
+        private bool IsAudioGenerationCurrent(int generation)
+        {
+            lock (_audioPlaybackQueueLock)
+            {
+                return generation == _audioPlaybackGeneration;
+            }
         }
 
         public void StopAudio()
         {
+            int generation;
             lock (_audioPlaybackQueueLock)
             {
                 _audioPlaybackQueue.Clear();
                 _pendingDialogueOptionSource = null;
                 _audioPlaybackQueueActive = false;
-                _audioPlaybackGeneration++;
+                generation = ++_audioPlaybackGeneration;
             }
 
-            DisposeCurrentAudioPlayback();
-            NoteVoicePlaybackEndedOnUi();
+            _ = Task.Run(() => TryDisposeCurrentAudioPlayback(generation));
+            NoteVoicePlaybackEndedOnUi(generation);
         }
 
-        private void NoteVoicePlaybackEndedOnUi()
+        private void NoteVoicePlaybackEndedOnUi(int? generation = null)
         {
+            Action update = () =>
+            {
+                if (!generation.HasValue || IsAudioGenerationCurrent(generation.Value))
+                {
+                    _overlaySession.NoteVoicePlaybackEnded();
+                }
+            };
+
             if (Dispatcher.CheckAccess())
             {
-                _overlaySession.NoteVoicePlaybackEnded();
+                update();
                 return;
             }
 
-            Dispatcher.BeginInvoke(new Action(() => _overlaySession.NoteVoicePlaybackEnded()));
+            if (!Dispatcher.HasShutdownStarted && !Dispatcher.HasShutdownFinished)
+            {
+                Dispatcher.BeginInvoke(update);
+            }
+        }
+
+        private void NoteVoicePlaybackStartedOnUi(int generation)
+        {
+            Action update = () =>
+            {
+                if (IsAudioGenerationCurrent(generation))
+                {
+                    _overlaySession.NoteVoicePlaybackStarted();
+                }
+            };
+
+            if (Dispatcher.CheckAccess())
+            {
+                update();
+                return;
+            }
+
+            if (!Dispatcher.HasShutdownStarted && !Dispatcher.HasShutdownFinished)
+            {
+                Dispatcher.BeginInvoke(update);
+            }
         }
 
         private void StartAudioPlayback(
@@ -6912,6 +7393,7 @@ namespace GI_Subtitles.Views
             string requestLabel = "voice")
         {
             DisposeCurrentAudioPlayback();
+            tempFilePath = filePath;
             bool usingSoundTouch =
                 allowTempoProcessing &&
                 Math.Abs(_voicePlaybackSpeed - 1.0) >= 0.001;
@@ -6935,6 +7417,7 @@ namespace GI_Subtitles.Views
                 }
 
                 waveOut = new WaveOutEvent();
+                _currentAudioPlayerGeneration = generation;
                 IWavePlayer currentPlayer = waveOut;
                 _playbackStoppedHandler = (sender, args) =>
                 {
@@ -6942,58 +7425,14 @@ namespace GI_Subtitles.Views
                     {
                         return;
                     }
-
-                    Dispatcher.BeginInvoke(new Action(() =>
-                    {
-                        if (!ReferenceEquals(waveOut, currentPlayer))
-                        {
-                            return;
-                        }
-
-                        if (args.Exception != null)
-                        {
-                            if (usingSoundTouch)
-                            {
-                                if (IsVoiceTestRequest(requestLabel))
-                                {
-                                    Logger.Log.Warn(
-                                        $"[Voice:{requestLabel}] SoundTouch playback failed; " +
-                                        $"retrying at normal speed: {args.Exception.Message}");
-                                }
-                                else
-                                {
-                                    Logger.Log.Warn(
-                                        $"SoundTouch playback failed; retrying at normal speed: " +
-                                        args.Exception.Message);
-                                }
-                                StartAudioPlayback(
-                                    filePath,
-                                    generation,
-                                    allowTempoProcessing: false,
-                                    logActivity: logActivity,
-                                    requestLabel: requestLabel);
-                            }
-                            else
-                            {
-                                if (IsVoiceTestRequest(requestLabel))
-                                {
-                                    Logger.Log.Error(
-                                        $"[Voice:{requestLabel}] playback stopped with error: " +
-                                        args.Exception);
-                                }
-                                DisposeCurrentAudioPlayback();
-                                _ = ProcessNextAudioAsync(generation);
-                            }
-                            return;
-                        }
-
-                        if (IsVoiceTestRequest(requestLabel))
-                        {
-                            Logger.Log.Debug($"[Voice:{requestLabel}] playback stopped normally.");
-                        }
-                        DisposeCurrentAudioPlayback();
-                        _ = ProcessNextAudioAsync(generation);
-                    }));
+                    _ = HandlePlaybackStoppedAsync(
+                        currentPlayer,
+                        args,
+                        filePath,
+                        generation,
+                        usingSoundTouch,
+                        logActivity,
+                        requestLabel);
                 };
                 waveOut.PlaybackStopped += _playbackStoppedHandler;
                 waveOut.Init(playbackSource);
@@ -7008,7 +7447,7 @@ namespace GI_Subtitles.Views
                 }
                 if (logActivity)
                 {
-                    _overlaySession.NoteVoicePlaybackStarted();
+                    NoteVoicePlaybackStartedOnUi(generation);
                 }
             }
             catch (Exception ex) when (usingSoundTouch)
@@ -7045,6 +7484,61 @@ namespace GI_Subtitles.Views
             }
         }
 
+        private async Task HandlePlaybackStoppedAsync(
+            IWavePlayer stoppedPlayer,
+            StoppedEventArgs args,
+            string filePath,
+            int generation,
+            bool usingSoundTouch,
+            bool logActivity,
+            string requestLabel)
+        {
+            try
+            {
+                if (args.Exception != null)
+                {
+                    lock (_audioPlaybackDeviceLock)
+                    {
+                        if (!ReferenceEquals(waveOut, stoppedPlayer) ||
+                            !IsAudioGenerationCurrent(generation))
+                        {
+                            return;
+                        }
+                    }
+
+                    if (usingSoundTouch)
+                    {
+                        Logger.Log.Warn(
+                            $"SoundTouch playback failed; retrying at normal speed: " +
+                            args.Exception.Message);
+                        await StartAudioPlaybackAsync(
+                            filePath,
+                            generation,
+                            allowTempoProcessing: false,
+                            logActivity: logActivity,
+                            requestLabel: requestLabel,
+                            expectedPlayer: stoppedPlayer).ConfigureAwait(false);
+                        return;
+                    }
+
+                    Logger.Log.Error($"Voice playback stopped with an error: {args.Exception}");
+                }
+                bool disposed = await Task.Run(() =>
+                    TryDisposeCurrentAudioPlayback(generation, stoppedPlayer)).ConfigureAwait(false);
+                if (!disposed)
+                {
+                    return;
+                }
+
+                await ProcessNextAudioAsync(generation).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                Logger.Log.Error($"Voice playback completion failed: {ex}");
+                NoteVoicePlaybackEndedOnUi(generation);
+            }
+        }
+
         private async Task ProcessNextAudioAsync(int generation)
         {
             while (true)
@@ -7076,8 +7570,18 @@ namespace GI_Subtitles.Views
 
                 if (source == null)
                 {
-                    NoteVoicePlaybackEndedOnUi();
+                    NoteVoicePlaybackEndedOnUi(generation);
                     return;
+                }
+
+                if (source.ResolveLocalFile)
+                {
+                    source.LocalFilePath = await Task.Run(() =>
+                    {
+                        _genshinVoiceFileResolver.TryResolve(source.AudioKey, out string resolvedPath);
+                        return resolvedPath;
+                    }).ConfigureAwait(false);
+                    source.ResolveLocalFile = false;
                 }
 
                 if (!string.IsNullOrEmpty(source.LocalFilePath) &&
@@ -7091,30 +7595,33 @@ namespace GI_Subtitles.Views
                                 $"[Voice:{source.RequestLabel}] local audio selected: " +
                                 $"bytes={new FileInfo(source.LocalFilePath).Length}");
                         }
-                        await Dispatcher.InvokeAsync(() =>
+                        if (!IsAudioGenerationCurrent(generation))
                         {
-                            lock (_audioPlaybackQueueLock)
-                            {
-                                if (generation != _audioPlaybackGeneration)
-                                {
-                                    if (IsVoiceTestRequest(source.RequestLabel))
-                                    {
-                                        Logger.Log.Warn(
-                                            $"[Voice:{source.RequestLabel}] request superseded before local playback.");
-                                    }
-                                    source.Completion?.Invoke(false, "superseded");
-                                    return;
-                                }
-                            }
-
-                            tempFilePath = source.LocalFilePath;
-                            StartAudioPlayback(
+                            await CompleteVoiceSourceAsync(source, false, "superseded").ConfigureAwait(false);
+                            return;
+                        }
+                        bool started;
+                        try
+                        {
+                            started = await StartAudioPlaybackAsync(
                                 source.LocalFilePath,
                                 generation,
                                 logActivity: source.LogActivity,
-                                requestLabel: source.RequestLabel);
-                            source.Completion?.Invoke(true, null);
-                        });
+                                requestLabel: source.RequestLabel).ConfigureAwait(false);
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Log.Error($"Local voice playback failed: {ex}");
+                            await CompleteVoiceSourceAsync(source, false, ex.Message).ConfigureAwait(false);
+                            continue;
+                        }
+                        if (!started)
+                        {
+                            await CompleteVoiceSourceAsync(source, false, "superseded").ConfigureAwait(false);
+                            return;
+                        }
+
+                        await CompleteVoiceSourceAsync(source, true, null).ConfigureAwait(false);
                         return;
                     }
 
@@ -7134,7 +7641,8 @@ namespace GI_Subtitles.Views
                     using (var webClient = new WebClient())
                     {
                         webClient.Headers[HttpRequestHeader.UserAgent] = "GI-Subtitles/1.0";
-                        await webClient.DownloadFileTaskAsync(new Uri(source.RemoteUrl), tempFile);
+                        await webClient.DownloadFileTaskAsync(new Uri(source.RemoteUrl), tempFile)
+                            .ConfigureAwait(false);
                     }
 
                     long downloadedBytes = new FileInfo(tempFile).Length;
@@ -7154,31 +7662,25 @@ namespace GI_Subtitles.Views
                             $"bytes={downloadedBytes}, header={ReadAudioHeader(tempFile)}");
                     }
 
-                    await Dispatcher.InvokeAsync(() =>
+                    if (!IsAudioGenerationCurrent(generation))
                     {
-                        lock (_audioPlaybackQueueLock)
-                        {
-                            if (generation != _audioPlaybackGeneration)
-                            {
-                                if (IsVoiceTestRequest(source.RequestLabel))
-                                {
-                                    Logger.Log.Warn(
-                                        $"[Voice:{source.RequestLabel}] request superseded before downloaded playback.");
-                                }
-                                TryDeleteAudioTempFile(tempFile);
-                                source.Completion?.Invoke(false, "superseded");
-                                return;
-                            }
-                        }
+                        TryDeleteAudioTempFile(tempFile);
+                        await CompleteVoiceSourceAsync(source, false, "superseded").ConfigureAwait(false);
+                        return;
+                    }
+                    bool started = await StartAudioPlaybackAsync(
+                        tempFile,
+                        generation,
+                        logActivity: source.LogActivity,
+                        requestLabel: source.RequestLabel).ConfigureAwait(false);
+                    if (!started)
+                    {
+                        TryDeleteAudioTempFile(tempFile);
+                        await CompleteVoiceSourceAsync(source, false, "superseded").ConfigureAwait(false);
+                        return;
+                    }
 
-                        tempFilePath = tempFile;
-                        StartAudioPlayback(
-                            tempFile,
-                            generation,
-                            logActivity: source.LogActivity,
-                            requestLabel: source.RequestLabel);
-                        source.Completion?.Invoke(true, null);
-                    });
+                    await CompleteVoiceSourceAsync(source, true, null).ConfigureAwait(false);
                     return;
                 }
                 catch (WebException ex) when (ex.Response is HttpWebResponse response &&
@@ -7190,7 +7692,7 @@ namespace GI_Subtitles.Views
                             $"[Voice:{source.RequestLabel}] server returned HTTP 404; " +
                             $"audio is unavailable for md5={source.AudioKey}.");
                     }
-                    source.Completion?.Invoke(false, "not-found");
+                    await CompleteVoiceSourceAsync(source, false, "not-found").ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
@@ -7203,29 +7705,92 @@ namespace GI_Subtitles.Views
                     {
                         Logger.Log.Warn($"Voice playback preparation failed: {ex.Message}");
                     }
-                    source.Completion?.Invoke(false, ex.Message);
+                    await CompleteVoiceSourceAsync(source, false, ex.Message).ConfigureAwait(false);
                 }
 
                 TryDeleteAudioTempFile(tempFile);
             }
         }
 
-        private void DisposeCurrentAudioPlayback()
+        private Task<bool> StartAudioPlaybackAsync(
+            string filePath,
+            int generation,
+            bool allowTempoProcessing = true,
+            bool logActivity = false,
+            string requestLabel = "subtitle",
+            IWavePlayer expectedPlayer = null)
         {
-            IWavePlayer currentPlayer = waveOut;
-            if (currentPlayer != null && _playbackStoppedHandler != null)
+            return Task.Run(() =>
             {
-                currentPlayer.PlaybackStopped -= _playbackStoppedHandler;
+                lock (_audioPlaybackDeviceLock)
+                {
+                    if (!IsAudioGenerationCurrent(generation) ||
+                        (expectedPlayer != null && !ReferenceEquals(waveOut, expectedPlayer)))
+                    {
+                        return false;
+                    }
+
+                    StartAudioPlayback(
+                        filePath,
+                        generation,
+                        allowTempoProcessing,
+                        logActivity,
+                        requestLabel);
+                    return true;
+                }
+            });
+        }
+
+        private Task CompleteVoiceSourceAsync(VoiceAudioSource source, bool succeeded, string error)
+        {
+            if (source?.Completion == null || Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished)
+            {
+                return Task.CompletedTask;
             }
 
-            _playbackStoppedHandler = null;
-            waveOut = null;
-            currentPlayer?.Stop();
-            currentPlayer?.Dispose();
-            soundTouchProvider?.Clear();
-            soundTouchProvider = null;
-            mediaReader?.Dispose();
-            mediaReader = null;
+            return Dispatcher.InvokeAsync(
+                new Action(() => source.Completion(succeeded, error))).Task;
+        }
+
+        private void DisposeCurrentAudioPlayback()
+        {
+            lock (_audioPlaybackDeviceLock)
+            {
+                IWavePlayer currentPlayer = waveOut;
+                if (currentPlayer != null && _playbackStoppedHandler != null)
+                {
+                    currentPlayer.PlaybackStopped -= _playbackStoppedHandler;
+                }
+
+                _playbackStoppedHandler = null;
+                waveOut = null;
+                currentPlayer?.Stop();
+                currentPlayer?.Dispose();
+                soundTouchProvider?.Clear();
+                soundTouchProvider = null;
+                mediaReader?.Dispose();
+                mediaReader = null;
+            }
+        }
+
+        private bool TryDisposeCurrentAudioPlayback(
+            int generation,
+            IWavePlayer expectedPlayer = null)
+        {
+            lock (_audioPlaybackDeviceLock)
+            {
+                lock (_audioPlaybackQueueLock)
+                {
+                    if (generation != _audioPlaybackGeneration ||
+                        (expectedPlayer != null && !ReferenceEquals(waveOut, expectedPlayer)))
+                    {
+                        return false;
+                    }
+                }
+
+                DisposeCurrentAudioPlayback();
+                return true;
+            }
         }
 
         private static void TryDeleteAudioTempFile(string filePath)
@@ -7245,28 +7810,46 @@ namespace GI_Subtitles.Views
 
         private void CycleVoicePlaybackSpeed()
         {
-            int currentIndex = Array.FindIndex(
-                VoicePlaybackSpeeds,
-                speed => Math.Abs(speed - _voicePlaybackSpeed) < 0.001);
-            int nextIndex = (currentIndex + 1) % VoicePlaybackSpeeds.Length;
-            _voicePlaybackSpeed = VoicePlaybackSpeeds[nextIndex];
-            Config.Set("VoicePlaybackSpeed", _voicePlaybackSpeed);
-            UpdatePlaybackSpeedIndicator();
-
-            bool restartCurrentAudio = waveOut?.PlaybackState == PlaybackState.Playing &&
-                                       !string.IsNullOrEmpty(tempFilePath) &&
-                                       File.Exists(tempFilePath);
-            if (restartCurrentAudio)
+            double newSpeed;
+            string currentFile;
+            int generation;
+            IWavePlayer currentPlayer;
+            lock (_audioPlaybackDeviceLock)
             {
-                int generation;
-                lock (_audioPlaybackQueueLock)
-                {
-                    generation = _audioPlaybackGeneration;
-                }
-                StartAudioPlayback(tempFilePath, generation, requestLabel: "subtitle");
+                int currentIndex = Array.FindIndex(
+                    VoicePlaybackSpeeds,
+                    speed => Math.Abs(speed - _voicePlaybackSpeed) < 0.001);
+                int nextIndex = (currentIndex + 1) % VoicePlaybackSpeeds.Length;
+                _voicePlaybackSpeed = VoicePlaybackSpeeds[nextIndex];
+                newSpeed = _voicePlaybackSpeed;
+                currentFile = tempFilePath;
+                currentPlayer = waveOut?.PlaybackState == PlaybackState.Playing ? waveOut : null;
+                generation = _currentAudioPlayerGeneration;
             }
 
-            _overlaySession.ChangeVoiceSpeed(_voicePlaybackSpeed);
+            Config.Set("VoicePlaybackSpeed", newSpeed);
+            UpdatePlaybackSpeedIndicator();
+
+            if (currentPlayer != null && !string.IsNullOrEmpty(currentFile))
+            {
+                _ = RestartVoiceAtNewSpeedAsync(currentFile, generation, currentPlayer);
+            }
+
+            _overlaySession.ChangeVoiceSpeed(newSpeed);
+        }
+
+        private async Task RestartVoiceAtNewSpeedAsync(string filePath, int generation, IWavePlayer expectedPlayer)
+        {
+            try
+            {
+                await StartAudioPlaybackAsync(filePath, generation, expectedPlayer: expectedPlayer)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                Logger.Log.Error($"Could not restart voice playback at the new speed: {ex}");
+                await StartAudioQueueAsync(generation, stopCurrentPlayback: false).ConfigureAwait(false);
+            }
         }
 
         private void UpdatePlaybackSpeedIndicator()

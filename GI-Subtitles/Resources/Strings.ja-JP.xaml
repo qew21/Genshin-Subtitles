@@ -153,7 +153,7 @@
     <sys:String x:Key="Config_DebugSamplingOverlay" xmlns:sys="clr-namespace:System;assembly=mscorlib">認識デバッグパネルを表示</sys:String>
     <sys:String x:Key="Config_DebugSamplingOverlay_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">認識中にサンプリングとスキップ理由、プロセスの CPU とメモリを表示します。認識を一時停止すると非表示になります。</sys:String>
     <sys:String x:Key="Config_SubtitleBackground" xmlns:sys="clr-namespace:System;assembly=mscorlib">半透明の字幕背景を表示</sys:String>
-    <sys:String x:Key="Config_SubtitleBackground_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕の後ろに暗い背景を表示して読みやすくします。デフォルトで有効です。</sys:String>
+    <sys:String x:Key="Config_SubtitleBackground_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕の後ろに半透明の暗い背景を表示して読みやすくします。デフォルトでは無効です。</sys:String>
     <sys:String x:Key="Debug_ProcessResources" xmlns:sys="clr-namespace:System;assembly=mscorlib">アプリ使用率 {0:F1}% · メモリ {1:F0} MB</sys:String>
     <sys:String x:Key="Debug_ProcessResourcesUnavailable" xmlns:sys="clr-namespace:System;assembly=mscorlib">アプリ状態を取得できません</sys:String>
     <sys:String x:Key="Debug_MinimizeTooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">デバッグ領域を最小化</sys:String>
@@ -187,12 +187,11 @@
     <sys:String x:Key="Debug_SubtitleUpdated" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕を更新しました</sys:String>
     <sys:String x:Key="Debug_NoMatchingSubtitle" xmlns:sys="clr-namespace:System;assembly=mscorlib">該当する字幕がありません</sys:String>
     <sys:String x:Key="Config_RecognizeDarkScreenSubtitles" xmlns:sys="clr-namespace:System;assembly=mscorlib">暗転字幕を認識</sys:String>
-    <sys:String x:Key="Config_RecognizeDarkScreenSubtitles_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">暗転カットシーンの中央字幕帯を検出し、翻訳を表示します。領域ペアではありません。</sys:String>
+    <sys:String x:Key="Config_RecognizeDarkScreenSubtitles_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">暗転シーンで原文字幕の横長領域を検出して翻訳を表示します。固定表示区が未設定の場合、翻訳は検出帯に追従します。領域ペアや会話選択肢の認識とは別機能です。</sys:String>
     <sys:String x:Key="Config_RecognizeDialogueOptions" xmlns:sys="clr-namespace:System;assembly=mscorlib">会話選択肢を認識</sys:String>
     <sys:String x:Key="Config_RecognizeDialogueOptions_Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">会話選択肢を自動検出し、マウスで選んだ項目を翻訳して AI 音声を再生します。</sys:String>
     <sys:String x:Key="ExtraPath_BoxDisplay" xmlns:sys="clr-namespace:System;assembly=mscorlib">表示区を枠選</sys:String>
     <sys:String x:Key="ExtraPath_ClearDefault" xmlns:sys="clr-namespace:System;assembly=mscorlib">既定に戻す</sys:String>
-    <sys:String x:Key="ExtraPath_DarkScreenFollowBand" xmlns:sys="clr-namespace:System;assembly=mscorlib">候補帯に追従</sys:String>
     <sys:String x:Key="ExtraPath_DialogueFollowVoicePrimary" xmlns:sys="clr-namespace:System;assembly=mscorlib">音声ソースに追従</sys:String>
     <sys:String x:Key="ExtraPath_DisplaySet" xmlns:sys="clr-namespace:System;assembly=mscorlib">表示区を指定済み</sys:String>
     <sys:String x:Key="ExtraPath_BoxDarkScreenMask" xmlns:sys="clr-namespace:System;assembly=mscorlib">暗転表示区を枠選</sys:String>
@@ -216,7 +215,6 @@
     <sys:String x:Key="Btn_SubtitleColor" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕色を変更</sys:String>
 
     <!-- トレイ メニュー -->
-    <sys:String x:Key="Tray_FontSize" xmlns:sys="clr-namespace:System;assembly=mscorlib">フォントサイズ</sys:String>
     <sys:String x:Key="Tray_Settings" xmlns:sys="clr-namespace:System;assembly=mscorlib">設定</sys:String>
     <sys:String x:Key="Tray_Exit" xmlns:sys="clr-namespace:System;assembly=mscorlib">終了</sys:String>
     <sys:String x:Key="Tray_UpdateAvailable" xmlns:sys="clr-namespace:System;assembly=mscorlib">新しいバージョン {0}</sys:String>
@@ -311,4 +309,20 @@
     <sys:String x:Key="TextSearch_Failed" xmlns:sys="clr-namespace:System;assembly=mscorlib">検索に失敗しました：{0}</sys:String>
     <sys:String x:Key="TextSearch_ResultSummary" xmlns:sys="clr-namespace:System;assembly=mscorlib">{2} 行中 {1} 行から会話 {0} 件が見つかりました。</sys:String>
     <sys:String x:Key="TextSearch_ResultSummaryLimited" xmlns:sys="clr-namespace:System;assembly=mscorlib">{2} 行中 {1} 行から会話 {0} 件を表示しています（1 行あたり最大 {3} 件）。</sys:String>
+    <sys:String x:Key="SubtitleOverlap_Title" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕の表示領域と認識領域が重なっています</sys:String>
+    <sys:String x:Key="SubtitleOverlap_Message" xmlns:sys="clr-namespace:System;assembly=mscorlib">翻訳が原文を隠したり、再認識されたりすると、翻訳が欠ける場合があります。クリックして領域を確認または調整できます。</sys:String>
+    <sys:String x:Key="SubtitleOverlap_Preview" xmlns:sys="clr-namespace:System;assembly=mscorlib">領域をプレビュー</sys:String>
+    <sys:String x:Key="SubtitleOverlap_Adjust" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕領域を調整</sys:String>
+    <sys:String x:Key="Tab_SubtitleStyle" xmlns:sys="clr-namespace:System;assembly=mscorlib">字幕スタイル</sys:String>
+    <sys:String x:Key="SubtitleStyle_PreviewLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">プレビュー</sys:String>
+    <sys:String x:Key="SubtitleStyle_Font" xmlns:sys="clr-namespace:System;assembly=mscorlib">フォントと色</sys:String>
+    <sys:String x:Key="SubtitleStyle_Size" xmlns:sys="clr-namespace:System;assembly=mscorlib">文字サイズ</sys:String>
+    <sys:String x:Key="SubtitleStyle_BackgroundColor" xmlns:sys="clr-namespace:System;assembly=mscorlib">背景色</sys:String>
+    <sys:String x:Key="SubtitleStyle_BackgroundOpacity" xmlns:sys="clr-namespace:System;assembly=mscorlib">不透明度</sys:String>
+    <sys:String x:Key="SubtitleStyle_Background_Black" xmlns:sys="clr-namespace:System;assembly=mscorlib">黒</sys:String>
+    <sys:String x:Key="SubtitleStyle_Background_Charcoal" xmlns:sys="clr-namespace:System;assembly=mscorlib">チャコール</sys:String>
+    <sys:String x:Key="SubtitleStyle_Background_Navy" xmlns:sys="clr-namespace:System;assembly=mscorlib">濃紺</sys:String>
+    <sys:String x:Key="SubtitleStyle_Background_Warm" xmlns:sys="clr-namespace:System;assembly=mscorlib">暖色ブラウン</sys:String>
+    <sys:String x:Key="SubtitleStyle_Contrast" xmlns:sys="clr-namespace:System;assembly=mscorlib">コントラスト</sys:String>
+    <sys:String x:Key="SubtitleStyle_Outline" xmlns:sys="clr-namespace:System;assembly=mscorlib">濃い縁取りと影を表示</sys:String>
 </ResourceDictionary>

@@ -508,7 +508,6 @@ namespace GI_Subtitles.Services.Translation
             }
         }
 
-        // Header detection logic remains identical
         public MatchResult FindMatchWithHeaderSeparated(string ocrText, out string key)
         {
             key = "";
@@ -523,6 +522,11 @@ namespace GI_Subtitles.Services.Translation
             if (string.IsNullOrEmpty(ocrText)) return result;
 
             string[] lines = ocrText.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            if (!isEng && TryMatchBeforeEnglishTail(lines, out MatchResult cleanMatch, out key))
+            {
+                return cleanMatch;
+            }
+
             if (lines.Length == 1)
             {
                 result.Content = FindClosestMatch(lines[0], out key);
@@ -611,6 +615,67 @@ namespace GI_Subtitles.Services.Translation
             result.MatchedHeader = string.Join("\n", matchedHeaders);
             result.MatchedContent = bodyKey;
             return result;
+        }
+
+        private bool TryMatchBeforeEnglishTail(string[] lines, out MatchResult result, out string key)
+        {
+            result = default;
+            key = "";
+            int end = lines.Length;
+            while (end > 0 && IsEnglishLine(lines[end - 1]))
+            {
+                end--;
+            }
+
+            if (end == 0 || end == lines.Length)
+            {
+                return false;
+            }
+
+            var headers = new List<string>();
+            var translatedHeaders = new List<string>();
+            for (int start = 0; start < end; start++)
+            {
+                // Preserve genuine mixed-language dialogue when it has an exact match.
+                string fullBody = string.Join(" ", lines.Skip(start)).Trim();
+                string cleanBody = NormalizeInput(string.Concat(lines.Skip(start).Take(end - start)), false);
+                if (!ContentDict.ContainsKey(fullBody))
+                {
+                    fullBody = NormalizeInput(fullBody, false);
+                }
+                if (ContentDict.ContainsKey(fullBody))
+                {
+                    cleanBody = fullBody;
+                }
+                else if (start == 0 && end == 1 && !lines[0].Any(char.IsPunctuation))
+                {
+                    // A lone name followed by its translation is not a dialogue body.
+                    return false;
+                }
+
+                if (ContentDict.TryGetValue(cleanBody, out string body) && !string.IsNullOrWhiteSpace(body))
+                {
+                    key = cleanBody;
+                    result = new MatchResult
+                    {
+                        Header = string.Join(" ", translatedHeaders),
+                        Content = body,
+                        MatchedHeader = string.Join("\n", headers),
+                        MatchedContent = key
+                    };
+                    return true;
+                }
+
+                string header = lines[start].Trim();
+                if (!ContentDict.TryGetValue(header, out string translation) || translation.Contains("test"))
+                {
+                    break;
+                }
+                headers.Add(header);
+                translatedHeaders.Add(translation);
+            }
+
+            return false;
         }
 
         private static bool IsTitleCase(string text)

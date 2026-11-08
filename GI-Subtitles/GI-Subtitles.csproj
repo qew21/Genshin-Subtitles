@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -47,6 +47,27 @@
   <PropertyGroup>
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(BorderlessCapturePreview)' == 'true'">
+    <DefineConstants>$(DefineConstants);BORDERLESS_CAPTURE_PREVIEW</DefineConstants>
+    <PreviewSdkRoot Condition="'$(PreviewSdkRoot)' == ''">$(MSBuildProgramFiles32)\Windows Kits\10\</PreviewSdkRoot>
+    <PreviewSdkVersion Condition="'$(PreviewSdkVersion)' == ''">10.0.22621.0</PreviewSdkVersion>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(BorderlessCapturePreview)' == 'true'">
+    <Reference Include="System.Runtime.WindowsRuntime" />
+    <Reference Include="Windows">
+      <HintPath>$(PreviewSdkRoot)UnionMetadata\$(PreviewSdkVersion)\Windows.winmd</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="SharpDX">
+      <HintPath>..\packages\SharpDX.4.2.0\lib\net45\SharpDX.dll</HintPath>
+    </Reference>
+    <Reference Include="SharpDX.Direct3D11">
+      <HintPath>..\packages\SharpDX.Direct3D11.4.2.0\lib\net45\SharpDX.Direct3D11.dll</HintPath>
+    </Reference>
+    <Reference Include="SharpDX.DXGI">
+      <HintPath>..\packages\SharpDX.DXGI.4.2.0\lib\net45\SharpDX.DXGI.dll</HintPath>
+    </Reference>
+  </ItemGroup>
   <ItemGroup>
     <Reference Include="Emgu.CV.UI, Version=4.1.0.3408, Culture=neutral, PublicKeyToken=7281126722ab4438, processorArchitecture=MSIL">
       <HintPath>..\packages\EMGU.CV.4.1.0.3408\lib\net35\Emgu.CV.UI.dll</HintPath>
@@ -176,6 +197,9 @@
     <Compile Include="Services\Translation\TextSearchLookup.cs" />
     <Compile Include="Services\Translation\BilingualTextSearchMatcher.cs" />
     <Compile Include="Core\Screen\ScreenInfo.cs" />
+    <Compile Include="Core\Screen\GameWindowCaptureSource.cs" Condition="'$(BorderlessCapturePreview)' == 'true'" />
+    <Compile Include="Core\Screen\GameWindowLocator.cs" Condition="'$(BorderlessCapturePreview)' == 'true'" />
+    <Compile Include="Core\Screen\BorderlessCapturePreview.cs" Condition="'$(BorderlessCapturePreview)' == 'true'" />
     <Compile Include="Core\Screen\SubtitleTextRegionDetector.cs" />
     <Compile Include="Views\RegionPairSettings.cs" />
     <Compile Include="Views\Font.xaml.cs">

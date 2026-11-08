@@ -868,7 +868,7 @@ namespace GI_Subtitles.Core.Overlay
                     continue;
                 }
 
-                if (sample.Changed && sample.Stable && !sample.Empty)
+                if (sample.Changed && !sample.Empty)
                 {
                     EnqueueOcr(i);
                 }

@@ -816,6 +816,63 @@
                 </DockPanel>
             </TabItem>
 
+            <TabItem Header="{DynamicResource Tab_SubtitleStyle}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="12">
+                    <StackPanel>
+                        <Border Style="{StaticResource Card}" Padding="18" Margin="0,0,0,10">
+                            <StackPanel>
+                                <TextBlock Text="{DynamicResource SubtitleStyle_PreviewLabel}" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                                <Border x:Name="SubtitleStylePreviewBorder" Background="#30343A" Padding="14" CornerRadius="6">
+                                    <TextBlock x:Name="SubtitleStylePreview" Text="测试字幕 Preview 123" TextAlignment="Center"
+                                               TextWrapping="Wrap" FontWeight="Bold" Foreground="{DynamicResource SubtitleForegroundBrush}"
+                                               FontFamily="{DynamicResource SubtitleFontFamily}"/>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource Card}" Padding="18" Margin="0,0,0,10">
+                            <StackPanel>
+                                <TextBlock Text="{DynamicResource SubtitleStyle_Font}" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                                <WrapPanel>
+                                    <ComboBox x:Name="SubtitleFontComboBox" Width="260" Margin="0,0,8,8"
+                                              SelectionChanged="SubtitleFontComboBox_SelectionChanged"/>
+                                    <Button Content="{DynamicResource Btn_SubtitleColor}" Margin="0,0,8,8" Click="SubtitleColor_Click"/>
+                                </WrapPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                    <TextBlock Text="{DynamicResource SubtitleStyle_Size}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                    <Slider x:Name="SubtitleSizeSlider" Minimum="12" Maximum="48" TickFrequency="2"
+                                            IsSnapToTickEnabled="True" Width="240" ValueChanged="SubtitleSizeSlider_ValueChanged"/>
+                                    <TextBlock x:Name="SubtitleSizeValue" Width="40" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource Card}" Padding="18">
+                            <StackPanel>
+                                <TextBlock Text="{DynamicResource SubtitleStyle_Contrast}" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                                <CheckBox x:Name="SubtitleBackgroundCheckBox" Checked="SubtitleBackgroundCheckBox_Changed"
+                                          Unchecked="SubtitleBackgroundCheckBox_Changed" Content="{DynamicResource Config_SubtitleBackground}"
+                                          ToolTip="{DynamicResource Config_SubtitleBackground_Tooltip}" Margin="0,0,0,8"/>
+                                <StackPanel Margin="22,0,0,8">
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                        <TextBlock Text="{DynamicResource SubtitleStyle_BackgroundColor}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                        <ComboBox x:Name="SubtitleBackgroundColorComboBox" Width="180"
+                                                  SelectionChanged="SubtitleBackgroundColorComboBox_SelectionChanged"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{DynamicResource SubtitleStyle_BackgroundOpacity}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                        <Slider x:Name="SubtitleBackgroundOpacitySlider" Minimum="10" Maximum="90" TickFrequency="5"
+                                                IsSnapToTickEnabled="True" Width="220"
+                                                ValueChanged="SubtitleBackgroundOpacitySlider_ValueChanged"/>
+                                        <TextBlock x:Name="SubtitleBackgroundOpacityValue" Width="48" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <CheckBox x:Name="SubtitleOutlineCheckBox" Checked="SubtitleOutlineCheckBox_Changed"
+                                          Unchecked="SubtitleOutlineCheckBox_Changed" Content="{DynamicResource SubtitleStyle_Outline}"
+                                          Margin="0,0,0,8"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
             <!-- Tab 4: Configuration -->
             <TabItem x:Name="OtherSettingsTab" Header="{DynamicResource Tab_Config}">
                 <Grid Margin="10">
@@ -828,8 +885,6 @@
                         <WrapPanel HorizontalAlignment="Left">
                             <Button Content="{DynamicResource Btn_OpenFolder}" Margin="0,0,8,0" Click="OpenAppDataFolder_Click"/>
                             <Button Content="{DynamicResource Btn_ActivityLog}" Margin="0,0,8,0" Click="OpenActivityLog_Click"/>
-                            <Button Content="{DynamicResource Btn_SubtitleFont}" Margin="0,0,8,0" Click="FontPreview_Click"/>
-                            <Button Content="{DynamicResource Btn_SubtitleColor}" Margin="0,0,8,0" Click="SubtitleColor_Click"/>
                         </WrapPanel>
                     </Border>
 
@@ -904,13 +959,7 @@
                                                   Content="{DynamicResource Config_RecognizeDarkScreenSubtitles}"
                                                   ToolTip="{DynamicResource Config_RecognizeDarkScreenSubtitles_Tooltip}"
                                                   Margin="0,0,0,6"/>
-                                        <CheckBox x:Name="SubtitleBackgroundCheckBox" Checked="SubtitleBackgroundCheckBox_Changed"
-                                                  Unchecked="SubtitleBackgroundCheckBox_Changed" Content="{DynamicResource Config_SubtitleBackground}"
-                                                  ToolTip="{DynamicResource Config_SubtitleBackground_Tooltip}"
-                                                  Margin="0,0,0,6"/>
                                         <StackPanel x:Name="DarkScreenDisplayRow" Margin="22,0,0,4" Visibility="Collapsed">
-                                            <TextBlock x:Name="DarkScreenDisplayStatus" Margin="0,0,0,4" TextWrapping="Wrap"
-                                                       Foreground="{StaticResource TextSecondaryBrush}"/>
                                             <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
                                                 <Button Content="{DynamicResource ExtraPath_BoxDisplay}" Click="BoxDarkScreenDisplay_Click"
                                                         Padding="10,2" Margin="0,0,8,0"/>
