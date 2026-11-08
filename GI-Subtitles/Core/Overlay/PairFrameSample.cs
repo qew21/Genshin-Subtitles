@@ -20,6 +20,11 @@ namespace GI_Subtitles.Core.Overlay
             return new PairFrameSample(true, true, false);
         }
 
+        public static PairFrameSample ChangedWhileUnstable()
+        {
+            return new PairFrameSample(true, false, false);
+        }
+
         public static PairFrameSample Unchanged()
         {
             return new PairFrameSample(false, true, false);

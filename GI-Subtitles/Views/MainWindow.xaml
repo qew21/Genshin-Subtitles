@@ -122,21 +122,18 @@
                    HorizontalAlignment="Center"
                    VerticalAlignment="Center" />
         </Button>
-        <TextBox x:Name="SubtitleText"
-                 TextWrapping="Wrap"
-                 FontFamily="{DynamicResource SubtitleFontFamily}"
-                 Foreground="{DynamicResource SubtitleForegroundBrush}"
-                 Effect="{StaticResource SubtitleTextShadow}"
-                 TextAlignment="Center"
-                 FontWeight="Bold"
-                 VerticalAlignment="Center"
-                 HorizontalAlignment="Center"
-                 Background="Transparent"
-                 Padding="8,4"
-                 BorderThickness="0"
-                 IsReadOnly="True"
-                 AcceptsReturn="True"
-                 IsHitTestVisible="False"/>
+        <TextBlock x:Name="SubtitleText"
+                   TextWrapping="Wrap"
+                   FontFamily="{DynamicResource SubtitleFontFamily}"
+                   Foreground="{DynamicResource SubtitleForegroundBrush}"
+                   Effect="{StaticResource SubtitleTextShadow}"
+                   TextAlignment="Center"
+                   FontWeight="Bold"
+                   VerticalAlignment="Center"
+                   HorizontalAlignment="Center"
+                   Background="Transparent"
+                   Padding="8,4"
+                   IsHitTestVisible="False"/>
 
         <TextBlock x:Name="DarkScreenText"
                    TextWrapping="Wrap"
