@@ -66,6 +66,7 @@ namespace GI_Subtitles.Views
         readonly Dictionary<string, string> InputLanguages = new Dictionary<string, string>()
             {
                 { "简体中文", "CHS"},
+                { "繁體中文", "CHT"},
                 { "English", "EN"},
                 { "日本語", "JP"}
             };
@@ -2152,8 +2153,9 @@ namespace GI_Subtitles.Views
                 @"Det\V6\PP-OCRv6_tiny_det_infer\slim.onnx")
             };
 
-            // PP-OCRv6 tiny intentionally excludes Japanese. Keep its faster
-            // detector and use only the dedicated V4 Japanese recognizer.
+            // PP-OCRv6 tiny is used for Chinese and English, including CHT;
+            // it intentionally excludes Japanese. Keep its faster detector
+            // and use only the dedicated V4 Japanese recognizer for JP.
             if (input == "JP")
             {
                 config.rec_infer = Path.Combine(
