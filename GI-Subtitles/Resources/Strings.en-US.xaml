@@ -14,6 +14,7 @@
 
     <sys:String x:Key="Lang_ZH_Simplified" xmlns:sys="clr-namespace:System;assembly=mscorlib">Chinese (Simplified)</sys:String>
     <sys:String x:Key="Lang_ZH_Traditional" xmlns:sys="clr-namespace:System;assembly=mscorlib">Chinese (Traditional)</sys:String>
+    <sys:String x:Key="TraditionalChineseUnavailable" xmlns:sys="clr-namespace:System;assembly=mscorlib">The current data source for {0} has no Traditional Chinese text pack. Select another input or output language.</sys:String>
 
     <sys:String x:Key="Local_File_Info" xmlns:sys="clr-namespace:System;assembly=mscorlib">Local Files</sys:String>
     <sys:String x:Key="Repo_Info" xmlns:sys="clr-namespace:System;assembly=mscorlib">Repository</sys:String>

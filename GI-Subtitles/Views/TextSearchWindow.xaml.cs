@@ -443,6 +443,8 @@ namespace GI_Subtitles.Views
 
         private void GameSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            string targetLanguage = TargetLanguageSelector.SelectedValue as string;
+            UpdateTargetLanguages(targetLanguage);
             ResetSearchResults();
         }
 
@@ -460,8 +462,10 @@ namespace GI_Subtitles.Views
             try
             {
                 string sourceLanguage = SourceLanguageSelector.SelectedValue as string;
+                string game = GameSelector.SelectedValue as string;
                 var options = TargetLanguages
-                    .Where(option => option.Code != sourceLanguage)
+                    .Where(option => option.Code != sourceLanguage &&
+                                     (option.Code != "CHT" || GameConfigStore.HasBuiltInTraditionalChineseTextMap(game)))
                     .ToArray();
                 TargetLanguageSelector.ItemsSource = options;
                 TargetLanguageSelector.SelectedValue = options.Any(option => option.Code == preferredTargetLanguage)
