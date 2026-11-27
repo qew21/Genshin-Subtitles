@@ -27,7 +27,8 @@ namespace GI_Subtitles.Views
         {
             new LanguageOption("CHS", "简体中文"),
             new LanguageOption("EN", "English"),
-            new LanguageOption("JP", "日本語")
+            new LanguageOption("JP", "日本語"),
+            new LanguageOption("CHT", "繁體中文")
         };
 
         private static readonly LanguageOption[] TargetLanguages =
@@ -99,11 +100,10 @@ namespace GI_Subtitles.Views
                     : metadata.Name
             }).ToList();
 
-            SourceLanguageSelector.ItemsSource = SourceLanguages;
             TargetLanguageSelector.ItemsSource = TargetLanguages;
 
             GameSelector.SelectedValue = game;
-            SourceLanguageSelector.SelectedValue = sourceLanguage;
+            UpdateSourceLanguages(sourceLanguage);
             UpdateTargetLanguages(targetLanguage);
             UpdateEmptyState();
             LoadSearchHistory();
@@ -443,6 +443,10 @@ namespace GI_Subtitles.Views
 
         private void GameSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            string sourceLanguage = SourceLanguageSelector.SelectedValue as string;
+            UpdateSourceLanguages(sourceLanguage);
+            string targetLanguage = TargetLanguageSelector.SelectedValue as string;
+            UpdateTargetLanguages(targetLanguage);
             ResetSearchResults();
         }
 
@@ -460,13 +464,36 @@ namespace GI_Subtitles.Views
             try
             {
                 string sourceLanguage = SourceLanguageSelector.SelectedValue as string;
+                string game = GameSelector.SelectedValue as string;
                 var options = TargetLanguages
-                    .Where(option => option.Code != sourceLanguage)
+                    .Where(option => option.Code != sourceLanguage &&
+                                     (option.Code != "CHT" || GameConfigStore.HasBuiltInTraditionalChineseTextMap(game)))
                     .ToArray();
                 TargetLanguageSelector.ItemsSource = options;
                 TargetLanguageSelector.SelectedValue = options.Any(option => option.Code == preferredTargetLanguage)
                     ? preferredTargetLanguage
                     : null;
+            }
+            finally
+            {
+                _updatingLanguageSelectors = false;
+            }
+        }
+
+        private void UpdateSourceLanguages(string preferredSourceLanguage)
+        {
+            _updatingLanguageSelectors = true;
+            try
+            {
+                string game = GameSelector.SelectedValue as string;
+                var options = SourceLanguages
+                    .Where(option => option.Code != "CHT" ||
+                                     GameConfigStore.HasBuiltInTraditionalChineseTextMap(game))
+                    .ToArray();
+                SourceLanguageSelector.ItemsSource = options;
+                SourceLanguageSelector.SelectedValue = options.Any(option => option.Code == preferredSourceLanguage)
+                    ? preferredSourceLanguage
+                    : options.FirstOrDefault()?.Code;
             }
             finally
             {

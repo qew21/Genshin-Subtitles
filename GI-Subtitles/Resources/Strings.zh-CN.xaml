@@ -19,6 +19,7 @@
 
     <sys:String x:Key="Lang_ZH_Simplified" xmlns:sys="clr-namespace:System;assembly=mscorlib">简体中文</sys:String>
     <sys:String x:Key="Lang_ZH_Traditional" xmlns:sys="clr-namespace:System;assembly=mscorlib">繁體中文</sys:String>
+    <sys:String x:Key="TraditionalChineseUnavailable" xmlns:sys="clr-namespace:System;assembly=mscorlib">{0} 当前数据源没有繁体中文文本包，请选择其他识别或输出语言。</sys:String>
 
     <sys:String x:Key="Local_File_Info" xmlns:sys="clr-namespace:System;assembly=mscorlib">本地文件信息</sys:String>
     <sys:String x:Key="Repo_Info" xmlns:sys="clr-namespace:System;assembly=mscorlib">仓库信息</sys:String>

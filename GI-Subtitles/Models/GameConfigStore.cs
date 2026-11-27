@@ -23,6 +23,20 @@ namespace GI_Subtitles.Models
         public const string GenshinTextMapFileUrlTemplate =
             "https://gitlab.com/Dimbreath/animegamedata2/-/raw/main/{Path}?inline=false";
 
+        public static bool HasBuiltInTraditionalChineseTextMap(string gameName)
+        {
+            switch (gameName)
+            {
+                case "Genshin":
+                case "StarRail":
+                case "Zenless":
+                case "Endfield":
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
         public static GameConfig LoadOrCreate(
             string configPath,
             Func<GameConfig> createDefault,

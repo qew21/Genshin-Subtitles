@@ -66,6 +66,7 @@ namespace GI_Subtitles.Views
         readonly Dictionary<string, string> InputLanguages = new Dictionary<string, string>()
             {
                 { "简体中文", "CHS"},
+                { "繁體中文", "CHT"},
                 { "English", "EN"},
                 { "日本語", "JP"}
             };
@@ -73,6 +74,9 @@ namespace GI_Subtitles.Views
         private GameConfig _currentGameConfig;
         private bool _isInitializingOutputSelection = true;
         private readonly SemaphoreSlim _dataLoadLock = new SemaphoreSlim(1, 1);
+        private string _downloadBaselineGame;
+        private string _downloadBaselineInputLanguage;
+        private HashSet<string> _downloadBaselineOutputLanguages = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         readonly Stopwatch sw = new Stopwatch();
         readonly static string dataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GI-Subtitles");
@@ -227,35 +231,46 @@ namespace GI_Subtitles.Views
             GameSelector.SelectionChanged += OnGameSelectorChanged;
 
             // Initialize InputSelector items
-            InputSelector.ItemsSource = InputLanguages.Keys.ToList();
+            InputSelector.ItemsSource = GetAvailableInputLanguageNames(Game);
             InputSelector.SelectionChanged += OnInputSelectorChanged;
 
             // Initialize OutputSelector items
-            OutputSelector.ItemsSource = OutputLanguages.Keys.ToList();
+            OutputSelector.ItemsSource = GetAvailableOutputLanguageNames(Game);
             OutputSelector.SelectionChanged += OutputSelector_SelectionChanged;
 
             // Set initial selections
             GameSelector.SelectedValue = Game;
 
             var inputNames = InputLanguages.ToDictionary(x => x.Value, x => x.Key);
-            if (inputNames.TryGetValue(InputLanguage, out var inputDisplayName))
+            if (inputNames.TryGetValue(InputLanguage, out var inputDisplayName) &&
+                InputSelector.Items.Contains(inputDisplayName))
             {
                 InputSelector.SelectedItem = inputDisplayName;
             }
 
             var outputNames = OutputLanguages.ToDictionary(x => x.Value, x => x.Key);
-            if (outputNames.TryGetValue(OutputLanguage, out var primaryName))
+            if (outputNames.TryGetValue(OutputLanguage, out var primaryName) &&
+                OutputSelector.Items.Contains(primaryName))
             {
                 OutputSelector.SelectedItems.Add(primaryName);
             }
-            if (!string.IsNullOrEmpty(OutputLanguage2) && outputNames.TryGetValue(OutputLanguage2, out var secondName))
+            if (!string.IsNullOrEmpty(OutputLanguage2) &&
+                outputNames.TryGetValue(OutputLanguage2, out var secondName) &&
+                OutputSelector.Items.Contains(secondName))
             {
                 OutputSelector.SelectedItems.Add(secondName);
             }
             _isInitializingOutputSelection = false;
             OutputConfirmButton.IsEnabled = false;
 
+            CaptureDownloadSelectionBaseline();
             DisplayLocalFileDates();
+            UpdateDefaultDownloadSelections();
+            if (!IsLanguageSelectableForGame(Game, InputLanguage) ||
+                OutputLanguage == "CHT" || OutputLanguage2 == "CHT")
+            {
+                ShowTraditionalChineseUnavailable(Game);
+            }
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
             ServicePointManager.ServerCertificateValidationCallback += (sender, certificate, chain, sslPolicyErrors) => true;
             client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3");
@@ -881,6 +896,72 @@ namespace GI_Subtitles.Views
             GameSelector.SelectedValuePath = "Name";
         }
 
+        private static bool IsLanguageSelectableForGame(string gameName, string language)
+        {
+            return !string.Equals(language, "CHT", StringComparison.OrdinalIgnoreCase) ||
+                   GameConfigStore.HasBuiltInTraditionalChineseTextMap(gameName);
+        }
+
+        private List<string> GetAvailableInputLanguageNames(string gameName)
+        {
+            return InputLanguages
+                .Where(language => IsLanguageSelectableForGame(gameName, language.Value))
+                .Select(language => language.Key)
+                .ToList();
+        }
+
+        private List<string> GetAvailableOutputLanguageNames(string gameName)
+        {
+            return OutputLanguages
+                .Where(language => IsLanguageSelectableForGame(gameName, language.Value))
+                .Select(language => language.Key)
+                .ToList();
+        }
+
+        private void RefreshLanguageOptionsForGame(string gameName, IEnumerable<string> selectedOutputNames)
+        {
+            string selectedInputName = InputSelector.SelectedItem as string;
+            var selectedOutputs = selectedOutputNames?.ToList() ??
+                                  OutputSelector.SelectedItems.Cast<string>().ToList();
+            if (selectedOutputs.Count == 0)
+            {
+                var outputNames = OutputLanguages.ToDictionary(language => language.Value, language => language.Key);
+                if (outputNames.TryGetValue(OutputLanguage, out string primaryName))
+                {
+                    selectedOutputs.Add(primaryName);
+                }
+                if (!string.IsNullOrEmpty(OutputLanguage2) &&
+                    outputNames.TryGetValue(OutputLanguage2, out string secondName))
+                {
+                    selectedOutputs.Add(secondName);
+                }
+            }
+            var inputOptions = GetAvailableInputLanguageNames(gameName);
+            var outputOptions = GetAvailableOutputLanguageNames(gameName);
+
+            InputSelector.ItemsSource = inputOptions;
+            string configuredInputName = InputLanguages
+                .FirstOrDefault(language => language.Value == InputLanguage).Key;
+            string inputNameToRestore = selectedInputName ?? configuredInputName;
+            InputSelector.SelectedItem = inputOptions.Contains(inputNameToRestore)
+                ? inputNameToRestore
+                : null;
+
+            OutputSelector.ItemsSource = outputOptions;
+            foreach (string outputName in selectedOutputs.Where(outputOptions.Contains))
+            {
+                OutputSelector.SelectedItems.Add(outputName);
+            }
+        }
+
+        private void ShowTraditionalChineseUnavailable(string gameName)
+        {
+            string format = TryFindResource("TraditionalChineseUnavailable") as string ??
+                            "Traditional Chinese text packs are unavailable for {0}. Select another input or output language.";
+            System.Windows.MessageBox.Show(
+                string.Format(CultureInfo.CurrentUICulture, format, gameName));
+        }
+
         private void LoadGameConfig(string gameName)
         {
             string configPath = Path.Combine(dataDir, $"{gameName}.json");
@@ -973,6 +1054,14 @@ namespace GI_Subtitles.Views
                 // TextMap filenames, while the app uses KR/CHT internally.
                 configChanged = true;
             }
+            else if (gameName == "Endfield" &&
+                     IsEndfieldRepositoryConfig(_currentGameConfig) &&
+                     !_currentGameConfig.LanguageMapping.ContainsKey("CHT"))
+            {
+                // Existing Endfield configs predate the zh-TW mapping.
+                _currentGameConfig.LanguageMapping["CHT"] = "zh-TW";
+                configChanged = true;
+            }
 
             if (gameName == "StarRail" && IsGenshinRepositoryConfig(_currentGameConfig))
             {
@@ -1013,6 +1102,13 @@ namespace GI_Subtitles.Views
             return config != null &&
                    ((config.InputUrlTemplate?.IndexOf(repository, StringComparison.OrdinalIgnoreCase) >= 0) ||
                     (config.OutputUrlTemplate?.IndexOf(repository, StringComparison.OrdinalIgnoreCase) >= 0));
+        }
+
+        private static bool IsEndfieldRepositoryConfig(GameConfig config)
+        {
+            return config != null &&
+                   (string.Equals(config.InputUrlTemplate, GameConfigStore.EndfieldTextMapUrlTemplate, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(config.OutputUrlTemplate, GameConfigStore.EndfieldTextMapUrlTemplate, StringComparison.OrdinalIgnoreCase));
         }
 
         private static string MigrateGenshinRepositoryUrl(string url, ref bool configChanged)
@@ -1183,8 +1279,18 @@ namespace GI_Subtitles.Views
             {
                 if (Game != newValue)
                 {
+                    var selectedOutputNames = OutputSelector.SelectedItems.Cast<string>().ToList();
+                    bool hadTraditionalChineseSelection = InputLanguage == "CHT" ||
+                        selectedOutputNames.Any(name => OutputLanguages.TryGetValue(name, out string code) && code == "CHT") ||
+                        (selectedOutputNames.Count == 0 && (OutputLanguage == "CHT" || OutputLanguage2 == "CHT"));
                     Game = newValue;
                     LoadGameConfig(Game);
+                    RefreshLanguageOptionsForGame(Game, selectedOutputNames);
+
+                    if (!IsLanguageSelectableForGame(Game, "CHT") && hadTraditionalChineseSelection)
+                    {
+                        ShowTraditionalChineseUnavailable(Game);
+                    }
 
                     if (!Directory.Exists(Path.Combine(dataDir, Game)))
                     {
@@ -1197,6 +1303,7 @@ namespace GI_Subtitles.Views
                     }
 
                     DisplayLocalFileDates();
+                    UpdateDefaultDownloadSelections();
                     OutputConfirmButton.IsEnabled = true;
                 }
             }
@@ -1217,6 +1324,7 @@ namespace GI_Subtitles.Views
                 {
                     InputLanguage = newValue;
                     DisplayLocalFileDates();
+                    UpdateDefaultDownloadSelections();
                     OutputConfirmButton.IsEnabled = true;
                 }
             }
@@ -1479,6 +1587,86 @@ namespace GI_Subtitles.Views
             }
         }
 
+        private void UpdateDefaultDownloadSelections()
+        {
+            if (DownloadInputCheckBox == null || DownloadOutputCheckBox == null || DownloadOutput2CheckBox == null)
+            {
+                return;
+            }
+
+            var currentOutputs = GetOutputLanguageSet();
+            bool selectionChanged =
+                !string.Equals(InputLanguage, _downloadBaselineInputLanguage, StringComparison.OrdinalIgnoreCase) ||
+                !currentOutputs.SetEquals(_downloadBaselineOutputLanguages) ||
+                !string.Equals(Game, _downloadBaselineGame, StringComparison.OrdinalIgnoreCase);
+
+            if (!selectionChanged)
+            {
+                // Keep the existing update behavior: when languages are unchanged,
+                // all selected packs stay checked by default.
+                DownloadInputCheckBox.IsChecked = true;
+                DownloadOutputCheckBox.IsChecked = true;
+                DownloadOutput2CheckBox.IsChecked = !string.IsNullOrEmpty(OutputLanguage2);
+                return;
+            }
+
+            DownloadInputCheckBox.IsChecked = IsLanguagePackMissing(InputLanguage);
+            DownloadOutputCheckBox.IsChecked = IsLanguagePackMissing(OutputLanguage);
+            DownloadOutput2CheckBox.IsChecked =
+                !string.IsNullOrEmpty(OutputLanguage2) && IsLanguagePackMissing(OutputLanguage2);
+        }
+
+        private void UpdateDownloadSelectionsForMissingPacks()
+        {
+            DownloadInputCheckBox.IsChecked = IsLanguagePackMissing(InputLanguage);
+            DownloadOutputCheckBox.IsChecked = IsLanguagePackMissing(OutputLanguage);
+            DownloadOutput2CheckBox.IsChecked =
+                !string.IsNullOrEmpty(OutputLanguage2) && IsLanguagePackMissing(OutputLanguage2);
+        }
+
+        private void CaptureDownloadSelectionBaseline()
+        {
+            _downloadBaselineGame = Game;
+            _downloadBaselineInputLanguage = InputLanguage;
+            _downloadBaselineOutputLanguages = GetOutputLanguageSet();
+        }
+
+        private HashSet<string> GetOutputLanguageSet()
+        {
+            var languages = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (!string.IsNullOrWhiteSpace(OutputLanguage))
+            {
+                languages.Add(OutputLanguage);
+            }
+            if (!string.IsNullOrWhiteSpace(OutputLanguage2))
+            {
+                languages.Add(OutputLanguage2);
+            }
+            return languages;
+        }
+
+        private bool IsLanguagePackMissing(string language)
+        {
+            if (string.IsNullOrWhiteSpace(language))
+            {
+                return false;
+            }
+
+            string filePath = Path.Combine(dataDir, Game, $"TextMap{language}.json");
+            if (!File.Exists(filePath))
+            {
+                return true;
+            }
+
+            if (Game == "Genshin")
+            {
+                string mediumFilePath = VoiceContentHelper.GetGenshinMediumFilePath(filePath);
+                return string.IsNullOrEmpty(mediumFilePath) || !File.Exists(mediumFilePath);
+            }
+
+            return false;
+        }
+
         public DateTime GetLocalFileDates(string input, string output, string game)
         {
             string inputFilePath = $"{Path.Combine(dataDir, game)}\\TextMap{input}.json";
@@ -1585,27 +1773,37 @@ namespace GI_Subtitles.Views
             string outputFilePath = $"{Path.Combine(dataDir, Game)}\\TextMap{OutputLanguage}.json";
 
             bool downloaded = false;
+            bool allDownloadsSucceeded = true;
             if (DownloadInputCheckBox.IsChecked == true)
             {
-                await DownloadFileAsync(InputLangDownloadUrl.Text, inputFilePath, Game, InputLanguage);
+                allDownloadsSucceeded &= await DownloadFileAsync(InputLangDownloadUrl.Text, inputFilePath, Game, InputLanguage);
                 downloaded = true;
             }
             if (DownloadOutputCheckBox.IsChecked == true)
             {
-                await DownloadFileAsync(OutputLangDownloadUrl.Text, outputFilePath, Game, OutputLanguage);
+                allDownloadsSucceeded &= await DownloadFileAsync(OutputLangDownloadUrl.Text, outputFilePath, Game, OutputLanguage);
                 downloaded = true;
             }
 
             if (!string.IsNullOrEmpty(OutputLanguage2) && DownloadOutput2CheckBox.IsChecked == true)
             {
                 string outputFilePath2 = $"{Path.Combine(dataDir, Game)}\\TextMap{OutputLanguage2}.json";
-                await DownloadFileAsync(OutputLangDownloadUrl2.Text, outputFilePath2, Game, OutputLanguage2);
+                allDownloadsSucceeded &= await DownloadFileAsync(OutputLangDownloadUrl2.Text, outputFilePath2, Game, OutputLanguage2);
                 downloaded = true;
             }
 
             if (downloaded)
             {
                 await CheckDataAsync(true);
+                if (allDownloadsSucceeded)
+                {
+                    CaptureDownloadSelectionBaseline();
+                    UpdateDownloadSelectionsForMissingPacks();
+                }
+                else
+                {
+                    UpdateDefaultDownloadSelections();
+                }
             }
             else
             {
@@ -1617,6 +1815,12 @@ namespace GI_Subtitles.Views
         {
             // Commit the pending game, input language and output languages in
             // one operation. Selection changes never load data on their own.
+            if (!IsLanguageSelectableForGame(Game, InputLanguage))
+            {
+                ShowTraditionalChineseUnavailable(Game);
+                return;
+            }
+
             var selectedItems = OutputSelector.SelectedItems.Cast<string>().ToList();
             if (selectedItems.Count == 0)
             {
@@ -1658,6 +1862,7 @@ namespace GI_Subtitles.Views
             RefreshAppliedLayoutUi();
 
             DisplayLocalFileDates();
+            UpdateDefaultDownloadSelections();
 
             // Reload data with new output configuration
             await CheckDataAsync(true);
@@ -1666,9 +1871,15 @@ namespace GI_Subtitles.Views
             OutputConfirmButton.IsEnabled = false;
         }
 
-        private async Task DownloadFileAsync(string url, string fileName, string gameName = "", string language = "")
+        private async Task<bool> DownloadFileAsync(string url, string fileName, string gameName = "", string language = "")
         {
-            if (string.IsNullOrEmpty(url)) return;
+            if (!IsLanguageSelectableForGame(gameName, language))
+            {
+                ShowTraditionalChineseUnavailable(gameName);
+                return false;
+            }
+
+            if (string.IsNullOrEmpty(url)) return false;
 
             bool useTextMapCatalog = !string.IsNullOrWhiteSpace(_currentGameConfig?.TextMapFileListUrl) &&
                                      !string.IsNullOrWhiteSpace(_currentGameConfig?.TextMapFileUrlTemplate);
@@ -1678,13 +1889,13 @@ namespace GI_Subtitles.Views
                 if (!Uri.TryCreate(_currentGameConfig.TextMapFileListUrl, UriKind.Absolute, out uri))
                 {
                     System.Windows.MessageBox.Show($"Invalid TextMap file list URL: {_currentGameConfig.TextMapFileListUrl}");
-                    return;
+                    return false;
                 }
             }
             else if (!Uri.TryCreate(url, UriKind.Absolute, out uri))
             {
                 System.Windows.MessageBox.Show($"Invalid URL: {url}");
-                return;
+                return false;
             }
 
             string fullPath = Path.Combine(dataDir, fileName);
@@ -1820,6 +2031,8 @@ namespace GI_Subtitles.Views
             {
                 _overlaySession.NoteLanguagePackDownloadFinished(packLabel, success);
             });
+
+            return success;
         }
 
         private async Task DownloadAndMergeCatalogTextMapsAsync(
@@ -2152,8 +2365,9 @@ namespace GI_Subtitles.Views
                 @"Det\V6\PP-OCRv6_tiny_det_infer\slim.onnx")
             };
 
-            // PP-OCRv6 tiny intentionally excludes Japanese. Keep its faster
-            // detector and use only the dedicated V4 Japanese recognizer.
+            // PP-OCRv6 tiny is used for Chinese and English, including CHT;
+            // it intentionally excludes Japanese. Keep its faster detector
+            // and use only the dedicated V4 Japanese recognizer for JP.
             if (input == "JP")
             {
                 config.rec_infer = Path.Combine(

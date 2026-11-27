@@ -18,7 +18,7 @@ namespace GI_Subtitles.Models
         public string Warning { get; set; }
         
         /// <summary>
-        /// Mapping from internal language codes (CHS, EN, JP) to game-specific URL parts
+        /// Mapping from internal language codes (CHS, CHT, EN, JP) to game-specific URL parts
         /// </summary>
         public Dictionary<string, string> LanguageMapping { get; set; } = new Dictionary<string, string>();
 
