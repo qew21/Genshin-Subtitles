@@ -1594,13 +1594,13 @@ namespace GI_Subtitles.Views
                 return;
             }
 
-            bool inputChanged = !string.Equals(
-                InputLanguage, _downloadBaselineInputLanguage, StringComparison.OrdinalIgnoreCase);
             var currentOutputs = GetOutputLanguageSet();
-            bool outputsChanged = !currentOutputs.SetEquals(_downloadBaselineOutputLanguages);
-            bool gameChanged = !string.Equals(Game, _downloadBaselineGame, StringComparison.OrdinalIgnoreCase);
+            bool selectionChanged =
+                !string.Equals(InputLanguage, _downloadBaselineInputLanguage, StringComparison.OrdinalIgnoreCase) ||
+                !currentOutputs.SetEquals(_downloadBaselineOutputLanguages) ||
+                !string.Equals(Game, _downloadBaselineGame, StringComparison.OrdinalIgnoreCase);
 
-            if (!inputChanged && !outputsChanged && !gameChanged)
+            if (!selectionChanged)
             {
                 // Keep the existing update behavior: when languages are unchanged,
                 // all selected packs stay checked by default.
@@ -1610,13 +1610,10 @@ namespace GI_Subtitles.Views
                 return;
             }
 
-            DownloadInputCheckBox.IsChecked = inputChanged || IsLanguagePackMissing(InputLanguage);
-            DownloadOutputCheckBox.IsChecked =
-                !string.IsNullOrEmpty(OutputLanguage) &&
-                (!_downloadBaselineOutputLanguages.Contains(OutputLanguage) || IsLanguagePackMissing(OutputLanguage));
+            DownloadInputCheckBox.IsChecked = IsLanguagePackMissing(InputLanguage);
+            DownloadOutputCheckBox.IsChecked = IsLanguagePackMissing(OutputLanguage);
             DownloadOutput2CheckBox.IsChecked =
-                !string.IsNullOrEmpty(OutputLanguage2) &&
-                (!_downloadBaselineOutputLanguages.Contains(OutputLanguage2) || IsLanguagePackMissing(OutputLanguage2));
+                !string.IsNullOrEmpty(OutputLanguage2) && IsLanguagePackMissing(OutputLanguage2);
         }
 
         private void UpdateDownloadSelectionsForMissingPacks()
